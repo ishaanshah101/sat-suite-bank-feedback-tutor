@@ -64,9 +64,15 @@ export default async function RulesPage() {
 function RuleBlock({ rule, stat, compact }: { rule: Rule; stat?: RuleStat; compact?: boolean }) {
   const count = stat?.misses ?? 0;
   return (
-    <Card className="scroll-mt-20" >
-      <div id={rule.id} className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-xs text-muted">{rule.id}</span>
+    <Card className="scroll-mt-20">
+      <div id={compact ? undefined : rule.id} className="flex flex-wrap items-center gap-2">
+        {compact ? (
+          <a href={`#${rule.id}`} className="font-mono text-xs text-muted underline-offset-2 hover:underline">
+            {rule.id}
+          </a>
+        ) : (
+          <span className="font-mono text-xs text-muted">{rule.id}</span>
+        )}
         <h4 className="font-semibold">{rule.name}</h4>
         {count > 0 ? <Chip tone="danger">missed {count} time{count === 1 ? "" : "s"}</Chip> : null}
       </div>
