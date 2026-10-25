@@ -26,16 +26,24 @@
     "service_worker": "dist/background.js",
     "type": "module"
   },
-  "permissions": ["sidePanel", "activeTab", "storage"],
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "storage"
+  ],
   "host_permissions": [
     "https://satsuiteeducatorquestionbank.collegeboard.org/*",
     "https://satsuitequestionbank.collegeboard.org/*",
     "https://rulecard.vercel.app/*"
   ],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
   "commands": {
     "capture": {
-      "suggested_key": { "default": "Alt+Shift+R" },
+      "suggested_key": {
+        "default": "Alt+Shift+R"
+      },
       "description": "Capture the current tab into Rulecard"
     }
   }

@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "build:extension": "node scripts/build-extension.mjs",
-    "icons:extension": "python3 extension/icons/make-icons.py"
+    "icons:extension": "python3 extension/icons/make-icons.py",
+    "check:extension": "node scripts/check-extension.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.88",

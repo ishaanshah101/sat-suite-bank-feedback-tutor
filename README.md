@@ -30,7 +30,9 @@ Install it unpacked:
 1. `pnpm build:extension` (the bundle in `extension/dist/` is committed, so this is only needed after editing `extension/src/`).
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, choose the `extension/` folder.
 3. Click the Rulecard toolbar icon to open the side panel, enter the server (default `https://rulecard.vercel.app`) and the passcode.
-4. On a Question Bank tab, press **Capture this tab** or the shortcut (default `Alt+Shift+R`, change it at `chrome://extensions/shortcuts`).
+4. On the Question Bank tab, click the Rulecard icon once (Chrome's `activeTab` grant), then press **Capture this tab** in the panel or the shortcut (default `Alt+Shift+R`, change it at `chrome://extensions/shortcuts`). The panel offers a one-time "allow all sites" button if you would rather skip the icon click.
+
+`pnpm check:extension` (with the app running on `http://localhost:3100` in stub mode, as `pnpm test:e2e` starts it) loads the unpacked extension into Chromium and drives the whole flow.
 
 Server pieces the extension relies on: `POST /api/token` (passcode → token, same rate limit as `/unlock`), bearer-token sessions in
 `src/lib/auth/session.ts` and `src/proxy.ts`, and CORS for `chrome-extension://` origins on `/api/*` (the token is the real gate; CORS only lets the browser read the response).

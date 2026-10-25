@@ -153,7 +153,7 @@ var state = {
   shortcut: null,
   capturing: false,
   captureError: null,
-  permissionOrigin: null,
+  needsAllSites: false,
   question: null,
   picked: null,
   allowSolve: false,
@@ -326,14 +326,14 @@ function renderCapture() {
   const hint = state.shortcut ? ["or press ", h("kbd", { text: state.shortcut })] : ["(set a shortcut at chrome://extensions/shortcuts)"];
   const children = [
     h("button", { class: "btn primary big", disabled: state.capturing, onclick: () => void capture() }, state.capturing ? spinner() : null, state.capturing ? "Reading the question..." : state.question ? "Capture again" : "Capture this tab"),
-    h("p", { class: "muted small" }, "Open the Question Bank tab with the answer revealed, then click ", ...hint, ".")
+    h("p", { class: "muted small" }, "On the Question Bank tab, click the Rulecard toolbar icon once (that is Chrome's permission to read the tab), reveal the answer, then click Capture ", ...hint, ".")
   ];
   if (state.health && !state.health.ai.live && !state.health.ai.stub && state.health.ai.configured.length === 0) {
     children.push(h("div", { class: "banner warn" }, "The server has no AI key yet, so capture will fail until you add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel. ", link(`${state.settings.server}/health`, "Status page")));
   }
   if (state.captureError) children.push(h("div", { class: "banner danger", role: "alert", text: state.captureError }));
-  if (state.permissionOrigin) {
-    children.push(h("button", { class: "btn", onclick: () => void allowSite(state.permissionOrigin ?? "") }, `Allow capturing on ${new URL(state.permissionOrigin).host}`));
+  if (state.needsAllSites) {
+    children.push(h("button", { class: "btn", onclick: () => void allowAllSites() }, "Allow capturing on all sites (no icon click needed)"));
   }
   return h("div", { class: "card" }, ...children);
 }
@@ -598,7 +598,8 @@ async function refreshHealth() {
   render();
 }
 async function activeTab() {
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab) [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab || tab.windowId === void 0) throw new Error("No active tab found. Click the Question Bank tab, then try again.");
   const url = tab.url ?? "";
   if (/^(chrome|chrome-extension|edge|about|devtools):/.test(url)) throw new Error("Switch to the Question Bank tab first; browser pages cannot be captured.");
@@ -608,7 +609,7 @@ async function capture() {
   if (state.capturing) return;
   state.capturing = true;
   state.captureError = null;
-  state.permissionOrigin = null;
+  state.needsAllSites = false;
   render();
   try {
     const tab = await activeTab();
@@ -617,9 +618,11 @@ async function capture() {
       raw = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (/permission|activeTab|host/i.test(message) && tab.url) {
-        state.permissionOrigin = new URL(tab.url).origin;
-        throw new Error("Rulecard is not allowed to capture this site yet. Allow it below, or click the Rulecard toolbar icon on that tab and try again.");
+      if (/permission|activeTab|all_urls/i.test(message)) {
+        state.needsAllSites = true;
+        throw new Error(
+          "Chrome only lets Rulecard read a tab after you click the Rulecard toolbar icon on that tab (or press the shortcut there). Click the icon on the Question Bank tab, then Capture again. Or allow all sites below, once."
+        );
       }
       throw error;
     }
@@ -637,11 +640,11 @@ async function processImage(image) {
   resetQuestion();
   state.question = data.question;
 }
-async function allowSite(origin) {
+async function allowAllSites() {
   try {
-    const granted = await chrome.permissions.request({ origins: [`${origin}/*`] });
+    const granted = await chrome.permissions.request({ origins: ["<all_urls>"] });
     if (granted) {
-      state.permissionOrigin = null;
+      state.needsAllSites = false;
       state.captureError = null;
       render();
       await capture();
