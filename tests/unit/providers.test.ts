@@ -103,6 +103,8 @@ describe("gateway fallback", () => {
       const handles = await mod.availableProviders();
       expect(handles.map((h) => h.name)).toEqual(["openai", "gateway"]);
       expect(handles[1].modelId("extract")).toBe("openai/gpt-6-luna");
+      expect(mod.isModelUnavailableError(new Error("Free tier users do not have access to this model."))).toBe(true);
+      expect(mod.isModelUnavailableError(new Error("rate limit exceeded"))).toBe(false);
 
       process.env.AI_GATEWAY = "off";
       mod = await freshProviders();

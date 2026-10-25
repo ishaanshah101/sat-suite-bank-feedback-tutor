@@ -54,28 +54,90 @@ export function gatewayEnabled(): boolean {
   return Boolean(env("AI_GATEWAY_API_KEY")) || env("VERCEL") === "1";
 }
 
-function gatewayModels(): Record<TaskKind, string> {
-  const explain = env("GATEWAY_EXPLAIN_MODEL") ?? "openai/gpt-6.1-sol";
+/**
+ * Candidate models per task, best first. Vercel's free gateway tier only allows some models, so the
+ * gateway walks this list and remembers (per server instance) which ones the account may not use.
+ * All candidates read images and support structured output.
+ */
+const GATEWAY_CHEAP = [
+  "openai/gpt-6-luna",
+  "google/gemini-3.1-flash-lite",
+  "google/gemini-2.5-flash-lite",
+  "openai/gpt-5-nano",
+  "anthropic/claude-haiku-5.5",
+  "openai/gpt-4o-mini",
+  "mistral/mistral-small",
+  "alibaba/qwen3.7-flash",
+];
+const GATEWAY_STRONG = ["openai/gpt-6.1-sol", "anthropic/claude-sonnet-5.5", "google/gemini-2.5-flash", "openai/gpt-5-mini", ...GATEWAY_CHEAP];
+
+function gatewayCandidates(): Record<TaskKind, string[]> {
+  const list = (name: string, fallback: string[]) => {
+    const raw = env(name);
+    return raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : fallback;
+  };
+  const explain = list("GATEWAY_EXPLAIN_MODEL", GATEWAY_STRONG);
   return {
-    extract: env("GATEWAY_EXTRACT_MODEL") ?? "openai/gpt-6-luna",
+    extract: list("GATEWAY_EXTRACT_MODEL", GATEWAY_CHEAP),
     explain,
-    chat: env("GATEWAY_CHAT_MODEL") ?? explain,
+    chat: list("GATEWAY_CHAT_MODEL", explain),
     drill: explain,
   };
 }
 
+const blockedGatewayModels = new Set<string>();
+
+/** The account cannot use this model (free tier, unknown model): try the next candidate, not the next provider. */
+export function isModelUnavailableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /free tier|do not have access to this model|model.{0,40}(not found|not available|unsupported|does not exist)|no such model/i.test(message);
+}
+
+function gatewayOptionsFor(id: string, kind: TaskKind): Record<string, Record<string, string>> {
+  const anthropicEffort: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium" };
+  if (id.startsWith("anthropic/")) return { anthropic: { effort: anthropicEffort[kind] } };
+  if (id.startsWith("openai/gpt-5") || id.startsWith("openai/gpt-6")) return { openai: { reasoningEffort: "low" } };
+  return {};
+}
+
 function makeGateway(): ProviderHandle {
   const provider = createGateway({ apiKey: env("AI_GATEWAY_API_KEY") });
-  const models = gatewayModels();
-  const anthropicEffort: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium" };
+  const candidates = gatewayCandidates();
+  const usable = (kind: TaskKind) => {
+    const left = candidates[kind].filter((id) => !blockedGatewayModels.has(id));
+    return left.length ? left : candidates[kind];
+  };
+  type GatewayModel = ReturnType<typeof provider>;
+  type CallOptions = Parameters<GatewayModel["doGenerate"]>[0];
+
+  async function tryEach<T>(kind: TaskKind, options: CallOptions, call: (model: GatewayModel, options: CallOptions) => PromiseLike<T>): Promise<T> {
+    let lastError: unknown;
+    for (const id of usable(kind)) {
+      try {
+        return await call(provider(id), { ...options, providerOptions: { ...gatewayOptionsFor(id, kind) } });
+      } catch (error) {
+        if (!isModelUnavailableError(error)) throw error;
+        blockedGatewayModels.add(id);
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }
+
+  const chained = (kind: TaskKind): GatewayModel => {
+    const first = provider(usable(kind)[0]);
+    const model = Object.create(first) as GatewayModel;
+    Object.defineProperty(model, "modelId", { get: () => usable(kind)[0] });
+    model.doGenerate = (options) => tryEach(kind, options, (m, o) => m.doGenerate(o));
+    model.doStream = (options) => tryEach(kind, options, (m, o) => m.doStream(o));
+    return model;
+  };
+
   return {
     name: "gateway",
-    model: (kind) => provider(models[kind]),
-    modelId: (kind) => models[kind],
-    providerOptions: (kind): Record<string, Record<string, string>> => {
-      if (models[kind].startsWith("anthropic/")) return { anthropic: { effort: anthropicEffort[kind] } };
-      return { openai: { reasoningEffort: "low" } };
-    },
+    model: (kind) => chained(kind),
+    modelId: (kind) => usable(kind)[0],
+    providerOptions: () => ({}),
   };
 }
 
