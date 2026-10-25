@@ -24,3 +24,14 @@ describe("passcode comparison", () => {
     expect(secretMatches("abc", "abd")).toBe(false);
   });
 });
+
+describe("bearer tokens", () => {
+  it("reads a Bearer authorization header and ignores other schemes", async () => {
+    const { bearerToken } = await import("@/lib/auth/token");
+    expect(bearerToken(new Headers({ authorization: "Bearer abc.def.ghi" }))).toBe("abc.def.ghi");
+    expect(bearerToken(new Headers({ authorization: "bearer   abc" }))).toBe("abc");
+    expect(bearerToken(new Headers({ authorization: "Basic abc" }))).toBeNull();
+    expect(bearerToken(new Headers({ authorization: "Bearer" }))).toBeNull();
+    expect(bearerToken(new Headers())).toBeNull();
+  });
+});

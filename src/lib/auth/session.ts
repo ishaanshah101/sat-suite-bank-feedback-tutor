@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
-import { SESSION_COOKIE, verifySessionToken, type Session } from "./token";
+import { cookies, headers } from "next/headers";
+import { bearerToken, SESSION_COOKIE, verifySessionToken, type Session } from "./token";
 
 export class UnauthorizedError extends Error {
   constructor() {
@@ -8,7 +8,10 @@ export class UnauthorizedError extends Error {
   }
 }
 
+/** Session from the bearer header (browser extension) or the cookie (web app). A bearer header, when present, must be valid on its own. */
 export async function getSession(): Promise<Session | null> {
+  const bearer = bearerToken(await headers());
+  if (bearer) return verifySessionToken(bearer);
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;

@@ -48,6 +48,19 @@ Other ways in: **Upload PDF** (the Question Bank export "With correct answers an
 - **Live database connectivity from Vercel**: verified. After switching `DATABASE_URL` to the `aws-0-us-west-1` pooler cluster, `/api/ping` on production reports `db:true`; the earlier `aws-1` host was rejected by Supavisor with "Tenant or user not found" (confirmed from a Vercel sandbox in the same region as the functions).
 - **HawkScan** could not run: the environment reports no `HAWK_API_KEY`.
 
+## Browser extension (Chrome side panel)
+
+The same tutor, one click away from the Question Bank tab, no screen-share picker. Source in `extension/`, bundle committed in `extension/dist/`.
+
+1. Open `chrome://extensions`, switch on **Developer mode**, click **Load unpacked**, pick the `extension` folder from a clone of the repo.
+2. Pin Rulecard, click its icon: the side panel opens. Server stays `https://rulecard.vercel.app`; enter the passcode once (it keeps a 30-day token in extension storage).
+3. On a Question Bank tab with the answer revealed, press **Capture this tab** (or `Alt+Shift+R`). Pick your letter, add a line of reasoning, **Explain**. Chat and **Test me** work exactly like the web app; History and Rules open the web app.
+4. Capturing other sites: the extension has permission for the College Board question bank domains and your server. For any other page, either click the toolbar icon on that tab first (Chrome's activeTab rule) or press the **Allow capturing on ...** button the panel shows.
+
+How it works: `POST /api/token` exchanges the passcode for the same signed token the cookie carries (same 5-tries-per-15-minutes limit); every API call sends it as `Authorization: Bearer`; the proxy answers CORS preflights only for `chrome-extension://` origins. Sign out in the panel forgets the token. Rebuild after editing `extension/src/` with `pnpm build:extension`; icons come from `pnpm icons:extension`.
+
+Not verified: loading the unpacked extension in a real Chrome (the build container has no browser UI). The server side of it (token endpoint, bearer auth, CORS, extract → explain → chat with a bearer token) is covered by the end-to-end test and was exercised against production. If Chrome rejects the manifest, the error will name the key; everything in it is standard Manifest V3 (Chrome 116+).
+
 ## Architecture in one screen
 
 - Next.js 16 App Router, TypeScript, Tailwind v4, deployed on Vercel. `src/proxy.ts` checks a signed session cookie on every page and API route except `/unlock`, `/api/cron/*`, `/api/ping`.

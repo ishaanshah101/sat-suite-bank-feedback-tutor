@@ -114,3 +114,51 @@ test("health and cron endpoints", async ({ page, request }) => {
   await page.goto("/health");
   await expect(page.getByText("Database reachable")).toBeVisible();
 });
+
+test("browser extension: token endpoint, bearer auth and CORS for extension origins", async ({ request }) => {
+  const origin = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
+  const preflight = await request.fetch("/api/health", {
+    method: "OPTIONS",
+    headers: { origin, "access-control-request-method": "GET", "access-control-request-headers": "authorization" },
+  });
+  expect(preflight.status()).toBe(204);
+  expect(preflight.headers()["access-control-allow-origin"]).toBe(origin);
+  expect(preflight.headers()["access-control-allow-headers"]).toContain("authorization");
+
+  const wrong = await request.post("/api/token", { data: { passcode: "nope" }, headers: { origin } });
+  expect(wrong.status()).toBe(401);
+  expect(wrong.headers()["access-control-allow-origin"]).toBe(origin);
+
+  const issued = await request.post("/api/token", { data: { passcode: PASSCODE }, headers: { origin } });
+  expect(issued.status()).toBe(200);
+  const { token } = (await issued.json()) as { token: string };
+  expect(token.split(".")).toHaveLength(3);
+
+  const denied = await request.get("/api/health", { headers: { origin, authorization: "Bearer not-a-token" } });
+  expect(denied.status()).toBe(401);
+
+  const allowed = await request.get("/api/health", { headers: { origin, authorization: `Bearer ${token}` } });
+  expect(allowed.status()).toBe(200);
+  expect(allowed.headers()["access-control-allow-origin"]).toBe(origin);
+  const body = (await allowed.json()) as { db: { ok: boolean } };
+  expect(body.db.ok).toBe(true);
+
+  const extracted = await request.post("/api/extract", { data: { text: PASTED, source: "paste" }, headers: { origin, authorization: `Bearer ${token}` } });
+  expect(extracted.status()).toBe(200);
+  const { question } = (await extracted.json()) as { question: { id: string; correct: string | null } };
+  const explained = await request.post("/api/explain", {
+    data: { questionId: question.id, picked: "A", reasoning: "extension test" },
+    headers: { origin, authorization: `Bearer ${token}` },
+  });
+  expect(explained.status()).toBe(200);
+  const card = (await explained.json()) as { attemptId: string; rule: { id: string; name: string | null } };
+  expect(card.rule.id).toBe("BND-01");
+  expect(card.rule.name).toBeTruthy();
+
+  const chat = await request.post("/api/chat", {
+    data: { attemptId: card.attemptId, messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "Why not a comma?" }] }] },
+    headers: { origin, authorization: `Bearer ${token}` },
+  });
+  expect(chat.status()).toBe(200);
+  expect(await chat.text()).toContain("text-delta");
+});

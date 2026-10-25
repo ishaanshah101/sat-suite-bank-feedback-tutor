@@ -3,6 +3,7 @@ import { HttpError, json, readJson, withApi } from "@/lib/api";
 import { generateRuleCard } from "@/lib/ai/explain";
 import { PickSchema } from "@/lib/ai/schemas";
 import { createAttempt, deleteAttempt, finishAttempt, getQuestion, setModelAnswer } from "@/db/queries";
+import { getRule } from "@/content/rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -33,7 +34,8 @@ export async function POST(request: Request) {
       }
       await finishAttempt(attempt.id, { explanation: card, ruleId: card.rule_id, provider, model });
       const updated = (await getQuestion(session.userId, question.id)) ?? question;
-      return json({ attemptId: attempt.id, card, question: updated, provider, model });
+      const rule = getRule(card.rule_id);
+      return json({ attemptId: attempt.id, card, question: updated, rule: { id: card.rule_id, name: rule?.name ?? null }, provider, model });
     } catch (error) {
       await deleteAttempt(attempt.id).catch(() => undefined);
       throw error;

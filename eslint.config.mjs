@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Bundled browser extension output.
+    "extension/dist/**",
   ]),
 ]);
 

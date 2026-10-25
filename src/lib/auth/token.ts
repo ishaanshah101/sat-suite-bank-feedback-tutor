@@ -40,3 +40,11 @@ export function sessionCookieOptions() {
     maxAge: SESSION_MAX_AGE_SECONDS,
   };
 }
+
+/** The token from an `Authorization: Bearer ...` header, used by the browser extension. */
+export function bearerToken(headers: Headers): string | null {
+  const value = headers.get("authorization");
+  if (!value) return null;
+  const match = /^Bearer\s+(\S+)$/i.exec(value.trim());
+  return match ? match[1] : null;
+}

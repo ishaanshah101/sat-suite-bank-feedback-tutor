@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "build:extension": "node scripts/build-extension.mjs",
+    "icons:extension": "python3 extension/icons/make-icons.py"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.88",
@@ -34,10 +36,12 @@
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@tailwindcss/turbopack": "^4",
+    "@types/chrome": "0.3.6",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.11",
+    "esbuild": "0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
