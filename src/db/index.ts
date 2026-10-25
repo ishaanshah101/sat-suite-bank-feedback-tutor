@@ -57,7 +57,7 @@ export async function getDb(): Promise<Db> {
       return db;
     });
     holder.init.catch((error) => {
-      console.error("[db] connection setup failed:", error instanceof Error ? error.message : error);
+      console.error("[db] connection setup failed:", describeDbError(error).message);
       holder.init = undefined;
     });
   }
@@ -71,6 +71,21 @@ export interface DbPing {
   paused?: boolean;
 }
 
+/** Flatten an error and its `cause` chain into one line (Drizzle wraps driver errors). */
+export function describeDbError(error: unknown): { code?: string; message: string } {
+  const parts: string[] = [];
+  let code: string | undefined;
+  let current: unknown = error;
+  for (let depth = 0; current && depth < 6; depth++) {
+    const message = (current instanceof Error ? current.message : String(current)).replace(/\s+/g, " ").trim();
+    const currentCode = (current as { code?: string })?.code;
+    if (currentCode && !code) code = String(currentCode);
+    parts.push(currentCode ? `${currentCode}: ${message}` : message);
+    current = (current as { cause?: unknown })?.cause;
+  }
+  return { code, message: parts.join(" <- ") };
+}
+
 export async function pingDb(): Promise<DbPing> {
   const started = Date.now();
   try {
@@ -78,9 +93,8 @@ export async function pingDb(): Promise<DbPing> {
     await db.execute(sql`select 1`);
     return { ok: true, ms: Date.now() - started };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const code = (error as { code?: string })?.code;
-    console.error("[db] ping failed:", code ?? "", message);
+    const { code, message } = describeDbError(error);
+    console.error("[db] ping failed:", message);
     const paused = /ENOTFOUND|ECONNREFUSED|timeout|Tenant or user not found|paused/i.test(message);
     return { ok: false, ms: Date.now() - started, error: code ? `${code}: ${message}` : message, paused };
   }
