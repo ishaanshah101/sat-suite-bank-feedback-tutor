@@ -38,8 +38,12 @@ export function PdfList({
       correct: q.correct,
       rationale: q.rationale,
     }));
-    const data = await postJson<{ questions: QuestionRow[] }>("/api/questions", { questions: payload });
-    return data.questions;
+    const rows: QuestionRow[] = [];
+    for (let i = 0; i < payload.length; i += 40) {
+      const data = await postJson<{ questions: QuestionRow[] }>("/api/questions", { questions: payload.slice(i, i + 40) });
+      rows.push(...data.questions);
+    }
+    return rows;
   };
 
   const open = async (q: ParsedPdfQuestion) => {

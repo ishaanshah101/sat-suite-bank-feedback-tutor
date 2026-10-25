@@ -6,7 +6,19 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { Button, Spinner } from "./ui";
 
 export function ChatPanel({ attemptId, initialMessages = [] }: { attemptId: string; initialMessages?: UIMessage[] }) {
-  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat", body: { attemptId } }), [attemptId]);
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        body: { attemptId },
+        fetch: async (input, init) => {
+          const response = await fetch(input, init);
+          if (response.status === 401) window.location.assign(new URL("/unlock", window.location.origin).href);
+          return response;
+        },
+      }),
+    [attemptId],
+  );
   const { messages, sendMessage, status, error } = useChat({ id: `attempt-${attemptId}`, transport, messages: initialMessages });
   const [input, setInput] = useState("");
   const busy = status === "submitted" || status === "streaming";

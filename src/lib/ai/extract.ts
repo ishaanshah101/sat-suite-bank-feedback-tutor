@@ -1,7 +1,7 @@
 import { generateText, Output } from "ai";
 import { EXTRACT_INSTRUCTIONS } from "./prompts";
 import { ExtractionOutputSchema, type ExtractionOutput, type ParsedQuestion } from "./schemas";
-import { withFailover, type FailoverResult } from "./providers";
+import { abortAfter, isNoOutputError, withFailover, type FailoverResult } from "./providers";
 import { normalizeDifficulty, normalizeDomain, normalizeSkill, domainForSkill } from "@/lib/questions/taxonomy";
 
 export class ExtractionError extends Error {
@@ -63,16 +63,22 @@ export async function extractQuestion(input: ExtractInput): Promise<FailoverResu
     } else {
       content.push({ type: "text", text: `Extract the question from this pasted text:\n\n${input.text}` });
     }
-    const result = await generateText({
-      model: provider.model("extract"),
-      instructions: EXTRACT_INSTRUCTIONS,
-      messages: [{ role: "user", content }],
-      output: Output.object({ schema: ExtractionOutputSchema, name: "parsed_question" }),
-      providerOptions: provider.providerOptions("extract"),
-      maxOutputTokens: 4000,
-    });
-    const output = result.output;
-    if (!output) throw new ExtractionError("The model did not return a question.");
+    let output: ExtractionOutput;
+    try {
+      const result = await generateText({
+        model: provider.model("extract"),
+        instructions: EXTRACT_INSTRUCTIONS,
+        messages: [{ role: "user", content }],
+        output: Output.object({ schema: ExtractionOutputSchema, name: "parsed_question" }),
+        providerOptions: provider.providerOptions("extract"),
+        maxOutputTokens: 4000,
+        abortSignal: abortAfter(50_000),
+      });
+      output = result.output;
+    } catch (error) {
+      if (isNoOutputError(error)) throw new ExtractionError("The model could not read a complete question. Try a clearer or closer screenshot.");
+      throw error;
+    }
     return normalizeExtraction(output);
   });
 }

@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const Body = z.union([
-  z.object({ image: z.string().min(32).max(6_000_000), source: z.enum(["capture", "image"]).default("capture") }),
+  z.object({ image: z.string().min(32).max(6_000_000), source: z.enum(["capture", "image", "pdf"]).default("capture") }),
   z.object({ text: z.string().min(20).max(20_000), source: z.literal("paste").default("paste") }),
 ]);
 

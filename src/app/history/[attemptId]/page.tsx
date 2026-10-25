@@ -12,6 +12,7 @@ import { RuleCardSchema, type Pick } from "@/lib/ai/schemas";
 
 export default async function AttemptPage({ params }: { params: Promise<{ attemptId: string }> }) {
   const { attemptId } = await params;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(attemptId)) notFound();
   const session = await requireSession();
   const data = await getAttempt(session.userId, attemptId);
   if (!data) notFound();

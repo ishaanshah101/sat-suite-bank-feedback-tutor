@@ -141,7 +141,11 @@ export function InputStrip({
 
       {mode === "pdf" ? (
         <div className="flex flex-wrap items-center gap-3" data-testid="pdf-panel">
-          <input ref={pdfInput} type="file" accept="application/pdf" className="hidden" onChange={(e) => onPdfFile(e.target.files?.[0])} data-testid="pdf-input" />
+          <input ref={pdfInput} type="file" accept="application/pdf" className="hidden" onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              onPdfFile(file);
+            }} data-testid="pdf-input" />
           <Button onClick={() => pdfInput.current?.click()} disabled={busy}>
             {busy && status ? <Spinner /> : null} Choose PDF export
           </Button>
@@ -167,7 +171,11 @@ export function InputStrip({
 
       {mode === "image" ? (
         <div className="flex flex-wrap items-center gap-3">
-          <input ref={imageInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => onImageFile(e.target.files?.[0])} data-testid="image-input" />
+          <input ref={imageInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              onImageFile(file);
+            }} data-testid="image-input" />
           <Button onClick={() => imageInput.current?.click()} disabled={busy}>
             {busy && status ? <Spinner /> : null} Choose screenshot
           </Button>

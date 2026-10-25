@@ -51,8 +51,25 @@ export function linesFromItems(page: PageItems): Line[] {
       lines.push({ y: it.y, x: it.x, parts: [it] });
     }
   }
+  lines.sort((a, b) => b.y - a.y);
+  // A one- or two-character run sitting just above or below a line (superscript, subscript, footnote
+  // marker) belongs to that line, not on a line of its own.
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i];
+    const text = l.parts.map((p) => p.str).join("").trim();
+    if (l.parts.length !== 1 || text.length === 0 || text.length > 2) continue;
+    const height = l.parts[0].height || 6;
+    const neighbours = [lines[i - 1], lines[i + 1]].filter((n): n is typeof l => Boolean(n));
+    const host = neighbours
+      .map((n) => ({ n, dy: Math.abs(n.y - l.y), h: Math.max(...n.parts.map((p) => p.height || 9)) }))
+      .filter(({ dy, h }) => dy <= Math.max(h, height) && dy > 0)
+      .sort((a, b) => a.dy - b.dy)[0];
+    if (!host) continue;
+    host.n.parts.push(...l.parts);
+    host.n.x = Math.min(host.n.x, l.x);
+    lines.splice(i, 1);
+  }
   return lines
-    .sort((a, b) => b.y - a.y)
     .map((l) => {
       const parts = [...l.parts].sort((a, b) => a.x - b.x);
       let text = "";
@@ -74,6 +91,17 @@ const CHOICE = /^([A-D])\s*\.\s*(.*)$/;
 const STEM_TRIGGER = /^(which|what|according to|based on|how|why|the student wants|as used in|in the (text|passage)|it can (most )?reasonably|the author|the passage|the text)/i;
 
 const LABEL_WORDS = new Set(["assessment", "test", "domain", "skill", "difficulty"]);
+/** Sentences that open a two-sentence stem ("The student wants to ... Which choice ..."). */
+const STEM_LEAD = /^(the student (wants|is|has)|while researching|a student)/i;
+
+/** An "A." line opens the choices only when "B." follows within three lines with no other "A." between. */
+function startsChoices(texts: string[], i: number): boolean {
+  for (let j = i + 1; j < Math.min(texts.length, i + 4); j++) {
+    if (/^B\s*\.\s*/.test(texts[j])) return true;
+    if (/^A\s*\.\s*/.test(texts[j])) return false;
+  }
+  return false;
+}
 
 function words(text: string): string[] {
   return text
@@ -128,6 +156,21 @@ class HeaderMatcher {
   }
 }
 
+const HEADER_VOCAB = new Set(
+  ["sat", "reading", "writing", "math", ...SKILLS, ...DOMAINS, ...DIFFICULTIES].flatMap((t) => t.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/)).filter(Boolean),
+);
+
+/** Header lines are short label rows or taxonomy values; anything else starts the question body. */
+function looksLikeHeader(text: string): boolean {
+  const lower = text.toLowerCase();
+  if (text.length > 100) return false;
+  if (/^(assessment|test|domain|skill|difficulty)\b/.test(lower)) return true;
+  const ws = lower.replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (ws.length === 0) return false;
+  const known = ws.filter((w) => HEADER_VOCAB.has(w) || LABEL_WORDS.has(w)).length;
+  return known / ws.length >= 0.6;
+}
+
 function parseHeader(lines: string[]): { test: string | null; domain: Domain | null; skill: Skill | null; difficulty: Difficulty | null } {
   const matcher = new HeaderMatcher(lines.join(" "));
   const testName = matcher.take(["SAT Reading and Writing", "SAT Math"] as const);
@@ -155,9 +198,11 @@ function parseBlock(lines: Line[], id: string): ParsedPdfQuestion {
     headerLines.push(...texts.slice(1, bodyLabel));
     bodyStart = squash(texts[bodyLabel]) === "question" ? bodyLabel + 1 : bodyLabel;
   } else {
-    // Fall back: header is whatever follows the id line until the first long line.
+    // Fall back: the header is the run of label or taxonomy lines after the id, at most four of them.
     let i = 1;
-    while (i < texts.length && texts[i].length < 60 && !CHOICE.test(texts[i])) headerLines.push(texts[i++]);
+    while (i < texts.length && headerLines.length < 4 && !CHOICE.test(texts[i]) && !STEM_TRIGGER.test(texts[i]) && looksLikeHeader(texts[i])) {
+      headerLines.push(texts[i++]);
+    }
     bodyStart = i;
   }
   const header = parseHeader(headerLines);
@@ -168,27 +213,28 @@ function parseBlock(lines: Line[], id: string): ParsedPdfQuestion {
   for (; i < texts.length; i++) {
     let t = texts[i];
     if (OLD_ID.test(t)) t = t.replace(OLD_ID, "").trim();
-    if (/^A\s*\.\s*/.test(t) && i > bodyStart) break;
+    if (/^A\s*\.\s*/.test(t) && i > bodyStart && startsChoices(texts, i)) break;
     if (squash(t) === "answer") break;
     if (t) bodyLines.push(t);
   }
 
   // Choices: A to D, each possibly wrapping onto following lines.
   const choices: Partial<Record<Letter, string>> = {};
+  const order: Letter[] = ["A", "B", "C", "D"];
+  let expected = 0;
   let current: Letter | null = null;
   for (; i < texts.length; i++) {
-    let t = texts[i];
+    const t = texts[i];
     const key = squash(t);
     if (key === "answer" || key.startsWith("correctanswer:") || key === "rationale" || OLD_ID.test(t) || key.startsWith("questiondifficulty")) break;
     const m = CHOICE.exec(t);
-    if (m) {
-      const letter = m[1] as Letter;
-      if (choices[letter] !== undefined) break;
-      current = letter;
-      t = m[2];
-      choices[letter] = t.trim();
+    if (m && expected < 4 && m[1] === order[expected]) {
+      current = m[1] as Letter;
+      expected++;
+      choices[current] = m[2].trim();
       continue;
     }
+    if (m && expected >= 4) break;
     if (current) choices[current] = `${choices[current]} ${t}`.trim();
   }
 
@@ -223,12 +269,30 @@ function parseBlock(lines: Line[], id: string): ParsedPdfQuestion {
   // Stem versus passage.
   let stemStart = -1;
   for (let k = bodyLines.length - 1; k >= 0; k--) {
-    if (STEM_TRIGGER.test(bodyLines[k])) {
+    // A trigger word on a line that starts lowercase is the tail of a wrapped stem, keep looking.
+    if (STEM_TRIGGER.test(bodyLines[k]) && !/^[a-z]/.test(bodyLines[k])) {
       stemStart = k;
       break;
     }
   }
+  if (stemStart < 0) {
+    for (let k = bodyLines.length - 1; k >= 0; k--) {
+      if (STEM_TRIGGER.test(bodyLines[k])) {
+        stemStart = k;
+        break;
+      }
+    }
+  }
   if (stemStart < 0) stemStart = Math.max(0, bodyLines.length - 1);
+  // Pull in a preceding sentence that is part of the stem ("The student wants to ... Which choice ...")
+  // or a preceding fragment the stem's first line continues.
+  for (let guard = 0; stemStart > 0 && guard < 3; guard++) {
+    const prev = bodyLines[stemStart - 1];
+    const startsLower = /^[a-z]/.test(bodyLines[stemStart]);
+    const prevOpen = !/[.!?:;"”)\]_]$/.test(prev);
+    if (STEM_LEAD.test(prev) || (startsLower && prevOpen)) stemStart--;
+    else break;
+  }
   const passage = bodyLines.slice(0, stemStart).join("\n").trim() || null;
   const stem = bodyLines.slice(stemStart).join(" ").replace(/\s+/g, " ").trim();
 
@@ -264,8 +328,8 @@ export function parsePdfLines(allLines: Line[]): PdfParseResult {
     const squashed = squash(line.text);
     const sm = /^questionid:?([0-9a-f]{8})/.exec(squashed);
     const id = (sm?.[1] ?? m?.[1])?.toLowerCase();
-    if (id && !blocks.some((b) => b.id === id && b.lines.length < 3)) {
-      blocks.push({ id, lines: [line] });
+    if (id) {
+      if (blocks[blocks.length - 1]?.id !== id) blocks.push({ id, lines: [line] });
       continue;
     }
     if (blocks.length === 0) continue;

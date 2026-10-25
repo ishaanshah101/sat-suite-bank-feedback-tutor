@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { QuestionRow } from "@/db/schema";
 import type { Letter, Pick, RuleCard } from "@/lib/ai/schemas";
 import { postJson } from "@/lib/client/api";
@@ -31,8 +31,10 @@ export function ReviewWorkspace() {
   const [explaining, setExplaining] = useState(false);
   const [explained, setExplained] = useState<Explained | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const currentId = useRef<string | null>(null);
 
   const load = (q: QuestionRow) => {
+    currentId.current = q.id;
     setQuestion(q);
     setPicked(null);
     setReasoning("");
@@ -43,21 +45,24 @@ export function ReviewWorkspace() {
 
   const explain = async () => {
     if (!question || !picked) return;
+    const id = question.id;
     setExplaining(true);
     setError(null);
     try {
       const data = await postJson<{ attemptId: string; card: RuleCard; question: QuestionRow }>("/api/explain", {
-        questionId: question.id,
+        questionId: id,
         picked,
         reasoning: reasoning.trim() || null,
         allowModelSolve: allowSolve,
       });
+      // The user may have loaded another question while this one was being explained.
+      if (currentId.current !== id) return;
       setQuestion(data.question);
       setExplained({ attemptId: data.attemptId, card: data.card, picked });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (currentId.current === id) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setExplaining(false);
+      if (currentId.current === id) setExplaining(false);
     }
   };
 

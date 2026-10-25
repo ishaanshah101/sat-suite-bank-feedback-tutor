@@ -64,8 +64,8 @@ export default async function RulesPage() {
 function RuleBlock({ rule, stat, compact }: { rule: Rule; stat?: RuleStat; compact?: boolean }) {
   const count = stat?.misses ?? 0;
   return (
-    <Card className="scroll-mt-20">
-      <div id={compact ? undefined : rule.id} className="flex flex-wrap items-center gap-2">
+    <Card>
+      <div id={compact ? undefined : rule.id} className="flex scroll-mt-20 flex-wrap items-center gap-2">
         {compact ? (
           <a href={`#${rule.id}`} className="font-mono text-xs text-muted underline-offset-2 hover:underline">
             {rule.id}

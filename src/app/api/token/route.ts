@@ -12,7 +12,8 @@ export async function POST(request: Request) {
     const body = Body.parse(await readJson(request, 64 * 1024));
     const result = await attemptUnlock(clientIp(request.headers), body.passcode);
     if (!result.ok) {
-      return json({ error: result.error, code: result.status === 429 ? "rate_limited" : "bad_passcode" }, { status: result.status });
+      const code = result.status === 429 ? "rate_limited" : result.status === 401 ? "bad_passcode" : "unavailable";
+      return json({ error: result.error, code }, { status: result.status });
     }
     return json({ token: result.token, tokenType: "Bearer", expiresIn: result.expiresIn });
   } catch (error) {

@@ -26,6 +26,7 @@ export function DrillPanel({ attemptId }: { attemptId: string }) {
   const [picked, setPicked] = useState<Letter | null>(null);
   const [result, setResult] = useState<CheckResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const start = async () => {
@@ -43,12 +44,16 @@ export function DrillPanel({ attemptId }: { attemptId: string }) {
   };
 
   const answer = async (letter: Letter) => {
-    if (!drill || result) return;
+    if (!drill || result || checking) return;
+    setChecking(true);
     setPicked(letter);
     try {
       setResult(await postJson<CheckResponse>("/api/drill/check", { drillId: drill.drillId, picked: letter }));
     } catch (e) {
+      setPicked(null);
       setError(e instanceof Error ? e.message : "Could not check that");
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -77,7 +82,7 @@ export function DrillPanel({ attemptId }: { attemptId: string }) {
           const tone = result ? (isCorrect ? "border-good bg-good-soft" : isPick ? "border-danger bg-danger-soft" : "border-line") : isPick ? "border-accent" : "border-line hover:bg-bg";
           return (
             <li key={letter}>
-              <button type="button" onClick={() => answer(letter)} disabled={Boolean(result)} className={`flex w-full gap-3 rounded-xl border px-3 py-2 text-left text-[15px] ${tone}`}>
+              <button type="button" onClick={() => answer(letter)} disabled={Boolean(result) || checking} className={`flex w-full gap-3 rounded-xl border px-3 py-2 text-left text-[15px] ${tone}`}>
                 <span className="w-5 shrink-0 font-semibold">{letter}.</span>
                 <span>{drill.question.choices[letter]}</span>
               </button>

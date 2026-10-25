@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { HttpError, json, readJson, withApi } from "@/lib/api";
-import { generateRuleCard } from "@/lib/ai/explain";
+import { generateRuleCard, NeedsAnswerError } from "@/lib/ai/explain";
 import { PickSchema } from "@/lib/ai/schemas";
 import { createAttempt, deleteAttempt, finishAttempt, getQuestion, setModelAnswer } from "@/db/queries";
 import { getRule } from "@/content/rules";
@@ -21,6 +21,7 @@ export async function POST(request: Request) {
     const question = await getQuestion(session.userId, body.questionId);
     if (!question) throw new HttpError(404, "Question not found");
     const reasoning = body.reasoning?.trim() || null;
+    if (!question.correct && !body.allowModelSolve) throw new NeedsAnswerError();
     const attempt = await createAttempt(session.userId, { questionId: question.id, picked: body.picked, reasoning });
     try {
       const { result: card, provider, model } = await generateRuleCard({
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
         reasoning,
         allowModelSolve: body.allowModelSolve ?? false,
       });
-      if (card.solved_by_model && !question.correct) {
+      if (!question.correct) {
         await setModelAnswer(question.id, card.correct_letter);
       }
       await finishAttempt(attempt.id, { explanation: card, ruleId: card.rule_id, provider, model });

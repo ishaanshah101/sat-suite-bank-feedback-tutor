@@ -40,7 +40,7 @@ export async function healthReport(): Promise<HealthReport> {
       lastOkAt: row?.lastOkAt ?? null,
       lastErrorAt: row?.lastErrorAt ?? null,
       lastError: row?.lastError ?? null,
-      cooldownUntil: cooled ? new Date(cooled) : (row?.cooldownUntil ?? null),
+      cooldownUntil: cooled ? new Date(cooled) : row?.cooldownUntil && row.cooldownUntil.getTime() > Date.now() ? row.cooldownUntil : null,
     };
   });
   const live = providers.find((p) => p.configured && !p.cooldownUntil)?.name ?? (isStubMode() ? "stub" : null);

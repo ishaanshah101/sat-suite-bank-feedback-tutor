@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 beforeAll(() => {
   process.env.SESSION_SECRET = "unit-test-secret-0123456789abcdef";
+  process.env.APP_PASSCODE = "unit-passcode-1";
 });
 
 describe("session tokens", () => {
@@ -11,6 +12,19 @@ describe("session tokens", () => {
     expect(await verifySessionToken(token)).toEqual({ userId: "user-1" });
     expect(await verifySessionToken(token.slice(0, -2) + "zz")).toBeNull();
     expect(await verifySessionToken("not-a-jwt")).toBeNull();
+  });
+
+  it("stops accepting tokens once the passcode changes", async () => {
+    const { createSessionToken, verifySessionToken } = await import("@/lib/auth/token");
+    const token = await createSessionToken("user-1");
+    expect(await verifySessionToken(token)).toEqual({ userId: "user-1" });
+    process.env.APP_PASSCODE = "unit-passcode-2";
+    try {
+      expect(await verifySessionToken(token)).toBeNull();
+    } finally {
+      process.env.APP_PASSCODE = "unit-passcode-1";
+    }
+    expect(await verifySessionToken(token)).toEqual({ userId: "user-1" });
   });
 });
 

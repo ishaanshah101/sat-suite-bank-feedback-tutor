@@ -48,10 +48,20 @@ describe("sanitizeRuleCard", () => {
     expect(out.diagnosis).toBe("rule_gap");
   });
 
-  it("falls back to a rule from the question's skill when the id is unknown", () => {
-    const out = sanitizeRuleCard({ ...card, rule_id: "ZZZ-99" }, question, "A");
-    expect(out.rule_id).toBe("BND-01");
+  it("falls back to the general rule the prompt promises when the id is unknown, with low confidence", () => {
+    const out = sanitizeRuleCard({ ...card, rule_id: "ZZZ-99", confidence: 0.9 }, question, "A");
+    expect(out.rule_id).toBe("GEN-03");
     expect(out.suggested_rule).toBe("ZZZ-99");
+    expect(out.confidence).toBeLessThanOrEqual(0.4);
+  });
+
+  it("flags the answer as model-derived when the question has no official answer", () => {
+    const out = sanitizeRuleCard({ ...card, solved_by_model: false }, { ...question, correct: null, answerSource: null }, "A");
+    expect(out.solved_by_model).toBe(true);
+    const official = sanitizeRuleCard({ ...card, solved_by_model: true }, question, "A");
+    expect(official.solved_by_model).toBe(false);
+    const earlier = sanitizeRuleCard({ ...card, solved_by_model: false }, { ...question, answerSource: "model" }, "A");
+    expect(earlier.solved_by_model).toBe(true);
   });
 
   it("marks a correct pick as got_it_right and drops why_pick_fails", () => {

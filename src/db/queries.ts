@@ -23,26 +23,31 @@ export async function upsertQuestion(userId: string, parsed: ParsedQuestion, sou
     updatedAt: new Date(),
   };
   if (parsed.qb_id) {
-    const existing = await db
-      .select()
-      .from(questions)
-      .where(and(eq(questions.userId, userId), eq(questions.qbId, parsed.qb_id)))
-      .limit(1);
-    if (existing[0]) {
-      // Re-capture of a known question: keep official answer data we already have.
-      const merged = {
-        ...values,
-        correct: values.correct ?? existing[0].correct,
-        answerSource: values.correct ? ("official" as const) : existing[0].answerSource,
-        rationale: values.rationale ?? existing[0].rationale,
-        domain: values.domain ?? existing[0].domain,
-        skill: values.skill ?? existing[0].skill,
-        difficulty: values.difficulty ?? existing[0].difficulty,
-        test: values.test ?? existing[0].test,
-      };
-      const [row] = await db.update(questions).set(merged).where(eq(questions.id, existing[0].id)).returning();
-      return row;
-    }
+    // Re-capture of a known question: one statement, and official answer data already stored is kept.
+    const [row] = await db
+      .insert(questions)
+      .values({ ...values, userId })
+      .onConflictDoUpdate({
+        target: [questions.userId, questions.qbId],
+        targetWhere: sql`qb_id is not null`,
+        set: {
+          source: values.source,
+          stem: values.stem,
+          passage: values.passage,
+          choices: values.choices,
+          raw: values.raw,
+          updatedAt: values.updatedAt,
+          correct: sql`coalesce(excluded.correct, ${questions.correct})`,
+          answerSource: sql`case when excluded.correct is not null then 'official' else ${questions.answerSource} end`,
+          rationale: sql`coalesce(excluded.rationale, ${questions.rationale})`,
+          domain: sql`coalesce(excluded.domain, ${questions.domain})`,
+          skill: sql`coalesce(excluded.skill, ${questions.skill})`,
+          difficulty: sql`coalesce(excluded.difficulty, ${questions.difficulty})`,
+          test: sql`coalesce(excluded.test, ${questions.test})`,
+        },
+      })
+      .returning();
+    return row;
   }
   const [row] = await db
     .insert(questions)
@@ -148,9 +153,13 @@ export async function getDrill(userId: string, id: string): Promise<DrillRow | n
   return rows[0] ?? null;
 }
 
+/** Records the first answer only; a second click on a drill that already has one changes nothing. */
 export async function answerDrill(id: string, picked: Letter, correct: boolean): Promise<void> {
   const db = await getDb();
-  await db.update(drills).set({ picked, correct, updatedAt: new Date() }).where(eq(drills.id, id));
+  await db
+    .update(drills)
+    .set({ picked, correct, updatedAt: new Date() })
+    .where(and(eq(drills.id, id), sql`${drills.picked} is null`));
 }
 
 export interface RuleStat {
@@ -215,4 +224,9 @@ export async function countUnlockAttempts(ip: string, since: Date): Promise<numb
 export async function recordUnlockAttempt(ip: string): Promise<void> {
   const db = await getDb();
   await db.insert(unlockAttempts).values({ ip });
+}
+
+export async function clearUnlockAttempts(ip: string): Promise<void> {
+  const db = await getDb();
+  await db.delete(unlockAttempts).where(eq(unlockAttempts.ip, ip));
 }

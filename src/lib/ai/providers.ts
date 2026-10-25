@@ -1,6 +1,6 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { APICallError, type LanguageModel } from "ai";
+import { APICallError, NoObjectGeneratedError, NoOutputGeneratedError, RetryError, type LanguageModel } from "ai";
 import { env } from "@/lib/env";
 import { recordProviderError, recordProviderOk } from "@/db/queries";
 
@@ -116,6 +116,10 @@ export function cooldownUntil(name: ProviderName): number | null {
 
 /** Quota, billing, auth, rate limit, provider outage or network failure: try the next provider. */
 export function isFailoverError(error: unknown): boolean {
+  // The SDK retries retryable calls itself and then throws a wrapper around the last error.
+  if (RetryError.isInstance(error)) {
+    return isFailoverError(error.lastError) || error.errors.some((e) => isFailoverError(e));
+  }
   if (APICallError.isInstance(error)) {
     const status = error.statusCode ?? 0;
     if (status === 401 || status === 402 || status === 403 || status === 429) return true;
@@ -130,7 +134,18 @@ export function isFailoverError(error: unknown): boolean {
   return false;
 }
 
+/** True when the model answered but produced no usable structured output (truncated or off-schema JSON). */
+export function isNoOutputError(error: unknown): boolean {
+  return NoObjectGeneratedError.isInstance(error) || NoOutputGeneratedError.isInstance(error);
+}
+
+/** Leave the platform some seconds to run cleanup before a function hits its max duration. */
+export function abortAfter(ms: number): AbortSignal {
+  return AbortSignal.timeout(ms);
+}
+
 export function errorSummary(error: unknown): string {
+  if (RetryError.isInstance(error)) return errorSummary(error.lastError);
   if (APICallError.isInstance(error)) return `${error.statusCode ?? "network"}: ${error.message}`.slice(0, 400);
   if (error instanceof Error) return error.message.slice(0, 400);
   return String(error).slice(0, 400);

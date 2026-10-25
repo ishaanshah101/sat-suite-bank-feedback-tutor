@@ -1,9 +1,10 @@
 import { generateText, Output } from "ai";
 import { GENERAL_RULES, RULES, getRule, rulesForSkill } from "@/content/rules";
+import { HttpError } from "@/lib/api";
 import type { QuestionRow } from "@/db/schema";
 import { normalizeSkill } from "@/lib/questions/taxonomy";
 import { explainInstructions, explainUserMessage } from "./prompts";
-import { withFailover, type FailoverResult } from "./providers";
+import { abortAfter, isNoOutputError, withFailover, type FailoverResult } from "./providers";
 import { LETTERS, RuleCardSchema, type Pick, type RuleCard } from "./schemas";
 
 export class NeedsAnswerError extends Error {
@@ -17,15 +18,19 @@ export class NeedsAnswerError extends Error {
 export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: Pick): RuleCard {
   const next: RuleCard = { ...card, rule_id: card.rule_id.trim().toUpperCase() };
   if (!getRule(next.rule_id)) {
-    const skill = normalizeSkill(question.skill);
-    const fallback = (skill ? rulesForSkill(skill)[0] : undefined) ?? getRule("GEN-03")!;
+    // The prompt promised the closest GEN rule as the fallback; do not pin the miss on an unrelated skill rule.
+    const fallback = getRule("GEN-03")!;
     next.suggested_rule = next.suggested_rule ?? card.rule_id;
     next.rule_id = fallback.id;
     next.rule_statement = fallback.statement;
+    next.confidence = Math.min(Number.isFinite(next.confidence) ? next.confidence : 0.5, 0.4);
   }
   if (question.correct) {
     next.correct_letter = question.correct;
-    next.solved_by_model = false;
+    // An answer worked out by the model earlier stays flagged so the warning survives re-attempts.
+    next.solved_by_model = question.answerSource === "model";
+  } else {
+    next.solved_by_model = true;
   }
   const gotItRight = picked === "correct" || picked === next.correct_letter;
   if (gotItRight) {
@@ -61,16 +66,21 @@ export async function generateRuleCard(input: {
   const skill = normalizeSkill(question.skill);
   const slice = skill ? [...rulesForSkill(skill), ...GENERAL_RULES] : RULES;
   const result = await withFailover("explain", async (provider) => {
-    const res = await generateText({
-      model: provider.model("explain"),
-      instructions: explainInstructions(slice, !question.correct),
-      messages: [{ role: "user", content: explainUserMessage(question, picked, reasoning) }],
-      output: Output.object({ schema: RuleCardSchema, name: "rule_card" }),
-      providerOptions: provider.providerOptions("explain"),
-      maxOutputTokens: 6000,
-    });
-    if (!res.output) throw new Error("The model did not return a rule card.");
-    return res.output;
+    try {
+      const res = await generateText({
+        model: provider.model("explain"),
+        instructions: explainInstructions(slice, !question.correct),
+        messages: [{ role: "user", content: explainUserMessage(question, picked, reasoning) }],
+        output: Output.object({ schema: RuleCardSchema, name: "rule_card" }),
+        providerOptions: provider.providerOptions("explain"),
+        maxOutputTokens: 6000,
+        abortSignal: abortAfter(75_000),
+      });
+      return res.output;
+    } catch (error) {
+      if (isNoOutputError(error)) throw new HttpError(502, "The model did not return a complete rule card. Try Explain again.", "no_output");
+      throw error;
+    }
   });
   return { ...result, result: sanitizeRuleCard(result.result, question, picked) };
 }
