@@ -56,7 +56,8 @@ export async function getDb(): Promise<Db> {
       holder.db = db;
       return db;
     });
-    holder.init.catch(() => {
+    holder.init.catch((error) => {
+      console.error("[db] connection setup failed:", error instanceof Error ? error.message : error);
       holder.init = undefined;
     });
   }
@@ -78,8 +79,10 @@ export async function pingDb(): Promise<DbPing> {
     return { ok: true, ms: Date.now() - started };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const code = (error as { code?: string })?.code;
+    console.error("[db] ping failed:", code ?? "", message);
     const paused = /ENOTFOUND|ECONNREFUSED|timeout|Tenant or user not found|paused/i.test(message);
-    return { ok: false, ms: Date.now() - started, error: message, paused };
+    return { ok: false, ms: Date.now() - started, error: code ? `${code}: ${message}` : message, paused };
   }
 }
 
