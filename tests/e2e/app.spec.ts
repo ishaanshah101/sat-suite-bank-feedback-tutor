@@ -32,6 +32,9 @@ test("locked pages redirect to /unlock and APIs return 401", async ({ page, requ
   await expect(page).toHaveURL(/\/unlock$/);
   const res = await request.get("/api/health");
   expect(res.status()).toBe(401);
+  const ping = await request.get("/api/ping");
+  expect(ping.status()).toBe(200);
+  expect(await ping.json()).toMatchObject({ ok: true, db: true, ai: true });
 });
 
 test("wrong passcode shows an error, right passcode unlocks", async ({ page }) => {
