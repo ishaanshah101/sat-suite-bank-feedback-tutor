@@ -72,6 +72,7 @@ create table if not exists public.drills (
 );
 create index if not exists drills_user_created_idx on public.drills (user_id, created_at desc);
 create index if not exists drills_user_rule_idx on public.drills (user_id, rule_id);
+create index if not exists drills_attempt_idx on public.drills (attempt_id);
 
 create table if not exists public.provider_status (
   provider text primary key,

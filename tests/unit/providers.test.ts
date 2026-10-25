@@ -81,3 +81,44 @@ describe("provider failover", () => {
     await expect(withFailover("explain", async () => 1)).rejects.toBeInstanceOf(NoProviderError);
   });
 });
+
+describe("gateway fallback", () => {
+  it("joins the chain last on Vercel or with a gateway key, and can be switched off", async () => {
+    const saved = { VERCEL: process.env.VERCEL, AI_GATEWAY: process.env.AI_GATEWAY, AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY };
+    try {
+      delete process.env.VERCEL;
+      delete process.env.AI_GATEWAY;
+      delete process.env.AI_GATEWAY_API_KEY;
+      process.env.OPENAI_API_KEY = "test-openai";
+      process.env.ANTHROPIC_API_KEY = "";
+      process.env.AI_PROVIDER_ORDER = "openai,anthropic";
+      let mod = await freshProviders();
+      expect(mod.providerOrder()).toEqual(["openai", "anthropic"]);
+      expect(mod.configuredProviders()).toEqual(["openai"]);
+
+      process.env.VERCEL = "1";
+      mod = await freshProviders();
+      expect(mod.providerOrder()).toEqual(["openai", "anthropic", "gateway"]);
+      expect(mod.configuredProviders()).toEqual(["openai", "gateway"]);
+      const handles = await mod.availableProviders();
+      expect(handles.map((h) => h.name)).toEqual(["openai", "gateway"]);
+      expect(handles[1].modelId("extract")).toBe("openai/gpt-6-luna");
+
+      process.env.AI_GATEWAY = "off";
+      mod = await freshProviders();
+      expect(mod.providerOrder()).toEqual(["openai", "anthropic"]);
+
+      delete process.env.VERCEL;
+      delete process.env.AI_GATEWAY;
+      process.env.AI_GATEWAY_API_KEY = "vck_test";
+      process.env.AI_PROVIDER_ORDER = "gateway,openai";
+      mod = await freshProviders();
+      expect(mod.providerOrder()).toEqual(["gateway", "openai", "anthropic"]);
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  });
+});

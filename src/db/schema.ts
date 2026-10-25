@@ -73,7 +73,7 @@ export const drills = pgTable(
     picked: text("picked").$type<Letter>(),
     correct: boolean("correct"),
   },
-  (t) => [index("drills_user_rule_idx").on(t.userId, t.ruleId)],
+  (t) => [index("drills_user_rule_idx").on(t.userId, t.ruleId), index("drills_attempt_idx").on(t.attemptId)],
 );
 
 export const providerStatus = pgTable("provider_status", {

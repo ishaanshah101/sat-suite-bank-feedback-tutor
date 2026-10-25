@@ -21,6 +21,7 @@ export interface HealthReport {
       lastErrorAt: Date | null;
       lastError: string | null;
       cooldownUntil: Date | null;
+      auth: string;
     }>;
   };
   passcodeConfigured: boolean;
@@ -34,8 +35,19 @@ export async function healthReport(): Promise<HealthReport> {
   const providers = providerOrder().map((name) => {
     const row = rows.find((r) => r.provider === name);
     const cooled = cooldownUntil(name);
+    const auth =
+      name === "gateway"
+        ? env("AI_GATEWAY_API_KEY")
+          ? "gateway key"
+          : configured.includes(name)
+            ? "Vercel account (AI Gateway credits)"
+            : "off"
+        : configured.includes(name)
+          ? "key set"
+          : "no key";
     return {
       name,
+      auth,
       configured: configured.includes(name),
       lastOkAt: row?.lastOkAt ?? null,
       lastErrorAt: row?.lastErrorAt ?? null,

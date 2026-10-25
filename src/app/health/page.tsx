@@ -32,12 +32,13 @@ export default async function HealthPage() {
           <p className="mt-2 text-sm text-muted">
             Order: {report.ai.order.join(" then ")}. Live now: {report.ai.live ?? "none"}.
             {report.ai.configured.length === 0 && !report.ai.stub ? " No API key is set. Add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel." : ""}
+            {report.ai.configured.length === 1 && report.ai.configured[0] === "gateway" ? " Running on Vercel AI Gateway credits. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to use your own account first." : ""}
           </p>
           <ul className="mt-3 divide-y divide-line text-sm">
             {report.ai.providers.map((p) => (
               <li key={p.name} className="flex flex-wrap items-center gap-3 py-2">
                 <span className="w-24 font-medium">{p.name}</span>
-                {p.configured ? <Chip tone="good">key set</Chip> : <Chip>no key</Chip>}
+                {p.configured ? <Chip tone="good">{p.auth}</Chip> : <Chip>{p.auth}</Chip>}
                 {p.cooldownUntil && p.cooldownUntil > new Date() ? <Chip tone="warn">cooling down until {p.cooldownUntil.toLocaleTimeString()}</Chip> : null}
                 <span className="text-muted">last ok: {p.lastOkAt ? p.lastOkAt.toLocaleString() : "never"}</span>
                 <span className="text-muted">last error: {p.lastErrorAt ? `${p.lastErrorAt.toLocaleString()} ${p.lastError ?? ""}` : "none"}</span>
