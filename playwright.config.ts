@@ -8,15 +8,15 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   use: {
-    baseURL: `http://127.0.0.1:${port}`,
+    baseURL: `http://localhost:${port}`,
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `pnpm exec next dev --port ${port}`,
-    url: `http://127.0.0.1:${port}/unlock`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
+    command: `pnpm exec next build && pnpm exec next start --port ${port}`,
+    url: `http://localhost:${port}/unlock`,
+    reuseExistingServer: false,
+    timeout: 400_000,
     env: {
       DATABASE_URL: "pglite://memory",
       APP_PASSCODE: "test-passcode-123",

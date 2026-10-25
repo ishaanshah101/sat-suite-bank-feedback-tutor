@@ -19,7 +19,7 @@ export function UnlockForm() {
         />
       </label>
       {state?.error ? (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" data-testid="unlock-error" className="text-sm text-danger">
           {state.error}
         </p>
       ) : null}

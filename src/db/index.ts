@@ -15,12 +15,12 @@ async function createPglite(url: string): Promise<Db> {
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle } = await import("drizzle-orm/pglite");
   const target = url.replace(/^pglite:\/\//, "");
-  const client = target === "memory" || target === "" ? new PGlite() : new PGlite(path.resolve(process.cwd(), target));
+  const client = target === "memory" || target === "" ? new PGlite() : new PGlite(path.resolve(/* turbopackIgnore: true */ process.cwd(), target));
   const db = drizzle({ client, schema }) as unknown as Db;
   const exists = await db.execute(sql`select to_regclass('public.questions') as t`);
   const row = (exists as unknown as { rows?: Array<{ t: string | null }> }).rows?.[0] ?? (exists as unknown as Array<{ t: string | null }>)[0];
   if (!row?.t) {
-    const migration = fs.readFileSync(path.join(process.cwd(), "src/db/migrations/0001_init.sql"), "utf8");
+    const migration = fs.readFileSync(path.join(process.cwd(), "src", "db", "migrations", "0001_init.sql"), "utf8");
     await client.exec(migration);
   }
   holder.kind = "pglite";

@@ -9,7 +9,7 @@ export async function parsePdfFile(file: File): Promise<{ result: PdfParseResult
   try {
     return await parseInWorker(buffer.slice(0));
   } catch (error) {
-    console.warn("[pdf] worker failed, parsing on the main thread", error);
+    console.warn("[pdf] worker failed, parsing on the main thread:", error instanceof Error ? error.message : error);
     return parseOnMainThread(buffer);
   }
 }
@@ -28,6 +28,7 @@ function parseInWorker(buffer: ArrayBuffer): Promise<{ result: PdfParseResult; t
       reject(new Error("PDF parsing timed out"));
     }, 120_000);
     worker.onmessage = (event: MessageEvent<PdfWorkerResponse>) => {
+      if (typeof event.data?.ok !== "boolean") return; // ignore runtime chatter
       clearTimeout(timer);
       worker.terminate();
       if (event.data.ok && event.data.result) resolve({ result: event.data.result, totalPages: event.data.totalPages ?? 0 });

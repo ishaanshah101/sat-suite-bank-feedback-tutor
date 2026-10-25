@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Fully dynamic single-user app: keep the classic rendering model.
   cacheComponents: false,
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   serverExternalPackages: ["@electric-sql/pglite"],
   turbopack: {
     rules: {

@@ -17,20 +17,13 @@ export function Chip({ children, tone = "neutral" }: { children: ReactNode; tone
 
 export function Button({
   children,
-  onClick,
-  type = "button",
   variant = "primary",
-  disabled,
   className = "",
-  title,
-}: {
+  type = "button",
+  ...rest
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode;
-  onClick?: () => void;
-  type?: "button" | "submit";
   variant?: "primary" | "secondary" | "ghost";
-  disabled?: boolean;
-  className?: string;
-  title?: string;
 }) {
   const variants = {
     primary: "bg-accent text-white hover:opacity-90",
@@ -40,9 +33,7 @@ export function Button({
   return (
     <button
       type={type}
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
+      {...rest}
       className={`inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
     >
       {children}

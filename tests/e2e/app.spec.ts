@@ -38,7 +38,7 @@ test("wrong passcode shows an error, right passcode unlocks", async ({ page }) =
   await page.goto("/unlock");
   await page.getByLabel("Passcode").fill("nope");
   await page.getByRole("button", { name: "Unlock" }).click();
-  await expect(page.getByRole("alert")).toContainText("not right");
+  await expect(page.getByTestId("unlock-error")).toContainText("not right");
   await page.getByLabel("Passcode").fill(PASSCODE);
   await page.getByRole("button", { name: "Unlock" }).click();
   await expect(page).toHaveURL(/\/$/);
