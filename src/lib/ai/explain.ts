@@ -4,7 +4,7 @@ import { HttpError } from "@/lib/api";
 import type { QuestionRow } from "@/db/schema";
 import { normalizeSkill } from "@/lib/questions/taxonomy";
 import { explainInstructions, explainUserMessage } from "./prompts";
-import { abortAfter, isNoOutputError, withFailover, type FailoverResult } from "./providers";
+import { abortAfter, isNoOutputError, retryOnNoOutput, withFailover, type FailoverResult } from "./providers";
 import { LETTERS, RuleCardSchema, type Pick, type RuleCard } from "./schemas";
 
 export class NeedsAnswerError extends Error {
@@ -67,15 +67,15 @@ export async function generateRuleCard(input: {
   const slice = skill ? [...rulesForSkill(skill), ...GENERAL_RULES] : RULES;
   const result = await withFailover("explain", async (provider) => {
     try {
-      const res = await generateText({
+      const res = await retryOnNoOutput(() => generateText({
         model: provider.model("explain"),
         instructions: explainInstructions(slice, !question.correct),
         messages: [{ role: "user", content: explainUserMessage(question, picked, reasoning) }],
         output: Output.object({ schema: RuleCardSchema, name: "rule_card" }),
         providerOptions: provider.providerOptions("explain"),
         maxOutputTokens: 6000,
-        abortSignal: abortAfter(75_000),
-      });
+        abortSignal: abortAfter(40_000),
+      }));
       return res.output;
     } catch (error) {
       if (isNoOutputError(error)) throw new HttpError(502, "The model did not return a complete rule card. Try Explain again.", "no_output");

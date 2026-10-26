@@ -93,11 +93,30 @@ export function isModelUnavailableError(error: unknown): boolean {
   return /free tier|do not have access to this model|model.{0,40}(not found|not available|unsupported|does not exist)|no such model/i.test(message);
 }
 
-function gatewayOptionsFor(id: string, kind: TaskKind): Record<string, Record<string, string>> {
+// Provider options are JSON values passed straight through to the model provider.
+type ProviderOptionsValue = Record<string, Record<string, string | number | boolean | Record<string, number>>>;
+
+function gatewayOptionsFor(id: string, kind: TaskKind): ProviderOptionsValue {
   const anthropicEffort: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium" };
   if (id.startsWith("anthropic/")) return { anthropic: { effort: anthropicEffort[kind] } };
   if (id.startsWith("openai/gpt-5") || id.startsWith("openai/gpt-6")) return { openai: { reasoningEffort: "low" } };
+  // Gemini thinks by default and its thinking tokens count against the output limit, which truncates JSON.
+  if (id.startsWith("google/gemini")) return { google: { thinkingConfig: { thinkingBudget: 512 } } };
   return {};
+}
+
+/** Run a model call again (up to `attempts` times) when the reply was not valid structured output. */
+export async function retryOnNoOutput<T>(call: () => Promise<T>, attempts = 2): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await call();
+    } catch (error) {
+      if (!isNoOutputError(error)) throw error;
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 function makeGateway(): ProviderHandle {

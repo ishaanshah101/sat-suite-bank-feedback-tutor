@@ -1,7 +1,7 @@
 import { generateText, Output } from "ai";
 import { EXTRACT_INSTRUCTIONS } from "./prompts";
 import { ExtractionOutputSchema, type ExtractionOutput, type ParsedQuestion } from "./schemas";
-import { abortAfter, isNoOutputError, withFailover, type FailoverResult } from "./providers";
+import { abortAfter, isNoOutputError, retryOnNoOutput, withFailover, type FailoverResult } from "./providers";
 import { normalizeDifficulty, normalizeDomain, normalizeSkill, domainForSkill } from "@/lib/questions/taxonomy";
 
 export class ExtractionError extends Error {
@@ -65,15 +65,15 @@ export async function extractQuestion(input: ExtractInput): Promise<FailoverResu
     }
     let output: ExtractionOutput;
     try {
-      const result = await generateText({
+      const result = await retryOnNoOutput(() => generateText({
         model: provider.model("extract"),
         instructions: EXTRACT_INSTRUCTIONS,
         messages: [{ role: "user", content }],
         output: Output.object({ schema: ExtractionOutputSchema, name: "parsed_question" }),
         providerOptions: provider.providerOptions("extract"),
         maxOutputTokens: 4000,
-        abortSignal: abortAfter(50_000),
-      });
+        abortSignal: abortAfter(28_000),
+      }));
       output = result.output;
     } catch (error) {
       if (isNoOutputError(error)) throw new ExtractionError("The model could not read a complete question. Try a clearer or closer screenshot.");
