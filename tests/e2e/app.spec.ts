@@ -1,7 +1,9 @@
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
-const PASSCODE = "test-passcode-123";
+const PASSWORD = "e2e-password-123";
+let counter = 0;
+const newEmail = () => `student${Date.now()}-${counter++}@example.com`;
 const PASTED = `Question ID: 0badf00d
 The study ended in 2019 _____ the results were published a year later.
 Which choice completes the text so that it conforms to the conventions of Standard English?
@@ -11,12 +13,19 @@ C. 2019 the
 D. 2019, and the
 Correct Answer: B`;
 
-async function unlock(page: Page) {
-  await page.goto("/unlock");
-  await page.getByLabel("Passcode").fill(PASSCODE);
-  await page.getByRole("button", { name: "Unlock" }).click();
+/** Create a fresh account through the sign-up form and land on the review page. */
+async function signUp(page: Page, email = newEmail()) {
+  await page.goto("/signin");
+  await expect(async () => {
+    await page.getByRole("tab", { name: "Create account" }).click();
+    await expect(page.getByRole("button", { name: "Create account", exact: true })).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
   await page.waitForURL("**/");
   await page.waitForLoadState("networkidle");
+  return email;
 }
 
 /** Dev-mode hydration can lag; keep clicking the tab until its panel renders. */
@@ -27,9 +36,13 @@ async function openTab(page: Page, tab: string, panelTestId: string) {
   }).toPass({ timeout: 30_000 });
 }
 
-test("locked pages redirect to /unlock and APIs return 401", async ({ page, request }) => {
+test("signed-out pages redirect to /signin and APIs return 401", async ({ page, request }) => {
   await page.goto("/");
-  await expect(page).toHaveURL(/\/unlock$/);
+  await expect(page).toHaveURL(/\/signin$/);
+  await page.goto("/unlock");
+  await expect(page).toHaveURL(/\/signin$/);
+  await page.goto("/privacy");
+  await expect(page.getByRole("heading", { name: "Privacy policy" })).toBeVisible();
   const res = await request.get("/api/health");
   expect(res.status()).toBe(401);
   const ping = await request.get("/api/ping");
@@ -37,20 +50,47 @@ test("locked pages redirect to /unlock and APIs return 401", async ({ page, requ
   expect(await ping.json()).toMatchObject({ ok: true, db: true, ai: true });
 });
 
-test("wrong passcode shows an error, right passcode unlocks", async ({ page }) => {
-  await page.goto("/unlock");
-  await page.getByLabel("Passcode").fill("nope");
-  await page.getByRole("button", { name: "Unlock" }).click();
-  await expect(page.getByTestId("unlock-error")).toContainText("not right");
-  await page.getByLabel("Passcode").fill(PASSCODE);
-  await page.getByRole("button", { name: "Unlock" }).click();
+test("create an account, sign out, wrong password errors, right password signs in", async ({ page }) => {
+  const email = await signUp(page);
+  await expect(page.getByTestId("input-strip")).toBeVisible();
+  await page.goto("/account");
+  await expect(page.getByTestId("account-email")).toHaveText(email);
+  await page.getByRole("button", { name: "Sign out" }).first().click();
+  await expect(page).toHaveURL(/\/signin$/);
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password", { exact: true }).fill("wrong-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByTestId("auth-error")).toContainText("do not match");
+  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByTestId("input-strip")).toBeVisible();
 });
 
+test("each account sees only its own history", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const first = await browser.newContext();
+  const a = await first.newPage();
+  await signUp(a);
+  const extracted = await a.request.post("/api/extract", { data: { text: PASTED, source: "paste" } });
+  const { question } = (await extracted.json()) as { question: { id: string } };
+  const explained = await a.request.post("/api/explain", { data: { questionId: question.id, picked: "A", reasoning: null } });
+  const { attemptId } = (await explained.json()) as { attemptId: string };
+
+  const second = await browser.newContext();
+  const b = await second.newPage();
+  await signUp(b);
+  await b.goto("/history");
+  await expect(b.getByRole("cell", { name: "missed" })).toHaveCount(0);
+  const peek = await b.request.post("/api/drill", { data: { attemptId } });
+  expect(peek.status()).toBe(404);
+  await first.close();
+  await second.close();
+});
+
 test("paste, explain, chat, test me, history and rules", async ({ page }) => {
   test.setTimeout(120_000);
-  await unlock(page);
+  await signUp(page);
   await openTab(page, "tab-paste", "paste-textarea");
   await page.getByTestId("paste-textarea").fill(PASTED);
   await page.getByTestId("paste-submit").click();
@@ -89,7 +129,7 @@ test("paste, explain, chat, test me, history and rules", async ({ page }) => {
 });
 
 test("PDF export parses in the browser and opens a question", async ({ page }) => {
-  await unlock(page);
+  await signUp(page);
   await openTab(page, "tab-pdf", "pdf-panel");
   await page.getByTestId("pdf-input").setInputFiles(path.join(import.meta.dirname, "..", "fixtures", "qb-export.pdf"));
   const list = page.getByTestId("pdf-list");
@@ -101,7 +141,7 @@ test("PDF export parses in the browser and opens a question", async ({ page }) =
 });
 
 test("health and cron endpoints", async ({ page, request }) => {
-  await unlock(page);
+  await signUp(page);
   const health = await page.request.get("/api/health");
   expect(health.ok()).toBeTruthy();
   const body = await health.json();
@@ -125,13 +165,21 @@ test("browser extension: token endpoint, bearer auth and CORS for extension orig
   expect(preflight.headers()["access-control-allow-origin"]).toBe(origin);
   expect(preflight.headers()["access-control-allow-headers"]).toContain("authorization");
 
-  const wrong = await request.post("/api/token", { data: { passcode: "nope" }, headers: { origin } });
+  const email = newEmail();
+  const created = await request.post("/api/auth/signup", { data: { email, password: PASSWORD }, headers: { origin } });
+  expect(created.status()).toBe(200);
+  expect(created.headers()["set-cookie"]).toBeUndefined();
+
+  const wrong = await request.post("/api/auth/signin", { data: { email, password: "nope-nope" }, headers: { origin } });
   expect(wrong.status()).toBe(401);
   expect(wrong.headers()["access-control-allow-origin"]).toBe(origin);
 
-  const issued = await request.post("/api/token", { data: { passcode: PASSCODE }, headers: { origin } });
+  const issued = await request.post("/api/auth/signin", { data: { email, password: PASSWORD }, headers: { origin } });
   expect(issued.status()).toBe(200);
-  const { token } = (await issued.json()) as { token: string };
+  const { token, user } = (await issued.json()) as { token: string; user: { email: string } };
+  expect(user.email).toBe(email);
+  const me = await request.get("/api/me", { headers: { origin, authorization: `Bearer ${token}` } });
+  expect(((await me.json()) as { user: { email: string } }).user.email).toBe(email);
   expect(token.split(".")).toHaveLength(3);
 
   const denied = await request.get("/api/health", { headers: { origin, authorization: "Bearer not-a-token" } });

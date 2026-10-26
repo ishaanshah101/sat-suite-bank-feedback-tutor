@@ -91,8 +91,29 @@ export const unlockAttempts = pgTable("unlock_attempts", {
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
 
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id").notNull(),
+    kind: text("kind").$type<AiUseKind>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_usage_user_created_idx").on(t.userId, t.createdAt)],
+);
+
+export type AiUseKind = "extract" | "explain" | "chat" | "drill";
+
 export type QuestionRow = typeof questions.$inferSelect;
 export type AttemptRow = typeof attempts.$inferSelect;
 export type ChatMessageRow = typeof chatMessages.$inferSelect;
 export type DrillRow = typeof drills.$inferSelect;
 export type ProviderStatusRow = typeof providerStatus.$inferSelect;
+export type UserRow = typeof users.$inferSelect;

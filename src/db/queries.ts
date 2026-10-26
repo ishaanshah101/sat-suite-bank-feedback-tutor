@@ -1,7 +1,22 @@
 import "server-only";
-import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { getDb } from "./index";
-import { attempts, chatMessages, drills, providerStatus, questions, unlockAttempts, type AttemptRow, type DrillRow, type Letter, type QuestionRow } from "./schema";
+import {
+  aiUsage,
+  attempts,
+  chatMessages,
+  drills,
+  providerStatus,
+  questions,
+  unlockAttempts,
+  users,
+  type AiUseKind,
+  type AttemptRow,
+  type DrillRow,
+  type Letter,
+  type QuestionRow,
+  type UserRow,
+} from "./schema";
 import type { ParsedQuestion } from "@/lib/ai/schemas";
 
 export async function upsertQuestion(userId: string, parsed: ParsedQuestion, source: QuestionRow["source"]): Promise<QuestionRow> {
@@ -229,4 +244,59 @@ export async function recordUnlockAttempt(ip: string): Promise<void> {
 export async function clearUnlockAttempts(ip: string): Promise<void> {
   const db = await getDb();
   await db.delete(unlockAttempts).where(eq(unlockAttempts.ip, ip));
+}
+
+export async function findUserByEmail(email: string): Promise<UserRow | null> {
+  const db = await getDb();
+  const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getUser(id: string): Promise<UserRow | null> {
+  const db = await getDb();
+  const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+/** Insert a user; returns null when the email (or the id) is already taken. */
+export async function insertUser(input: { id?: string; email: string; passwordHash: string }): Promise<UserRow | null> {
+  const db = await getDb();
+  const rows = await db.insert(users).values(input).onConflictDoNothing().returning();
+  return rows[0] ?? null;
+}
+
+/** Remove an account and everything it saved. Attempts, chat and drills cascade from questions and attempts. */
+export async function deleteUserAndData(userId: string): Promise<void> {
+  const db = await getDb();
+  await db.transaction(async (tx) => {
+    await tx.delete(drills).where(eq(drills.userId, userId));
+    await tx.delete(chatMessages).where(eq(chatMessages.userId, userId));
+    await tx.delete(attempts).where(eq(attempts.userId, userId));
+    await tx.delete(questions).where(eq(questions.userId, userId));
+    await tx.delete(aiUsage).where(eq(aiUsage.userId, userId));
+    await tx.delete(users).where(eq(users.id, userId));
+  });
+}
+
+export async function recordAiUse(userId: string, kind: AiUseKind): Promise<void> {
+  const db = await getDb();
+  await db.insert(aiUsage).values({ userId, kind });
+}
+
+export async function countAiUse(userId: string, since: Date): Promise<number> {
+  const db = await getDb();
+  const rows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(aiUsage)
+    .where(and(eq(aiUsage.userId, userId), gt(aiUsage.createdAt, since)));
+  return Number(rows[0]?.n ?? 0);
+}
+
+/** Drop rate-limit and usage rows older than any window that reads them (sign-in: 1 hour, AI: 24 hours). */
+export async function pruneCounters(): Promise<{ attempts: number; usage: number }> {
+  const db = await getDb();
+  const day = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  const a = await db.delete(unlockAttempts).where(lt(unlockAttempts.createdAt, day)).returning({ id: unlockAttempts.id });
+  const u = await db.delete(aiUsage).where(lt(aiUsage.createdAt, day)).returning({ id: aiUsage.id });
+  return { attempts: a.length, usage: u.length };
 }

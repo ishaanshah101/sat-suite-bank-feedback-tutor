@@ -1,25 +1,10 @@
-import { z, ZodError } from "zod";
-import { HttpError, json, readJson } from "@/lib/api";
-import { attemptUnlock, clientIp } from "@/lib/auth/unlock";
+import { signIn } from "@/lib/auth/accounts";
+import { clientIp } from "@/lib/auth/limit";
+import { authEndpoint } from "@/lib/auth/respond";
 
 export const runtime = "nodejs";
 
-const Body = z.object({ passcode: z.string().min(1).max(200) });
-
-/** Exchange the passcode for a bearer token. Used by the browser extension; same rate limit as the unlock page. */
+/** Older name for /api/auth/signin, kept for extension builds that call it. */
 export async function POST(request: Request) {
-  try {
-    const body = Body.parse(await readJson(request, 64 * 1024));
-    const result = await attemptUnlock(clientIp(request.headers), body.passcode);
-    if (!result.ok) {
-      const code = result.status === 429 ? "rate_limited" : result.status === 401 ? "bad_passcode" : "unavailable";
-      return json({ error: result.error, code }, { status: result.status });
-    }
-    return json({ token: result.token, tokenType: "Bearer", expiresIn: result.expiresIn });
-  } catch (error) {
-    if (error instanceof HttpError) return json({ error: error.message }, { status: error.status });
-    if (error instanceof ZodError) return json({ error: "Invalid request" }, { status: 400 });
-    console.error("[token]", error);
-    return json({ error: "Something went wrong" }, { status: 500 });
-  }
+  return authEndpoint(request, (body) => signIn(clientIp(request.headers), { email: body.email, password: body.password }));
 }

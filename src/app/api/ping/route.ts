@@ -4,7 +4,7 @@ import { configuredProviders, isStubMode } from "@/lib/ai/providers";
 
 export const runtime = "nodejs";
 
-/** Public liveness probe: no details beyond booleans, so uptime checks can run without the passcode. */
+/** Public liveness probe: no details beyond booleans, so uptime checks can run without signing in. */
 export async function GET() {
   const db = await pingDb();
   return Response.json(

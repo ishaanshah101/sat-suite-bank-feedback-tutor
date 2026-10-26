@@ -19,9 +19,9 @@ async function createPglite(url: string): Promise<Db> {
   const db = drizzle({ client, schema }) as unknown as Db;
   const exists = await db.execute(sql`select to_regclass('public.questions') as t`);
   const row = (exists as unknown as { rows?: Array<{ t: string | null }> }).rows?.[0] ?? (exists as unknown as Array<{ t: string | null }>)[0];
-  if (!row?.t) {
-    const migration = fs.readFileSync(path.join(process.cwd(), "src", "db", "migrations", "0001_init.sql"), "utf8");
-    await client.exec(migration);
+  const migrations = row?.t ? ["0004_accounts.sql"] : ["0001_init.sql", "0004_accounts.sql"];
+  for (const file of migrations) {
+    await client.exec(fs.readFileSync(path.join(process.cwd(), "src", "db", "migrations", file), "utf8"));
   }
   holder.kind = "pglite";
   return db;

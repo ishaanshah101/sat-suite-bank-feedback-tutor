@@ -63,13 +63,13 @@ label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; 
 .choices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .choice { display: flex; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; text-align: left; background: var(--surface); color: var(--ink); font: inherit; width: 100%; cursor: default; }
 .choice button { all: unset; }
-.choice.pick { border-color: var(--danger); background: var(--danger-soft); }
+.choice.picked { border-color: var(--danger); background: var(--danger-soft); }
 .choice.correct { border-color: var(--good); background: var(--good-soft); }
 .choice.selectable { cursor: pointer; }
 .choice.selectable:hover { background: var(--bg); }
 .choice.selected { border-color: var(--accent); background: var(--accent-soft); }
 .choice .letter { font-weight: 600; width: 16px; flex-shrink: 0; }
-.choice .tag { margin-left: auto; font-size: 11px; font-weight: 600; }
+.choice .tag { margin-left: auto; white-space: nowrap; font-size: 11px; font-weight: 600; }
 .choice .tag.good { color: var(--good); }
 .choice .tag.danger { color: var(--danger); }
 .picks { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -100,3 +100,11 @@ label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; 
 kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; background: var(--bg); }
 .steps { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .footer { display: flex; gap: 12px; justify-content: center; font-size: 12px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); border-radius: 10px; padding: 3px; }
+.tab { appearance: none; border: 0; background: none; color: var(--muted); font: inherit; font-weight: 500; padding: 6px; border-radius: 8px; cursor: pointer; }
+.tab.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+details summary { cursor: pointer; }
+details .field { margin-top: 6px; }
+.recent { appearance: none; text-align: left; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.recent:hover { background: var(--bg); }
+.recent-stem { font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

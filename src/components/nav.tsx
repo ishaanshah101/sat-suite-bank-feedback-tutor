@@ -35,9 +35,12 @@ export function Nav() {
           <Link href="/health" className="hover:text-ink">
             Status
           </Link>
+          <Link href="/account" className="hover:text-ink">
+            Account
+          </Link>
           <form action="/api/logout" method="post">
             <button type="submit" className="hover:text-ink">
-              Lock
+              Sign out
             </button>
           </form>
         </div>

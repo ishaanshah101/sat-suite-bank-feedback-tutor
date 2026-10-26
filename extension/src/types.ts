@@ -76,6 +76,22 @@ export interface Health {
 export interface Settings {
   server: string;
   token: string | null;
+  email?: string | null;
+}
+
+export interface RecentAttempt {
+  id: string;
+  createdAt: string;
+  result: "right" | "missed";
+  ruleId: string | null;
+  ruleName: string | null;
+  skill: string | null;
+  stem: string;
+}
+
+export interface Me {
+  user: { id: string; email: string } | null;
+  ai: { used: number; limit: number | null };
 }
 
 export interface ChatMessage {

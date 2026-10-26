@@ -45,9 +45,12 @@ async function request(settings, path, init = {}) {
   if (!response.ok) throw new ApiError(response.status, data?.error ?? response.statusText, data?.code);
   return data;
 }
-async function fetchToken(server, passcode) {
-  const data = await request({ server, token: null }, "/api/token", { body: { passcode }, auth: false });
-  return data.token;
+async function authenticate(server, mode, email, password) {
+  return request({ server, token: null }, mode === "signup" ? "/api/auth/signup" : "/api/auth/signin", { body: { email, password }, auth: false });
+}
+async function webLink(settings, path) {
+  const { code } = await request(settings, "/api/auth/handoff", { method: "POST", body: {} });
+  return `${settings.server}/api/auth/handoff?code=${encodeURIComponent(code)}&next=${encodeURIComponent(path)}`;
 }
 async function streamChat(settings, attemptId, history, onDelta) {
   const messages = history.map((m) => ({ id: m.id, role: m.role, parts: [{ type: "text", text: m.text }] }));
@@ -149,6 +152,8 @@ var state = {
   settings: { server: DEFAULT_SERVER, token: null },
   connectError: null,
   connecting: false,
+  authMode: "signin",
+  recent: null,
   health: null,
   shortcut: null,
   capturing: false,
@@ -217,15 +222,29 @@ function render() {
   }
 }
 function renderConnect() {
-  const server = h("input", { id: "server", class: "input", type: "url", placeholder: DEFAULT_SERVER, value: state.settings.server, autocomplete: "url" });
-  const passcode = h("input", {
-    id: "passcode",
+  const signup = state.authMode === "signup";
+  const submitOnEnter = (event) => {
+    if (event.key === "Enter") void connect();
+  };
+  const email = h("input", { id: "email", class: "input", type: "email", placeholder: "you@example.com", autocomplete: "email", value: state.settings.email ?? "", onkeydown: submitOnEnter });
+  const password = h("input", {
+    id: "password",
     class: "input",
     type: "password",
-    placeholder: "Passcode",
-    autocomplete: "current-password",
-    onkeydown: (event) => {
-      if (event.key === "Enter") void connect();
+    placeholder: signup ? "At least 8 characters" : "Password",
+    autocomplete: signup ? "new-password" : "current-password",
+    onkeydown: submitOnEnter
+  });
+  const server = h("input", { id: "server", class: "input", type: "url", placeholder: DEFAULT_SERVER, value: state.settings.server === DEFAULT_SERVER ? "" : state.settings.server, autocomplete: "url" });
+  const tab = (mode, label) => h("button", {
+    class: `tab${state.authMode === mode ? " active" : ""}`,
+    role: "tab",
+    "aria-selected": String(state.authMode === mode),
+    text: label,
+    onclick: () => {
+      state.authMode = mode;
+      state.connectError = null;
+      render();
     }
   });
   return [
@@ -233,27 +252,36 @@ function renderConnect() {
       "div",
       { class: "card" },
       h("h1", { text: "Rulecard" }),
-      h("p", { class: "muted small", text: "Capture a Question Bank tab and get the one rule the question tested. Connect to your Rulecard server with the same passcode as the web app." }),
-      h("label", { class: "field" }, "Server", server),
-      h("label", { class: "field" }, "Passcode", passcode),
+      h("p", { class: "muted small", text: "Capture a Question Bank question and learn the one rule it tested. Your history is saved to your account, on the web app too." }),
+      h("div", { class: "tabs", role: "tablist" }, tab("signin", "Sign in"), tab("signup", "Create account")),
+      h("label", { class: "field" }, "Email", email),
+      h("label", { class: "field" }, "Password", password),
       state.connectError ? h("div", { class: "banner danger", role: "alert", text: state.connectError }) : null,
-      h("button", { class: "btn primary big", disabled: state.connecting, onclick: () => void connect() }, state.connecting ? spinner() : null, "Connect")
+      h(
+        "button",
+        { class: "btn primary big", disabled: state.connecting, onclick: () => void connect() },
+        state.connecting ? spinner() : null,
+        signup ? "Create account" : "Sign in"
+      ),
+      h("details", { class: "small muted" }, h("summary", { text: "Use a different server" }), h("label", { class: "field" }, "Server address (leave empty for the default)", server)),
+      h("p", { class: "muted small" }, link(`${DEFAULT_SERVER}/privacy`, "Privacy"))
     )
   ];
 }
 async function connect() {
-  const serverInput = document.getElementById("server")?.value ?? "";
-  const passcode = document.getElementById("passcode")?.value ?? "";
+  const value = (id) => document.getElementById(id)?.value ?? "";
+  const email = value("email").trim();
+  const password = value("password");
   let server;
   try {
-    server = normalizeServer(serverInput);
+    server = normalizeServer(value("server"));
   } catch {
     state.connectError = "That server address does not look right.";
     render();
     return;
   }
-  if (!passcode.trim()) {
-    state.connectError = "Enter the passcode.";
+  if (!email || !password) {
+    state.connectError = "Enter your email and password.";
     render();
     return;
   }
@@ -261,16 +289,19 @@ async function connect() {
   state.connectError = null;
   render();
   try {
-    const origin = `${server}/*`;
-    const has = await chrome.permissions.contains({ origins: [origin] });
-    if (!has) {
-      const granted = await chrome.permissions.request({ origins: [origin] });
-      if (!granted) throw new Error(`Rulecard needs permission to talk to ${server}.`);
+    if (server !== DEFAULT_SERVER) {
+      const origin = `${server}/*`;
+      const has = await chrome.permissions.contains({ origins: [origin] });
+      if (!has) {
+        const granted = await chrome.permissions.request({ origins: [origin] });
+        if (!granted) throw new Error(`Rulecard needs permission to talk to ${server}.`);
+      }
     }
-    const token = await fetchToken(server, passcode);
-    state.settings = { server, token };
+    const { token, user } = await authenticate(server, state.authMode, email, password);
+    state.settings = { server, token, email: user.email };
     await saveSettings(state.settings);
     state.view = "main";
+    void refreshRecent();
     await refreshHealth();
   } catch (error) {
     state.connectError = describe(error);
@@ -279,11 +310,30 @@ async function connect() {
     render();
   }
 }
+async function openWeb(path) {
+  try {
+    await chrome.tabs.create({ url: await webLink(state.settings, path) });
+  } catch (error) {
+    if (await handleAuthFailure(error)) return;
+    await chrome.tabs.create({ url: state.settings.server + path });
+  }
+}
+async function refreshRecent() {
+  try {
+    const data = await request(state.settings, "/api/attempts?limit=5");
+    state.recent = data.attempts;
+  } catch (error) {
+    if (await handleAuthFailure(error)) return;
+    state.recent = null;
+  }
+  render();
+}
 async function signOut() {
   state.settings = { ...state.settings, token: null };
   await saveSettings(state.settings);
   resetQuestion();
   state.health = null;
+  state.recent = null;
   state.view = "connect";
   state.connectError = null;
   render();
@@ -292,6 +342,7 @@ function renderMain() {
   const nodes = [renderHeader(), renderCapture()];
   if (state.question) nodes.push(renderQuestion(state.question));
   else nodes.push(renderHowTo());
+  if (!state.question && state.recent?.length) nodes.push(renderRecent(state.recent));
   if (state.explained) {
     nodes.push(renderRuleCard(state.explained.card, state.explained.picked, state.explained.ruleName));
     nodes.push(renderChat());
@@ -319,7 +370,31 @@ function renderHeader() {
     "div",
     { class: "row between" },
     h("div", { class: "row" }, h("h1", { text: "Rulecard" }), h("span", { class: `dot ${dot}`.trim(), title })),
-    h("div", { class: "row small" }, link(`${state.settings.server}/history`, "History"), link(`${state.settings.server}/rules`, "Rules"), h("button", { class: "btn link small", onclick: () => void signOut(), text: "Sign out" }))
+    h(
+      "div",
+      { class: "row small" },
+      webButton("/history", "History"),
+      webButton("/rules", "Rules"),
+      h("button", { class: "btn link small", title: state.settings.email ?? "", onclick: () => void signOut(), text: "Sign out" })
+    )
+  );
+}
+function webButton(path, text) {
+  return h("button", { class: "btn link small", text, onclick: () => void openWeb(path) });
+}
+function renderRecent(items) {
+  return h(
+    "div",
+    { class: "card" },
+    h("div", { class: "row between" }, h("h2", { text: "Recent" }), webButton("/history", "All history")),
+    ...items.map(
+      (item) => h(
+        "button",
+        { class: "recent", onclick: () => void openWeb(`/history/${item.id}`) },
+        h("span", { class: "row" }, chip(item.result === "right" ? "right" : "missed", item.result === "right" ? "good" : "danger"), h("span", { class: "small muted", text: item.ruleName ?? item.skill ?? "" })),
+        h("span", { class: "recent-stem", text: item.stem })
+      )
+    )
   );
 }
 function renderCapture() {
@@ -370,7 +445,7 @@ function renderQuestion(q) {
     ...LETTERS.map((letter) => {
       const isPick = picked === letter;
       const isCorrect = showAnswer && q.correct === letter;
-      const cls = `choice ${isCorrect ? "correct" : isPick ? "pick" : ""}`.trim();
+      const cls = `choice ${isCorrect ? "correct" : isPick ? "picked" : ""}`.trim();
       return h(
         "li",
         { class: cls },
@@ -554,13 +629,19 @@ function renderChat() {
   );
 }
 function renderFooter() {
-  return h("div", { class: "footer muted" }, link(state.settings.server, "Open the web app"), h("span", { text: state.health ? `v${state.health.version}` : "" }));
+  return h(
+    "div",
+    { class: "footer muted" },
+    webButton("/", "Open the web app"),
+    h("span", { class: "small", text: [state.settings.email, state.health ? `v${state.health.version}` : ""].filter(Boolean).join(" \xB7 ") })
+  );
 }
 function describe(error) {
   if (error instanceof ApiError) {
     if (error.code === "no_provider") return "The server has no AI key yet. Add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel, then try again.";
     if (error.code === "extraction_failed") return "I could not find a question in that picture. Scroll so the whole question and the choices are visible, then capture again.";
     if (error.code === "needs_answer") return "The answer was not visible. Reveal it on the Question Bank tab and capture again, or tick 'Let the model work out the answer'.";
+    if (error.code === "daily_limit") return error.message;
     if (error.status === 429) return error.message;
     return error.message;
   }
@@ -572,7 +653,7 @@ async function handleAuthFailure(error) {
     await saveSettings(state.settings);
     resetQuestion();
     state.view = "connect";
-    state.connectError = "Your session expired. Enter the passcode again.";
+    state.connectError = "Your session expired. Sign in again.";
     render();
     return true;
   }
@@ -667,6 +748,7 @@ async function explain() {
     });
     state.question = data.question;
     state.explained = { attemptId: data.attemptId, card: data.card, ruleName: data.rule?.name ?? null, picked: state.picked };
+    void refreshRecent();
     state.chat = { messages: [], busy: false, error: null };
     state.drill = { data: null, picked: null, result: null, loading: false, error: null };
   } catch (error) {
@@ -776,6 +858,7 @@ async function boot() {
   }
   state.view = "main";
   render();
+  void refreshRecent();
   await refreshHealth();
   await consumePendingCapture();
 }

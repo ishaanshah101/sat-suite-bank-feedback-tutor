@@ -7,13 +7,13 @@ import { RuleCardView } from "@/components/rule-card";
 import { Shell } from "@/components/shell";
 import { Card } from "@/components/ui";
 import { getAttempt, listChatMessages } from "@/db/queries";
-import { requireSession } from "@/lib/auth/session";
+import { requirePageSession } from "@/lib/auth/session";
 import { RuleCardSchema, type Pick } from "@/lib/ai/schemas";
 
 export default async function AttemptPage({ params }: { params: Promise<{ attemptId: string }> }) {
   const { attemptId } = await params;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(attemptId)) notFound();
-  const session = await requireSession();
+  const session = await requirePageSession();
   const data = await getAttempt(session.userId, attemptId);
   if (!data) notFound();
   const { attempt, question } = data;

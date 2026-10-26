@@ -4,6 +4,7 @@ import type { Session } from "@/lib/auth/token";
 import { NoProviderError } from "@/lib/ai/providers";
 import { ExtractionError } from "@/lib/ai/extract";
 import { NeedsAnswerError } from "@/lib/ai/explain";
+import { QuotaError } from "@/lib/ai/quota";
 
 export class HttpError extends Error {
   constructor(
@@ -30,6 +31,7 @@ export async function withApi(handler: (session: Session) => Promise<Response>):
     if (error instanceof ZodError) return json({ error: "Invalid request", issues: error.issues }, { status: 400 });
     if (error instanceof NoProviderError) return json({ error: error.message, code: "no_provider" }, { status: 503 });
     if (error instanceof ExtractionError) return json({ error: error.message, code: "extraction_failed" }, { status: 422 });
+    if (error instanceof QuotaError) return json({ error: error.message, code: "daily_limit" }, { status: 429 });
     if (error instanceof NeedsAnswerError) return json({ error: error.message, code: "needs_answer" }, { status: 409 });
     console.error("[api]", error);
     const message = error instanceof Error ? error.message : "Something went wrong";

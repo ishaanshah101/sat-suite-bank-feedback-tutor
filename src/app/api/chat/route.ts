@@ -5,6 +5,7 @@ import { chatInstructions } from "@/lib/ai/prompts";
 import { noteStreamError, noteStreamOk, pickProvider } from "@/lib/ai/providers";
 import { RuleCardSchema, type Pick } from "@/lib/ai/schemas";
 import { addChatMessage, getAttempt } from "@/db/queries";
+import { chargeAiQuota } from "@/lib/ai/quota";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     if (!data) throw new HttpError(404, "Attempt not found");
     const { attempt, question } = data;
     const card = RuleCardSchema.safeParse(attempt.explanation);
+    await chargeAiQuota(session.userId, "chat");
     const provider = await pickProvider();
     // Only text parts reach the model; the question context lives in instructions, never in messages.
     const safeMessages: UIMessage[] = body.messages

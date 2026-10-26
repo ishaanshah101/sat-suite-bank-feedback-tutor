@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Rulecard",
-  "version": "0.1.0",
-  "description": "Rule-first review for Digital SAT Reading & Writing. Capture the Question Bank tab and get the one rule the question tested.",
+  "version": "0.2.0",
+  "description": "Learn the one rule behind every SAT Reading & Writing miss. Capture a Question Bank question, get the rule, then practice it.",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",
@@ -46,5 +46,6 @@
       },
       "description": "Capture the current tab into Rulecard"
     }
-  }
+  },
+  "homepage_url": "https://rulecard.vercel.app"
 }

@@ -26,7 +26,7 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
   }
   if (!response.ok) {
     if (response.status === 401) {
-      window.location.assign(new URL("/unlock", window.location.origin).href);
+      window.location.assign(new URL("/signin", window.location.origin).href);
     }
     throw new ApiError(response.status, data.error ?? "Request failed", data.code);
   }

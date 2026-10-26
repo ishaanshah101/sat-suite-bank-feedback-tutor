@@ -3,14 +3,14 @@ import { Shell } from "@/components/shell";
 import { Card, Chip } from "@/components/ui";
 import { getRule } from "@/content/rules";
 import { listAttempts } from "@/db/queries";
-import { requireSession } from "@/lib/auth/session";
+import { requirePageSession } from "@/lib/auth/session";
 import { isPickCorrect } from "@/lib/ai/prompts";
 import type { Pick } from "@/lib/ai/schemas";
 
 export const metadata = { title: "History · Rulecard" };
 
 export default async function HistoryPage() {
-  const session = await requireSession();
+  const session = await requirePageSession();
   const rows = await listAttempts(session.userId);
   return (
     <Shell>

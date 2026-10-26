@@ -1,13 +1,13 @@
 # Rulecard handoff
 
-Built overnight on 2026-10-25 from `docs/PLAN.md`. Live, single user, passcode protected.
+Built overnight on 2026-10-25 from `docs/PLAN.md`. Live. Since 2026-10-26 anyone can create a free account (email and password, no Google sign-in); each account has its own saved history, shared between the web app and the Chrome extension.
 
 ## Where it is
 
 | Thing | Value |
 |---|---|
 | Live app | https://rulecard.vercel.app (also `rulecard-ishaanshah101-4212s-projects.vercel.app`) |
-| Passcode | Sent to you in the final session message. It is the `APP_PASSCODE` env var in Vercel; change it there any time. |
+| Accounts | Sign in or create an account at https://rulecard.vercel.app/signin or in the extension. Your history from before accounts belongs to whoever first creates an account with the old passcode (the `APP_PASSCODE` env var in Vercel) entered under "Used Rulecard with a passcode before?". Do that first. |
 | Code | GitHub `ishaanshah101/sat-suite-bank-feedback-tutor`, branch `claude/vibrant-euler-a7y0s4` |
 | Vercel project | `rulecard` (id `prj_7wnHxsHjmOH15eIGeqRSPGmKMmAm`), team `ishaanshah101-4212s-projects`, Node 24, Hobby plan |
 | Supabase project | `rulecard` (ref `ecidfvanammfndoudwua`), region us-west-1, org "Ishaan's Org", free plan |
@@ -17,7 +17,7 @@ Built overnight on 2026-10-25 from `docs/PLAN.md`. Live, single user, passcode p
 ## How to use it (30 seconds)
 
 1. Open the SAT Suite Question Bank in one Chrome tab and work a question. Reveal the answer and explanation on that tab.
-2. Open https://rulecard.vercel.app in another tab, enter the passcode.
+2. Open https://rulecard.vercel.app in another tab and sign in.
 3. Click **Capture tab**. In Chrome's picker choose the **Chrome Tab** list, pick the Question Bank tab, check the preview, click Share. Nothing is recorded; one still picture is taken per press.
 4. Tap the letter you picked (or "I got it right, but explain"), optionally type one line of your thinking, click **Explain**.
 5. Read the rule card: the one rule tested, why the right answer fits it, why your pick breaks it, how to kill the rest, a takeaway.
@@ -26,12 +26,32 @@ Built overnight on 2026-10-25 from `docs/PLAN.md`. Live, single user, passcode p
 
 Other ways in: **Upload PDF** (the Question Bank export "With correct answers and explanations", parsed in your browser; pick one question or tick the ones you missed and review them in order), **Paste text**, **Upload image**.
 
+## Accounts (added 2026-10-26)
+
+- **Sign up / sign in:** `/signin` on the web, or the extension's side panel. Email + password (scrypt-hashed, at least 8 characters). No email verification and no password reset yet: a forgotten password means a new account.
+- **Claiming your old history:** create your account with the old passcode in the "Used Rulecard with a passcode before?" box. Only one account can claim it. Until someone does, the old history stays where it was.
+- **Limits:** each account gets `DAILY_AI_LIMIT` AI requests per rolling 24 hours (default 60; the account that claimed the old history has no limit). Sign-in is limited to 10 tries per 15 minutes per network address, new accounts to `SIGNUP_LIMIT_PER_HOUR` per address (default 20, since a whole school can share one address). Change either in Vercel env vars.
+- **Account page:** `/account` shows the email and today's AI use, signs out, and deletes the account with all its data (needs the password).
+- **Privacy policy:** `/privacy` (public, needed for the Chrome Web Store).
+- **Extension ↔ web:** History and Rules buttons in the extension open the web app already signed in, through a one-minute code (`/api/auth/handoff`).
+- **Old sessions:** passcode-era cookies and extension tokens stop working; everyone signs in once.
+
+## Publishing the extension on the Chrome Web Store (only you can do this)
+
+1. Register as a Chrome Web Store developer at https://chrome.google.com/webstore/devconsole with your Google account and pay the one-time $5 fee.
+2. Click **New item** and upload `store/rulecard-extension-0.2.0.zip` from this repo.
+3. Fill the tabs from `store/LISTING.md` (description, category, the three screenshots in `store/`, permission justifications, privacy policy URL `https://rulecard.vercel.app/privacy`).
+4. Submit for review. Reviews usually take a few days. Choose **Unlisted** first if you want to share it by link before it is searchable.
+5. To ship an update later: bump `version` in `extension/manifest.json`, run `pnpm package:extension`, upload the new zip.
+
+Before going public, read College Board's Question Bank terms (see Risks): every account stores the questions it captures.
+
 ## Your morning list
 
 1. **AI: already working, nothing required.** Verified on production on 2026-10-25: with no API key set, the app falls back to Vercel AI Gateway on the account's free tier. The free tier blocks some models, so the app skips those and lands on one it may use (Google `gemini-2.5-flash` at the time of testing). Extraction, the rule card, chat and Test me all answered correctly. Optional upgrade for better or more reliable answers: add `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY`) in Vercel → project `rulecard` → Settings → Environment Variables (Production and Preview), then Redeploy. Your own key is always tried first. If the free gateway allowance ever runs out, Explain shows the gateway's message and that key fixes it.
 2. Verified for you: the live database connection. `/api/ping` on production returns `db:true`. The project is served by the `aws-0-us-west-1` Supavisor cluster; the `aws-1` host (which the build first used) answers "Tenant or user not found". The cluster number cannot be derived from the region, so if you ever rebuild `DATABASE_URL`, copy the host from the Supabase dashboard (Connect → Transaction pooler).
 3. Optional: open a pull request from `claude/vibrant-euler-a7y0s4` to `main`. Production is currently deployed straight from the work branch.
-4. Optional: rotate secrets you want fresh. `APP_PASSCODE`, `SESSION_SECRET`, `CRON_SECRET` and the database role password were generated by the build and passed through the session once when they were set in Vercel. Changing `APP_PASSCODE` (or `SESSION_SECRET`) signs every browser and the extension out, by design: session tokens carry a digest of the passcode they were issued under. To rotate the database password run `alter role rulecard_app password '...'` in the Supabase SQL editor and update `DATABASE_URL`.
+4. Optional: rotate secrets you want fresh. `APP_PASSCODE`, `SESSION_SECRET`, `CRON_SECRET` and the database role password were generated by the build and passed through the session once when they were set in Vercel. Changing `SESSION_SECRET` signs every browser and extension out. `APP_PASSCODE` now only matters for claiming the old history. To rotate the database password run `alter role rulecard_app password '...'` in the Supabase SQL editor and update `DATABASE_URL`.
 
 ## What was verified
 
@@ -54,18 +74,18 @@ Other ways in: **Upload PDF** (the Question Bank export "With correct answers an
 The same tutor, one click away from the Question Bank tab, no screen-share picker. Source in `extension/`, bundle committed in `extension/dist/`.
 
 1. Open `chrome://extensions`, switch on **Developer mode**, click **Load unpacked**, pick the `extension` folder from a clone of the repo.
-2. Pin Rulecard, click its icon: the side panel opens. Server stays `https://rulecard.vercel.app`; enter the passcode once (it keeps a 30-day token in extension storage).
+2. Pin Rulecard, click its icon: the side panel opens. Sign in or create an account (it keeps a 30-day token in extension storage). Recent reviews show under the Capture button.
 3. On a Question Bank tab with the answer revealed, press **Capture this tab** (or `Alt+Shift+R`). Pick your letter, add a line of reasoning, **Explain**. Chat and **Test me** work exactly like the web app; History and Rules open the web app.
 4. Chrome's rule for screenshots: an extension may read a tab only after you click its toolbar icon on that tab (or press its shortcut there), and that grant lasts until the tab navigates to another site. The Question Bank is a single-page app, so one click covers a whole session. If you would rather never think about it, press **Allow capturing on all sites** once in the panel.
 
-How it works: `POST /api/token` exchanges the passcode for the same signed token the cookie carries (same 5-tries-per-15-minutes limit); every API call sends it as `Authorization: Bearer`; the proxy answers CORS preflights only for `chrome-extension://` origins. Sign out in the panel forgets the token. Rebuild after editing `extension/src/` with `pnpm build:extension`; icons come from `pnpm icons:extension`.
+How it works: `POST /api/auth/signin` or `/api/auth/signup` returns the same signed token the cookie carries; every API call sends it as `Authorization: Bearer`; the proxy answers CORS preflights only for `chrome-extension://` origins. Sign out in the panel forgets the token. Rebuild after editing `extension/src/` with `pnpm build:extension`; icons come from `pnpm icons:extension`.
 
-Verified: `pnpm check:extension` loads the unpacked extension into headless Chromium against a local build and drives it end to end (service worker starts, connect with wrong then right passcode, capture via `captureVisibleTab` → `/api/extract`, rule card with the rule name, streamed chat, Test me, the shortcut capture path, sign out): 13 of 13 checks pass. The server side (token endpoint, bearer auth, CORS) was also exercised against production. Not automated: Chrome's native prompts, so the toolbar-icon `activeTab` grant and the "allow all sites" prompt were not clicked by a script; both are standard Chrome behaviour.
+Verified: `pnpm check:extension` loads the unpacked extension into headless Chromium against a local build and drives it end to end (service worker starts, unknown account rejected, account created, capture via `captureVisibleTab` → `/api/extract`, rule card with the rule name, streamed chat, Test me, the shortcut capture path, the recent-history list, History opening the web app signed in as the same account, sign out): 15 of 15 checks pass. The server side (token endpoint, bearer auth, CORS) was also exercised against production. Not automated: Chrome's native prompts, so the toolbar-icon `activeTab` grant and the "allow all sites" prompt were not clicked by a script; both are standard Chrome behaviour.
 
 ## Architecture in one screen
 
-- Next.js 16 App Router, TypeScript, Tailwind v4, deployed on Vercel. `src/proxy.ts` checks a signed session cookie on every page and API route except `/unlock`, `/api/cron/*`, `/api/ping`.
-- Data: Drizzle ORM over Postgres. Production uses Supabase through the transaction pooler; tests and local dev can use `DATABASE_URL=pglite://memory` (in-process Postgres). Schema in `src/db/migrations/0001_init.sql`; RLS policies and ownership in `0002_supabase_rls.sql` (already applied). Every row carries `user_id` so real accounts can be added later.
+- Next.js 16 App Router, TypeScript, Tailwind v4, deployed on Vercel. `src/proxy.ts` checks a signed session (cookie, or bearer token from the extension) on every page and API route except `/signin`, `/privacy`, the sign-in/sign-up APIs, `/api/cron/*`, `/api/ping`. Accounts live in `src/lib/auth/accounts.ts`; tables `users` and `ai_usage` come from `0004_accounts.sql`.
+- Data: Drizzle ORM over Postgres. Production uses Supabase through the transaction pooler; tests and local dev can use `DATABASE_URL=pglite://memory` (in-process Postgres). Schema in `src/db/migrations/0001_init.sql`; RLS policies and ownership in `0002_supabase_rls.sql` (already applied). Every row carries `user_id`, and every query filters by it, so accounts only ever see their own rows.
 - AI: `src/lib/ai/providers.ts` builds the provider chain from `AI_PROVIDER_ORDER` (default `openai,anthropic`) and whichever keys exist, fails over on 401/402/403/429/5xx and cools the failed provider down for 10 minutes. Extraction, rule cards and drills use structured outputs; chat streams.
 - Rule library: `src/content/rules.ts` (37 rules across the ten official Reading and Writing skills plus three general rules). The model must cite one id; unknown ids fall back to the skill's first rule and the model's suggestion is kept in `suggested_rule`.
 - Inputs: capture (`src/lib/client/capture.ts`), PDF (`src/workers/pdf.worker.ts` + `src/lib/questions/pdf-parse.ts`, with a main-thread fallback and a vision fallback per page), paste, image.
@@ -82,6 +102,6 @@ pnpm test:e2e    # Playwright, builds and starts the app with a stubbed model
 
 ## Risks to keep in mind
 
-- College Board's Educator Question Bank license forbids caching or reproducing questions and any test-prep business use. This is a personal study tool for one student storing his own reviewed questions. Revisit before any multi-user or public version.
+- College Board's Educator Question Bank license forbids caching or reproducing questions and any test-prep business use. It was built as a personal study tool. With accounts open to anyone and a public Chrome Web Store listing, each account stores the questions it captures. The student Question Bank (satsuitequestionbank.collegeboard.org) has its own terms; read them, or ask College Board, before publishing publicly. Keeping it free and unlisted at first lowers the risk but does not remove it.
 - Supabase free projects pause after about a week without activity. The daily cron mitigates this; if it happens anyway, open the Supabase dashboard and click Restore, and `/health` will say so.
 - Capture ends on a hard reload of the Rulecard tab (browser rule) and silently retargets if you click "Share this tab instead"; the app checks the surface type before each grab and offers Reconnect.

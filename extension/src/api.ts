@@ -60,9 +60,19 @@ export async function request<T>(settings: Settings, path: string, init: Request
   return data as T;
 }
 
-export async function fetchToken(server: string, passcode: string): Promise<string> {
-  const data = await request<{ token: string }>({ server, token: null }, "/api/token", { body: { passcode }, auth: false });
-  return data.token;
+export async function authenticate(
+  server: string,
+  mode: "signin" | "signup",
+  email: string,
+  password: string,
+): Promise<{ token: string; user: { id: string; email: string } }> {
+  return request({ server, token: null }, mode === "signup" ? "/api/auth/signup" : "/api/auth/signin", { body: { email, password }, auth: false });
+}
+
+/** A link that opens `path` on the web app already signed in as this account (one-minute code). */
+export async function webLink(settings: Settings, path: string): Promise<string> {
+  const { code } = await request<{ code: string }>(settings, "/api/auth/handoff", { method: "POST", body: {} });
+  return `${settings.server}/api/auth/handoff?code=${encodeURIComponent(code)}&next=${encodeURIComponent(path)}`;
 }
 
 /** Stream one chat turn from the AI SDK UI message stream (SSE lines of JSON parts). Resolves with the full reply. */

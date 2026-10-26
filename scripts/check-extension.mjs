@@ -1,12 +1,13 @@
 // Loads the unpacked extension into Chromium and drives the side panel against a running Rulecard server.
-// Usage: BASE=http://localhost:3100 PASSCODE=... node scripts/check-extension.mjs
+// Usage: BASE=http://localhost:3100 node scripts/check-extension.mjs (creates a fresh account each run)
 import { chromium } from "@playwright/test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 const BASE = process.env.BASE ?? "http://localhost:3100";
-const PASSCODE = process.env.PASSCODE ?? "test-passcode-123";
+const EMAIL = process.env.EMAIL ?? `ext-${Date.now()}@example.com`;
+const PASSWORD = process.env.PASSWORD ?? "extension-check-1";
 const results = [];
 const ok = (name, cond, extra = "") => {
   results.push(!!cond);
@@ -35,26 +36,34 @@ try {
   ok("service worker started", worker.url().endsWith("/dist/background.js"), worker.url());
 
   const page = await context.newPage();
-  await page.goto(`${BASE}/unlock`);
+  await page.goto(`${BASE}/privacy`);
   const panel = await context.newPage();
   panel.on("pageerror", (e) => console.log("panel pageerror:", e.message));
   panel.on("console", (m) => console.log(`panel console.${m.type()}:`, m.text().slice(0, 200)));
   await panel.goto(`chrome-extension://${extensionId}/sidepanel.html`);
-  await panel.locator("#passcode").waitFor({ timeout: 10000 });
-  ok("connect view renders", true);
+  await panel.locator("#password").waitFor({ timeout: 10000 });
+  ok("sign-in view renders", true);
 
-  await panel.locator("#server").fill(BASE);
-  await panel.locator("#passcode").fill("wrong");
-  await panel.getByRole("button", { name: "Connect" }).click();
+  const setServer = async () => {
+    if (BASE === "https://rulecard.vercel.app") return;
+    if (!(await panel.locator("#server").isVisible())) await panel.getByText("Use a different server").click();
+    await panel.locator("#server").fill(BASE);
+  };
+  await setServer();
+  await panel.locator("#email").fill(EMAIL);
+  await panel.locator("#password").fill(PASSWORD);
+  await panel.getByRole("button", { name: "Sign in", exact: true }).click();
   await panel.locator('[role="alert"]').waitFor({ timeout: 15000 });
-  ok("wrong passcode is rejected", (await panel.locator('[role="alert"]').innerText()).includes("not right"));
+  ok("unknown account is rejected", (await panel.locator('[role="alert"]').innerText()).includes("do not match"));
 
-  await panel.locator("#server").fill(BASE);
-  await panel.locator("#passcode").fill(PASSCODE);
-  await panel.getByRole("button", { name: "Connect" }).click();
+  await panel.getByRole("tab", { name: "Create account" }).click();
+  await setServer();
+  await panel.locator("#email").fill(EMAIL);
+  await panel.locator("#password").fill(PASSWORD);
+  await panel.getByRole("button", { name: "Create account", exact: true }).click();
   await panel.getByRole("button", { name: "Capture this tab" }).waitFor({ timeout: 15000 });
   const stored = await worker.evaluate(() => chrome.storage.local.get("settings"));
-  ok("token stored after connect", typeof stored.settings?.token === "string" && stored.settings.token.split(".").length === 3);
+  ok("account created and token stored", typeof stored.settings?.token === "string" && stored.settings.token.split(".").length === 3 && stored.settings.email === EMAIL);
   await panel.locator(".dot.good").waitFor({ timeout: 15000 });
   ok("health dot is green (db + stub AI)", true);
 
@@ -80,7 +89,7 @@ try {
   const ruleText = await panel.locator(".rule-id").innerText();
   ok("rule card shows the rule id and name", /BND-01/.test(ruleText) && ruleText.includes("·"), ruleText);
   ok("why right / why pick fails / takeaway sections", (await panel.getByText(/Why B is right/).count()) === 1 && (await panel.getByText(/Why A fails/).count()) === 1 && (await panel.getByText("Takeaway").count()) === 1);
-  ok("correct choice highlighted", (await panel.locator(".choice.correct").count()) === 1 && (await panel.locator(".choice.pick").count()) === 1);
+  ok("correct choice highlighted", (await panel.locator(".choice.correct").count()) === 1 && (await panel.locator(".choice.picked").count()) === 1);
 
   await panel.locator("#chat-input").fill("Why not a comma?");
   await panel.getByRole("button", { name: "Send" }).click();
@@ -102,8 +111,27 @@ try {
   await panel.getByText("Which did you pick?").waitFor({ timeout: 60000 });
   ok("pending capture from the shortcut path is consumed", true);
 
+  // Recent list and the signed-in link into the web app.
+  await panel.locator(".recent").first().waitFor({ timeout: 15000 }).catch(() => undefined);
+  const recentCount = await panel.locator(".recent").count();
+  if (recentCount === 0) {
+    // The pending capture left a question open; the list shows once it is cleared, so check the API directly.
+    const { token, server } = (await worker.evaluate(() => chrome.storage.local.get("settings"))).settings;
+    const res = await worker.evaluate(async ({ token, server }) => (await fetch(server + "/api/attempts?limit=5", { headers: { authorization: `Bearer ${token}` } })).json(), { token, server });
+    ok("recent history API returns this account's review", res.attempts?.length === 1 && res.attempts[0].ruleId === "BND-01", JSON.stringify(res).slice(0, 120));
+  } else {
+    ok("recent list shows the review", recentCount >= 1);
+  }
+  const opened = context.waitForEvent("page", { timeout: 15000 });
+  await panel.getByRole("button", { name: "History", exact: true }).click();
+  const web = await opened;
+  await web.waitForLoadState("domcontentloaded");
+  await web.waitForURL(/\/history$/, { timeout: 15000 }).catch(() => undefined);
+  const missedRow = await web.getByRole("cell", { name: "missed" }).first().waitFor({ timeout: 30000 }).then(() => true, () => false);
+  ok("History opens the web app signed in as the same account", /\/history$/.test(web.url()) && missedRow, `${web.url()} ${(await web.locator("main").innerText().catch(() => "")).slice(0, 150)}`);
+
   await panel.getByRole("button", { name: "Sign out" }).click();
-  await panel.locator("#passcode").waitFor({ timeout: 10000 });
+  await panel.locator("#password").waitFor({ timeout: 10000 });
   const cleared = await worker.evaluate(() => chrome.storage.local.get("settings"));
   ok("sign out forgets the token", cleared.settings?.token === null);
 } catch (error) {

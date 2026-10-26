@@ -14,17 +14,25 @@ describe("session tokens", () => {
     expect(await verifySessionToken("not-a-jwt")).toBeNull();
   });
 
-  it("stops accepting tokens once the passcode changes", async () => {
-    const { createSessionToken, verifySessionToken } = await import("@/lib/auth/token");
-    const token = await createSessionToken("user-1");
-    expect(await verifySessionToken(token)).toEqual({ userId: "user-1" });
-    process.env.APP_PASSCODE = "unit-passcode-2";
-    try {
-      expect(await verifySessionToken(token)).toBeNull();
-    } finally {
-      process.env.APP_PASSCODE = "unit-passcode-1";
-    }
-    expect(await verifySessionToken(token)).toEqual({ userId: "user-1" });
+  it("rejects tokens from the old passcode gate (no account kind)", async () => {
+    const { SignJWT } = await import("jose");
+    const { verifySessionToken } = await import("@/lib/auth/token");
+    const key = new TextEncoder().encode(process.env.SESSION_SECRET);
+    const legacy = await new SignJWT({ pv: "abc" }).setProtectedHeader({ alg: "HS256" }).setSubject("user-1").setExpirationTime("1h").sign(key);
+    expect(await verifySessionToken(legacy)).toBeNull();
+  });
+});
+
+describe("password hashing", () => {
+  it("verifies the right password only and salts every hash", async () => {
+    const { hashPassword, verifyPassword } = await import("@/lib/auth/password");
+    const one = await hashPassword("correct horse");
+    const two = await hashPassword("correct horse");
+    expect(one).toMatch(/^scrypt\$16384\$8\$1\$/);
+    expect(one).not.toBe(two);
+    expect(await verifyPassword("correct horse", one)).toBe(true);
+    expect(await verifyPassword("correct horsE", one)).toBe(false);
+    expect(await verifyPassword("x", "garbage")).toBe(false);
   });
 });
 

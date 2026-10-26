@@ -2,12 +2,12 @@ import { Shell } from "@/components/shell";
 import { Card, Chip } from "@/components/ui";
 import { RULES, type Rule } from "@/content/rules";
 import { getRuleStats, type RuleStat } from "@/db/queries";
-import { requireSession } from "@/lib/auth/session";
+import { requirePageSession } from "@/lib/auth/session";
 
 export const metadata = { title: "Rules · Rulecard" };
 
 export default async function RulesPage() {
-  const session = await requireSession();
+  const session = await requirePageSession();
   let stats: RuleStat[] = [];
   try {
     stats = await getRuleStats(session.userId);

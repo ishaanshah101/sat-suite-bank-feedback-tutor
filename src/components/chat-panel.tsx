@@ -13,7 +13,7 @@ export function ChatPanel({ attemptId, initialMessages = [] }: { attemptId: stri
         body: { attemptId },
         fetch: async (input, init) => {
           const response = await fetch(input, init);
-          if (response.status === 401) window.location.assign(new URL("/unlock", window.location.origin).href);
+          if (response.status === 401) window.location.assign(new URL("/signin", window.location.origin).href);
           return response;
         },
       }),

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { json, readJson, withApi } from "@/lib/api";
 import { extractQuestion } from "@/lib/ai/extract";
 import { upsertQuestion } from "@/db/queries";
+import { chargeAiQuota } from "@/lib/ai/quota";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -14,6 +15,7 @@ const Body = z.union([
 export async function POST(request: Request) {
   return withApi(async (session) => {
     const body = Body.parse(await readJson(request));
+    await chargeAiQuota(session.userId, "extract");
     const extracted = "image" in body ? await extractQuestion({ image: body.image }) : await extractQuestion({ text: body.text });
     const question = await upsertQuestion(session.userId, extracted.result, body.source);
     return json({ question, provider: extracted.provider, model: extracted.model });

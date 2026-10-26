@@ -4,6 +4,7 @@ import { generateRuleCard, NeedsAnswerError } from "@/lib/ai/explain";
 import { PickSchema } from "@/lib/ai/schemas";
 import { createAttempt, deleteAttempt, finishAttempt, getQuestion, setModelAnswer } from "@/db/queries";
 import { getRule } from "@/content/rules";
+import { chargeAiQuota } from "@/lib/ai/quota";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
     if (!question) throw new HttpError(404, "Question not found");
     const reasoning = body.reasoning?.trim() || null;
     if (!question.correct && !body.allowModelSolve) throw new NeedsAnswerError();
+    await chargeAiQuota(session.userId, "explain");
     const attempt = await createAttempt(session.userId, { questionId: question.id, picked: body.picked, reasoning });
     try {
       const { result: card, provider, model } = await generateRuleCard({

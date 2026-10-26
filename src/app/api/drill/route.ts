@@ -3,6 +3,7 @@ import { HttpError, json, readJson, withApi } from "@/lib/api";
 import { generateDrill } from "@/lib/ai/drill";
 import { getRule } from "@/content/rules";
 import { createDrill, getAttempt } from "@/db/queries";
+import { chargeAiQuota } from "@/lib/ai/quota";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
     if (!data) throw new HttpError(404, "Attempt not found");
     const rule = getRule(data.attempt.ruleId);
     if (!rule) throw new HttpError(409, "This attempt has no rule yet. Explain it first.");
+    await chargeAiQuota(session.userId, "drill");
     const { result: drill, provider, model } = await generateDrill(rule, data.question);
     const row = await createDrill(session.userId, { attemptId: data.attempt.id, ruleId: rule.id, question: drill });
     return json({

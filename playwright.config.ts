@@ -23,6 +23,8 @@ export default defineConfig({
       SESSION_SECRET: "e2e-session-secret-that-is-long-enough-0123456789",
       CRON_SECRET: "e2e-cron-secret",
       RULECARD_STUB_AI: "1",
+      SIGNUP_LIMIT_PER_HOUR: "1000",
+      DAILY_AI_LIMIT: "1000",
     },
   },
 });
