@@ -35,6 +35,8 @@ Other ways in: **Upload PDF** (the Question Bank export "With correct answers an
 - **Privacy policy:** `/privacy` (public, needed for the Chrome Web Store).
 - **Extension ↔ web:** History and Rules buttons in the extension open the web app already signed in, through a one-minute code (`/api/auth/handoff`).
 - **Old sessions:** passcode-era cookies and extension tokens stop working; everyone signs in once.
+- **Verified on production (2026-10-26, commit 5f7b849):** 22 of 22 checks from a Vercel sandbox against https://rulecard.vercel.app: sign-in page, privacy page and the redirect are public; unknown account rejected; sign up; duplicate email refused; case-insensitive sign in; `/api/me`; paste → extract → explain with the real model (gateway, Gemini 2.5 Flash Lite, 4–6 s each); the recent list; a second account sees none of the first account's reviews and cannot drill its attempt (404); handoff link signs the browser in and lands on History, and refuses an off-site `next`; delete account needs the password, removes everything, and the old token stops working. The test accounts were deleted afterwards. Locally: 41 unit tests, 7 end-to-end tests and 15 of 15 extension checks in Chromium pass.
+- **Database:** `0004_accounts.sql` is applied to Supabase. The Supabase advisor lists `users`, `ai_usage`, `unlock_attempts` and `provider_status` as "RLS enabled, no policy" (info level). That is intended: only the server's own database role reads them; the browser never talks to Supabase directly.
 
 ## Publishing the extension on the Chrome Web Store (only you can do this)
 
