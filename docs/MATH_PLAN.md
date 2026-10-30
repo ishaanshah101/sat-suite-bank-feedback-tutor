@@ -22,7 +22,7 @@ Every step of the plan is done. Math has the same features as Reading and Writin
 5. **Rendering.** KaTeX renders math to MathML on the web and in the extension. `trust:false` means no links or scripts.
 6. **UI.** Grid-in answer box, figure box, Steps and Shortcut sections, grid-in drills, Reading and Writing / Math tabs on Rules, a section filter on History, and updated copy.
 7. **PDF.** The parser detects Math blocks and grid-in answers. Math questions are read with vision.
-8. **Extension 0.3.0.** Same Math features. `store/rulecard-extension-0.3.0.zip`, four screenshots including `screenshot-4-math.png`, and an updated `store/LISTING.md`.
+8. **Extension 0.3.0.** Same Math features. `store/rulecard-extension-0.4.0.zip`, four screenshots including `screenshot-4-math.png`, and an updated `store/LISTING.md`.
 
 ## Verification
 

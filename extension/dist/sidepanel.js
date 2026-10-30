@@ -243,8 +243,8 @@ var ParseError = class _ParseError {
   }
 };
 ParseError.prototype.__proto__ = Error.prototype;
-var contains = function contains2(list, elem) {
-  return list.indexOf(elem) !== -1;
+var contains = function contains2(list2, elem) {
+  return list2.indexOf(elem) !== -1;
 };
 var deflt = function deflt2(setting, defaultIfUndefined) {
   return setting === void 0 ? defaultIfUndefined : setting;
@@ -264,27 +264,27 @@ var ESCAPE_REGEX = /[&><"']/g;
 function escape(text2) {
   return String(text2).replace(ESCAPE_REGEX, (match) => ESCAPE_LOOKUP[match]);
 }
-var getBaseElem = function getBaseElem2(group) {
-  if (group.type === "ordgroup") {
-    if (group.body.length === 1) {
-      return getBaseElem2(group.body[0]);
+var getBaseElem = function getBaseElem2(group2) {
+  if (group2.type === "ordgroup") {
+    if (group2.body.length === 1) {
+      return getBaseElem2(group2.body[0]);
     } else {
-      return group;
+      return group2;
     }
-  } else if (group.type === "color") {
-    if (group.body.length === 1) {
-      return getBaseElem2(group.body[0]);
+  } else if (group2.type === "color") {
+    if (group2.body.length === 1) {
+      return getBaseElem2(group2.body[0]);
     } else {
-      return group;
+      return group2;
     }
-  } else if (group.type === "font") {
-    return getBaseElem2(group.body);
+  } else if (group2.type === "font") {
+    return getBaseElem2(group2.body);
   } else {
-    return group;
+    return group2;
   }
 };
-var isCharacterBox = function isCharacterBox2(group) {
-  var baseElem = getBaseElem(group);
+var isCharacterBox = function isCharacterBox2(group2) {
+  var baseElem = getBaseElem(group2);
   return baseElem.type === "mathord" || baseElem.type === "textord" || baseElem.type === "atom";
 };
 var assert = function assert2(value) {
@@ -3734,24 +3734,24 @@ var SymbolNode = class {
    */
   toNode() {
     var node = document.createTextNode(this.text);
-    var span = null;
+    var span2 = null;
     if (this.italic > 0) {
-      span = document.createElement("span");
-      span.style.marginRight = makeEm(this.italic);
+      span2 = document.createElement("span");
+      span2.style.marginRight = makeEm(this.italic);
     }
     if (this.classes.length > 0) {
-      span = span || document.createElement("span");
-      span.className = createClass(this.classes);
+      span2 = span2 || document.createElement("span");
+      span2.className = createClass(this.classes);
     }
     for (var style in this.style) {
       if (this.style.hasOwnProperty(style)) {
-        span = span || document.createElement("span");
-        span.style[style] = this.style[style];
+        span2 = span2 || document.createElement("span");
+        span2.style[style] = this.style[style];
       }
     }
-    if (span) {
-      span.appendChild(node);
-      return span;
+    if (span2) {
+      span2.appendChild(node);
+      return span2;
     } else {
       return node;
     }
@@ -3878,18 +3878,18 @@ var LineNode = class {
     return markup;
   }
 };
-function assertSymbolDomNode(group) {
-  if (group instanceof SymbolNode) {
-    return group;
+function assertSymbolDomNode(group2) {
+  if (group2 instanceof SymbolNode) {
+    return group2;
   } else {
-    throw new Error("Expected symbolNode but got " + String(group) + ".");
+    throw new Error("Expected symbolNode but got " + String(group2) + ".");
   }
 }
-function assertSpan(group) {
-  if (group instanceof Span) {
-    return group;
+function assertSpan(group2) {
+  if (group2 instanceof Span) {
+    return group2;
   } else {
-    throw new Error("Expected span<HtmlDomNode> but got " + String(group) + ".");
+    throw new Error("Expected span<HtmlDomNode> but got " + String(group2) + ".");
   }
 }
 var ATOMS = {
@@ -3911,10 +3911,10 @@ var symbols = {
   "math": {},
   "text": {}
 };
-function defineSymbol(mode, font, group, replace, name, acceptUnicodeChar) {
+function defineSymbol(mode, font, group2, replace, name, acceptUnicodeChar) {
   symbols[mode][name] = {
     font,
-    group,
+    group: group2,
     replace
   };
   if (acceptUnicodeChar && replace) {
@@ -4790,9 +4790,9 @@ var boldsymbol = function boldsymbol2(value, mode, options, classes, type) {
     };
   }
 };
-var makeOrd = function makeOrd2(group, options, type) {
-  var mode = group.mode;
-  var text2 = group.text;
+var makeOrd = function makeOrd2(group2, options, type) {
+  var mode = group2.mode;
+  var text2 = group2.text;
   var classes = ["mord"];
   var isFont = mode === "math" || mode === "text" && options.font;
   var fontOrFamily = isFont ? options.font : options.fontFamily;
@@ -4903,9 +4903,9 @@ var sizeElementFromChildren = function sizeElementFromChildren2(elem) {
   elem.maxFontSize = maxFontSize;
 };
 var makeSpan$2 = function makeSpan(classes, children, options, style) {
-  var span = new Span(classes, children, options, style);
-  sizeElementFromChildren(span);
-  return span;
+  var span2 = new Span(classes, children, options, style);
+  sizeElementFromChildren(span2);
+  return span2;
 };
 var makeSvgSpan = (classes, children, options, style) => new Span(classes, children, options, style);
 var makeLineSpan = function makeLineSpan2(className, options, thickness) {
@@ -4925,11 +4925,11 @@ var makeFragment = function makeFragment2(children) {
   sizeElementFromChildren(fragment);
   return fragment;
 };
-var wrapFragment = function wrapFragment2(group, options) {
-  if (group instanceof DocumentFragment) {
-    return makeSpan$2([], [group], options);
+var wrapFragment = function wrapFragment2(group2, options) {
+  if (group2 instanceof DocumentFragment) {
+    return makeSpan$2([], [group2], options);
   }
-  return group;
+  return group2;
 };
 var getVListChildrenAndDepth = function getVListChildrenAndDepth2(params) {
   if (params.positionType === "individualShift") {
@@ -5154,11 +5154,11 @@ var staticSvg = function staticSvg2(value, options) {
     "viewBox": "0 0 " + 1e3 * width + " " + 1e3 * height,
     "preserveAspectRatio": "xMinYMin"
   });
-  var span = makeSvgSpan(["overlay"], [svgNode], options);
-  span.height = height;
-  span.style.height = makeEm(height);
-  span.style.width = makeEm(width);
-  return span;
+  var span2 = makeSvgSpan(["overlay"], [svgNode], options);
+  span2.height = height;
+  span2.style.height = makeEm(height);
+  span2.style.width = makeEm(width);
+  return span2;
 };
 var buildCommon = {
   fontMap,
@@ -5463,12 +5463,12 @@ var makeNullDelimiter = function makeNullDelimiter2(options, classes) {
   var moreClasses = ["nulldelimiter"].concat(options.baseSizingClasses());
   return makeSpan$1(classes.concat(moreClasses));
 };
-var buildGroup$1 = function buildGroup(group, options, baseOptions) {
-  if (!group) {
+var buildGroup$1 = function buildGroup(group2, options, baseOptions) {
+  if (!group2) {
     return makeSpan$1();
   }
-  if (_htmlGroupBuilders[group.type]) {
-    var groupNode = _htmlGroupBuilders[group.type](group, options);
+  if (_htmlGroupBuilders[group2.type]) {
+    var groupNode = _htmlGroupBuilders[group2.type](group2, options);
     if (baseOptions && options.size !== baseOptions.size) {
       groupNode = makeSpan$1(options.sizingClasses(baseOptions), [groupNode], options);
       var multiplier = options.sizeMultiplier / baseOptions.sizeMultiplier;
@@ -5477,7 +5477,7 @@ var buildGroup$1 = function buildGroup(group, options, baseOptions) {
     }
     return groupNode;
   } else {
-    throw new ParseError("Got group of unknown type: '" + group.type + "'");
+    throw new ParseError("Got group of unknown type: '" + group2.type + "'");
   }
 };
 function buildHTMLUnbreakable(children, options) {
@@ -5737,7 +5737,7 @@ var makeRow = function makeRow2(body) {
     return new mathMLTree.MathNode("mrow", body);
   }
 };
-var getVariant = function getVariant2(group, options) {
+var getVariant = function getVariant2(group2, options) {
   if (options.fontFamily === "texttt") {
     return "monospace";
   } else if (options.fontFamily === "textsf") {
@@ -5761,11 +5761,11 @@ var getVariant = function getVariant2(group, options) {
   if (!font || font === "mathnormal") {
     return null;
   }
-  var mode = group.mode;
+  var mode = group2.mode;
   if (font === "mathit") {
     return "italic";
   } else if (font === "boldsymbol") {
-    return group.type === "textord" ? "bold" : "bold-italic";
+    return group2.type === "textord" ? "bold" : "bold-italic";
   } else if (font === "mathbf") {
     return "bold";
   } else if (font === "mathbb") {
@@ -5781,7 +5781,7 @@ var getVariant = function getVariant2(group, options) {
   } else if (font === "mathtt") {
     return "monospace";
   }
-  var text2 = group.text;
+  var text2 = group2.text;
   if (utils.contains(["\\imath", "\\jmath"], text2)) {
     return null;
   }
@@ -5794,15 +5794,15 @@ var getVariant = function getVariant2(group, options) {
   }
   return null;
 };
-function isNumberPunctuation(group) {
-  if (!group) {
+function isNumberPunctuation(group2) {
+  if (!group2) {
     return false;
   }
-  if (group.type === "mi" && group.children.length === 1) {
-    var child = group.children[0];
+  if (group2.type === "mi" && group2.children.length === 1) {
+    var child = group2.children[0];
     return child instanceof TextNode && child.text === ".";
-  } else if (group.type === "mo" && group.children.length === 1 && group.getAttribute("separator") === "true" && group.getAttribute("lspace") === "0em" && group.getAttribute("rspace") === "0em") {
-    var _child = group.children[0];
+  } else if (group2.type === "mo" && group2.children.length === 1 && group2.getAttribute("separator") === "true" && group2.getAttribute("lspace") === "0em" && group2.getAttribute("rspace") === "0em") {
+    var _child = group2.children[0];
     return _child instanceof TextNode && _child.text === ",";
   } else {
     return false;
@@ -5810,12 +5810,12 @@ function isNumberPunctuation(group) {
 }
 var buildExpression2 = function buildExpression3(expression, options, isOrdgroup) {
   if (expression.length === 1) {
-    var group = buildGroup2(expression[0], options);
-    if (isOrdgroup && group instanceof MathNode && group.type === "mo") {
-      group.setAttribute("lspace", "0em");
-      group.setAttribute("rspace", "0em");
+    var group2 = buildGroup2(expression[0], options);
+    if (isOrdgroup && group2 instanceof MathNode && group2.type === "mo") {
+      group2.setAttribute("lspace", "0em");
+      group2.setAttribute("rspace", "0em");
     }
-    return [group];
+    return [group2];
   }
   var groups = [];
   var lastGroup;
@@ -5859,15 +5859,15 @@ var buildExpression2 = function buildExpression3(expression, options, isOrdgroup
 var buildExpressionRow = function buildExpressionRow2(expression, options, isOrdgroup) {
   return makeRow(buildExpression2(expression, options, isOrdgroup));
 };
-var buildGroup2 = function buildGroup3(group, options) {
-  if (!group) {
+var buildGroup2 = function buildGroup3(group2, options) {
+  if (!group2) {
     return new mathMLTree.MathNode("mrow");
   }
-  if (_mathmlGroupBuilders[group.type]) {
-    var result = _mathmlGroupBuilders[group.type](group, options);
+  if (_mathmlGroupBuilders[group2.type]) {
+    var result = _mathmlGroupBuilders[group2.type](group2, options);
     return result;
   } else {
-    throw new ParseError("Got group of unknown type: '" + group.type + "'");
+    throw new ParseError("Got group of unknown type: '" + group2.type + "'");
   }
 };
 function buildMathML(tree, texExpression, options, isDisplayMode, forMathmlOnly) {
@@ -6036,12 +6036,12 @@ var groupLength = function groupLength2(arg) {
     return 1;
   }
 };
-var svgSpan = function svgSpan2(group, options) {
+var svgSpan = function svgSpan2(group2, options) {
   function buildSvgSpan_() {
     var viewBoxWidth = 4e5;
-    var label = group.label.slice(1);
+    var label = group2.label.slice(1);
     if (utils.contains(["widehat", "widecheck", "widetilde", "utilde"], label)) {
-      var grp = group;
+      var grp = group2;
       var numChars = groupLength(grp.base);
       var viewBoxHeight;
       var pathName;
@@ -6133,16 +6133,16 @@ var svgSpan = function svgSpan2(group, options) {
     }
   }
   var {
-    span,
+    span: span2,
     minWidth,
     height
   } = buildSvgSpan_();
-  span.height = height;
-  span.style.height = makeEm(height);
+  span2.height = height;
+  span2.style.height = makeEm(height);
   if (minWidth > 0) {
-    span.style.minWidth = makeEm(minWidth);
+    span2.style.minWidth = makeEm(minWidth);
   }
-  return span;
+  return span2;
 };
 var encloseSpan = function encloseSpan2(inner2, label, topPad, bottomPad, options) {
   var img;
@@ -6211,39 +6211,39 @@ function checkSymbolNodeType(node) {
 }
 var htmlBuilder$a = (grp, options) => {
   var base;
-  var group;
+  var group2;
   var supSubGroup;
   if (grp && grp.type === "supsub") {
-    group = assertNodeType(grp.base, "accent");
-    base = group.base;
+    group2 = assertNodeType(grp.base, "accent");
+    base = group2.base;
     grp.base = base;
     supSubGroup = assertSpan(buildGroup$1(grp, options));
-    grp.base = group;
+    grp.base = group2;
   } else {
-    group = assertNodeType(grp, "accent");
-    base = group.base;
+    group2 = assertNodeType(grp, "accent");
+    base = group2.base;
   }
   var body = buildGroup$1(base, options.havingCrampedStyle());
-  var mustShift = group.isShifty && utils.isCharacterBox(base);
+  var mustShift = group2.isShifty && utils.isCharacterBox(base);
   var skew = 0;
   if (mustShift) {
     var baseChar = utils.getBaseElem(base);
     var baseGroup = buildGroup$1(baseChar, options.havingCrampedStyle());
     skew = assertSymbolDomNode(baseGroup).skew;
   }
-  var accentBelow = group.label === "\\c";
+  var accentBelow = group2.label === "\\c";
   var clearance = accentBelow ? body.height + body.depth : Math.min(body.height, options.fontMetrics().xHeight);
   var accentBody;
-  if (!group.isStretchy) {
+  if (!group2.isStretchy) {
     var accent2;
     var width;
-    if (group.label === "\\vec") {
+    if (group2.label === "\\vec") {
       accent2 = buildCommon.staticSvg("vec", options);
       width = buildCommon.svgData.vec[1];
     } else {
       accent2 = buildCommon.makeOrd({
-        mode: group.mode,
-        text: group.label
+        mode: group2.mode,
+        text: group2.label
       }, options, "textord");
       accent2 = assertSymbolDomNode(accent2);
       accent2.italic = 0;
@@ -6253,7 +6253,7 @@ var htmlBuilder$a = (grp, options) => {
       }
     }
     accentBody = buildCommon.makeSpan(["accent-body"], [accent2]);
-    var accentFull = group.label === "\\textcircled";
+    var accentFull = group2.label === "\\textcircled";
     if (accentFull) {
       accentBody.classes.push("accent-full");
       clearance = body.height;
@@ -6263,7 +6263,7 @@ var htmlBuilder$a = (grp, options) => {
       left -= width / 2;
     }
     accentBody.style.left = makeEm(left);
-    if (group.label === "\\textcircled") {
+    if (group2.label === "\\textcircled") {
       accentBody.style.top = ".2em";
     }
     accentBody = buildCommon.makeVList({
@@ -6280,7 +6280,7 @@ var htmlBuilder$a = (grp, options) => {
       }]
     }, options);
   } else {
-    accentBody = stretchy.svgSpan(group, options);
+    accentBody = stretchy.svgSpan(group2, options);
     accentBody = buildCommon.makeVList({
       positionType: "firstBaseline",
       children: [{
@@ -6307,9 +6307,9 @@ var htmlBuilder$a = (grp, options) => {
     return accentWrap;
   }
 };
-var mathmlBuilder$9 = (group, options) => {
-  var accentNode = group.isStretchy ? stretchy.mathMLnode(group.label) : new mathMLTree.MathNode("mo", [makeText(group.label, group.mode)]);
-  var node = new mathMLTree.MathNode("mover", [buildGroup2(group.base, options), accentNode]);
+var mathmlBuilder$9 = (group2, options) => {
+  var accentNode = group2.isStretchy ? stretchy.mathMLnode(group2.label) : new mathMLTree.MathNode("mo", [makeText(group2.label, group2.mode)]);
+  var node = new mathMLTree.MathNode("mover", [buildGroup2(group2.base, options), accentNode]);
   node.setAttribute("accent", "true");
   return node;
 };
@@ -6384,10 +6384,10 @@ defineFunction({
       base
     };
   },
-  htmlBuilder: (group, options) => {
-    var innerGroup = buildGroup$1(group.base, options);
-    var accentBody = stretchy.svgSpan(group, options);
-    var kern = group.label === "\\utilde" ? 0.12 : 0;
+  htmlBuilder: (group2, options) => {
+    var innerGroup = buildGroup$1(group2.base, options);
+    var accentBody = stretchy.svgSpan(group2, options);
+    var kern = group2.label === "\\utilde" ? 0.12 : 0;
     var vlist = buildCommon.makeVList({
       positionType: "top",
       positionData: innerGroup.height,
@@ -6405,15 +6405,15 @@ defineFunction({
     }, options);
     return buildCommon.makeSpan(["mord", "accentunder"], [vlist], options);
   },
-  mathmlBuilder: (group, options) => {
-    var accentNode = stretchy.mathMLnode(group.label);
-    var node = new mathMLTree.MathNode("munder", [buildGroup2(group.base, options), accentNode]);
+  mathmlBuilder: (group2, options) => {
+    var accentNode = stretchy.mathMLnode(group2.label);
+    var node = new mathMLTree.MathNode("munder", [buildGroup2(group2.base, options), accentNode]);
     node.setAttribute("accentunder", "true");
     return node;
   }
 });
-var paddedNode = (group) => {
-  var node = new mathMLTree.MathNode("mpadded", group ? [group] : []);
+var paddedNode = (group2) => {
+  var node = new mathMLTree.MathNode("mpadded", group2 ? [group2] : []);
   node.setAttribute("width", "+0.6em");
   node.setAttribute("lspace", "0.3em");
   return node;
@@ -6469,22 +6469,22 @@ defineFunction({
   },
   // Flow is unable to correctly infer the type of `group`, even though it's
   // unambiguously determined from the passed-in `type` above.
-  htmlBuilder(group, options) {
+  htmlBuilder(group2, options) {
     var style = options.style;
     var newOptions = options.havingStyle(style.sup());
-    var upperGroup = buildCommon.wrapFragment(buildGroup$1(group.body, newOptions, options), options);
-    var arrowPrefix = group.label.slice(0, 2) === "\\x" ? "x" : "cd";
+    var upperGroup = buildCommon.wrapFragment(buildGroup$1(group2.body, newOptions, options), options);
+    var arrowPrefix = group2.label.slice(0, 2) === "\\x" ? "x" : "cd";
     upperGroup.classes.push(arrowPrefix + "-arrow-pad");
     var lowerGroup;
-    if (group.below) {
+    if (group2.below) {
       newOptions = options.havingStyle(style.sub());
-      lowerGroup = buildCommon.wrapFragment(buildGroup$1(group.below, newOptions, options), options);
+      lowerGroup = buildCommon.wrapFragment(buildGroup$1(group2.below, newOptions, options), options);
       lowerGroup.classes.push(arrowPrefix + "-arrow-pad");
     }
-    var arrowBody = stretchy.svgSpan(group, options);
+    var arrowBody = stretchy.svgSpan(group2, options);
     var arrowShift = -options.fontMetrics().axisHeight + 0.5 * arrowBody.height;
     var upperShift = -options.fontMetrics().axisHeight - 0.5 * arrowBody.height - 0.111;
-    if (upperGroup.depth > 0.25 || group.label === "\\xleftequilibrium") {
+    if (upperGroup.depth > 0.25 || group2.label === "\\xleftequilibrium") {
       upperShift -= upperGroup.depth;
     }
     var vlist;
@@ -6523,20 +6523,20 @@ defineFunction({
     vlist.children[0].children[0].children[1].classes.push("svg-align");
     return buildCommon.makeSpan(["mrel", "x-arrow"], [vlist], options);
   },
-  mathmlBuilder(group, options) {
-    var arrowNode = stretchy.mathMLnode(group.label);
-    arrowNode.setAttribute("minsize", group.label.charAt(0) === "x" ? "1.75em" : "3.0em");
+  mathmlBuilder(group2, options) {
+    var arrowNode = stretchy.mathMLnode(group2.label);
+    arrowNode.setAttribute("minsize", group2.label.charAt(0) === "x" ? "1.75em" : "3.0em");
     var node;
-    if (group.body) {
-      var upperNode = paddedNode(buildGroup2(group.body, options));
-      if (group.below) {
-        var lowerNode = paddedNode(buildGroup2(group.below, options));
+    if (group2.body) {
+      var upperNode = paddedNode(buildGroup2(group2.body, options));
+      if (group2.below) {
+        var lowerNode = paddedNode(buildGroup2(group2.below, options));
         node = new mathMLTree.MathNode("munderover", [arrowNode, lowerNode, upperNode]);
       } else {
         node = new mathMLTree.MathNode("mover", [arrowNode, upperNode]);
       }
-    } else if (group.below) {
-      var _lowerNode = paddedNode(buildGroup2(group.below, options));
+    } else if (group2.below) {
+      var _lowerNode = paddedNode(buildGroup2(group2.below, options));
       node = new mathMLTree.MathNode("munder", [arrowNode, _lowerNode]);
     } else {
       node = paddedNode();
@@ -6546,39 +6546,39 @@ defineFunction({
   }
 });
 var makeSpan2 = buildCommon.makeSpan;
-function htmlBuilder$9(group, options) {
-  var elements = buildExpression$1(group.body, options, true);
-  return makeSpan2([group.mclass], elements, options);
+function htmlBuilder$9(group2, options) {
+  var elements = buildExpression$1(group2.body, options, true);
+  return makeSpan2([group2.mclass], elements, options);
 }
-function mathmlBuilder$8(group, options) {
+function mathmlBuilder$8(group2, options) {
   var node;
-  var inner2 = buildExpression2(group.body, options);
-  if (group.mclass === "minner") {
+  var inner2 = buildExpression2(group2.body, options);
+  if (group2.mclass === "minner") {
     node = new mathMLTree.MathNode("mpadded", inner2);
-  } else if (group.mclass === "mord") {
-    if (group.isCharacterBox) {
+  } else if (group2.mclass === "mord") {
+    if (group2.isCharacterBox) {
       node = inner2[0];
       node.type = "mi";
     } else {
       node = new mathMLTree.MathNode("mi", inner2);
     }
   } else {
-    if (group.isCharacterBox) {
+    if (group2.isCharacterBox) {
       node = inner2[0];
       node.type = "mo";
     } else {
       node = new mathMLTree.MathNode("mo", inner2);
     }
-    if (group.mclass === "mbin") {
+    if (group2.mclass === "mbin") {
       node.attributes.lspace = "0.22em";
       node.attributes.rspace = "0.22em";
-    } else if (group.mclass === "mpunct") {
+    } else if (group2.mclass === "mpunct") {
       node.attributes.lspace = "0em";
       node.attributes.rspace = "0.17em";
-    } else if (group.mclass === "mopen" || group.mclass === "mclose") {
+    } else if (group2.mclass === "mopen" || group2.mclass === "mclose") {
       node.attributes.lspace = "0em";
       node.attributes.rspace = "0em";
-    } else if (group.mclass === "minner") {
+    } else if (group2.mclass === "minner") {
       node.attributes.lspace = "0.0556em";
       node.attributes.width = "+0.1111em";
     }
@@ -6702,14 +6702,14 @@ defineFunction({
       body: ordargument(args[0])
     };
   },
-  htmlBuilder(group, options) {
-    var elements = buildExpression$1(group.body, options, true);
-    var node = buildCommon.makeSpan([group.mclass], elements, options);
+  htmlBuilder(group2, options) {
+    var elements = buildExpression$1(group2.body, options, true);
+    var node = buildCommon.makeSpan([group2.mclass], elements, options);
     node.style.textShadow = "0.02em 0.01em 0.04px";
     return node;
   },
-  mathmlBuilder(group, style) {
-    var inner2 = buildExpression2(group.body, style);
+  mathmlBuilder(group2, style) {
+    var inner2 = buildExpression2(group2.body, style);
     var node = new mathMLTree.MathNode("mstyle", inner2);
     node.setAttribute("style", "text-shadow: 0.02em 0.01em 0.04px");
     return node;
@@ -6906,20 +6906,20 @@ defineFunction({
       label: args[0]
     };
   },
-  htmlBuilder(group, options) {
+  htmlBuilder(group2, options) {
     var newOptions = options.havingStyle(options.style.sup());
-    var label = buildCommon.wrapFragment(buildGroup$1(group.label, newOptions, options), options);
-    label.classes.push("cd-label-" + group.side);
+    var label = buildCommon.wrapFragment(buildGroup$1(group2.label, newOptions, options), options);
+    label.classes.push("cd-label-" + group2.side);
     label.style.bottom = makeEm(0.8 - label.depth);
     label.height = 0;
     label.depth = 0;
     return label;
   },
-  mathmlBuilder(group, options) {
-    var label = new mathMLTree.MathNode("mrow", [buildGroup2(group.label, options)]);
+  mathmlBuilder(group2, options) {
+    var label = new mathMLTree.MathNode("mrow", [buildGroup2(group2.label, options)]);
     label = new mathMLTree.MathNode("mpadded", [label]);
     label.setAttribute("width", "0");
-    if (group.side === "left") {
+    if (group2.side === "left") {
       label.setAttribute("lspace", "-1width");
     }
     label.setAttribute("voffset", "0.7em");
@@ -6945,13 +6945,13 @@ defineFunction({
       fragment: args[0]
     };
   },
-  htmlBuilder(group, options) {
-    var parent = buildCommon.wrapFragment(buildGroup$1(group.fragment, options), options);
+  htmlBuilder(group2, options) {
+    var parent = buildCommon.wrapFragment(buildGroup$1(group2.fragment, options), options);
     parent.classes.push("cd-vert-arrow");
     return parent;
   },
-  mathmlBuilder(group, options) {
-    return new mathMLTree.MathNode("mrow", [buildGroup2(group.fragment, options)]);
+  mathmlBuilder(group2, options) {
+    return new mathMLTree.MathNode("mrow", [buildGroup2(group2.fragment, options)]);
   }
 });
 defineFunction({
@@ -6966,10 +6966,10 @@ defineFunction({
       parser
     } = _ref;
     var arg = assertNodeType(args[0], "ordgroup");
-    var group = arg.body;
+    var group2 = arg.body;
     var number = "";
-    for (var i2 = 0; i2 < group.length; i2++) {
-      var node = assertNodeType(group[i2], "textord");
+    for (var i2 = 0; i2 < group2.length; i2++) {
+      var node = assertNodeType(group2[i2], "textord");
       number += node.text;
     }
     var code = parseInt(number);
@@ -6991,14 +6991,14 @@ defineFunction({
     };
   }
 });
-var htmlBuilder$8 = (group, options) => {
-  var elements = buildExpression$1(group.body, options.withColor(group.color), false);
+var htmlBuilder$8 = (group2, options) => {
+  var elements = buildExpression$1(group2.body, options.withColor(group2.color), false);
   return buildCommon.makeFragment(elements);
 };
-var mathmlBuilder$7 = (group, options) => {
-  var inner2 = buildExpression2(group.body, options.withColor(group.color));
+var mathmlBuilder$7 = (group2, options) => {
+  var inner2 = buildExpression2(group2.body, options.withColor(group2.color));
   var node = new mathMLTree.MathNode("mstyle", inner2);
-  node.setAttribute("mathcolor", group.color);
+  node.setAttribute("mathcolor", group2.color);
   return node;
 };
 defineFunction({
@@ -7074,22 +7074,22 @@ defineFunction({
   },
   // The following builders are called only at the top level,
   // not within tabular/array environments.
-  htmlBuilder(group, options) {
-    var span = buildCommon.makeSpan(["mspace"], [], options);
-    if (group.newLine) {
-      span.classes.push("newline");
-      if (group.size) {
-        span.style.marginTop = makeEm(calculateSize(group.size, options));
+  htmlBuilder(group2, options) {
+    var span2 = buildCommon.makeSpan(["mspace"], [], options);
+    if (group2.newLine) {
+      span2.classes.push("newline");
+      if (group2.size) {
+        span2.style.marginTop = makeEm(calculateSize(group2.size, options));
       }
     }
-    return span;
+    return span2;
   },
-  mathmlBuilder(group, options) {
+  mathmlBuilder(group2, options) {
     var node = new mathMLTree.MathNode("mspace");
-    if (group.newLine) {
+    if (group2.newLine) {
       node.setAttribute("linebreak", "newline");
-      if (group.size) {
-        node.setAttribute("height", makeEm(calculateSize(group.size, options)));
+      if (group2.size) {
+        node.setAttribute("height", makeEm(calculateSize(group2.size, options)));
       }
     }
     return node;
@@ -7295,39 +7295,39 @@ var getMetrics = function getMetrics2(symbol, font, mode) {
 };
 var styleWrap = function styleWrap2(delim, toStyle, options, classes) {
   var newOptions = options.havingBaseStyle(toStyle);
-  var span = buildCommon.makeSpan(classes.concat(newOptions.sizingClasses(options)), [delim], options);
+  var span2 = buildCommon.makeSpan(classes.concat(newOptions.sizingClasses(options)), [delim], options);
   var delimSizeMultiplier = newOptions.sizeMultiplier / options.sizeMultiplier;
-  span.height *= delimSizeMultiplier;
-  span.depth *= delimSizeMultiplier;
-  span.maxFontSize = newOptions.sizeMultiplier;
-  return span;
+  span2.height *= delimSizeMultiplier;
+  span2.depth *= delimSizeMultiplier;
+  span2.maxFontSize = newOptions.sizeMultiplier;
+  return span2;
 };
-var centerSpan = function centerSpan2(span, options, style) {
+var centerSpan = function centerSpan2(span2, options, style) {
   var newOptions = options.havingBaseStyle(style);
   var shift = (1 - options.sizeMultiplier / newOptions.sizeMultiplier) * options.fontMetrics().axisHeight;
-  span.classes.push("delimcenter");
-  span.style.top = makeEm(shift);
-  span.height -= shift;
-  span.depth += shift;
+  span2.classes.push("delimcenter");
+  span2.style.top = makeEm(shift);
+  span2.height -= shift;
+  span2.depth += shift;
 };
 var makeSmallDelim = function makeSmallDelim2(delim, style, center, options, mode, classes) {
   var text2 = buildCommon.makeSymbol(delim, "Main-Regular", mode, options);
-  var span = styleWrap(text2, style, options, classes);
+  var span2 = styleWrap(text2, style, options, classes);
   if (center) {
-    centerSpan(span, options, style);
+    centerSpan(span2, options, style);
   }
-  return span;
+  return span2;
 };
 var mathrmSize = function mathrmSize2(value, size, mode, options) {
   return buildCommon.makeSymbol(value, "Size" + size + "-Regular", mode, options);
 };
 var makeLargeDelim = function makeLargeDelim2(delim, size, center, options, mode, classes) {
   var inner2 = mathrmSize(delim, size, mode, options);
-  var span = styleWrap(buildCommon.makeSpan(["delimsizing", "size" + size], [inner2], options), Style$1.TEXT, options, classes);
+  var span2 = styleWrap(buildCommon.makeSpan(["delimsizing", "size" + size], [inner2], options), Style$1.TEXT, options, classes);
   if (center) {
-    centerSpan(span, options, Style$1.TEXT);
+    centerSpan(span2, options, Style$1.TEXT);
   }
-  return span;
+  return span2;
 };
 var makeGlyphSpan = function makeGlyphSpan2(symbol, font, mode) {
   var sizeClass;
@@ -7353,13 +7353,13 @@ var makeInner = function makeInner2(ch2, height, options) {
     "viewBox": "0 0 " + 1e3 * width + " " + Math.round(1e3 * height),
     "preserveAspectRatio": "xMinYMin"
   });
-  var span = buildCommon.makeSvgSpan([], [svgNode], options);
-  span.height = height;
-  span.style.height = makeEm(height);
-  span.style.width = makeEm(width);
+  var span2 = buildCommon.makeSvgSpan([], [svgNode], options);
+  span2.height = height;
+  span2.style.height = makeEm(height);
+  span2.style.width = makeEm(width);
   return {
     type: "elem",
-    elem: span
+    elem: span2
   };
 };
 var lapInEms = 8e-3;
@@ -7517,12 +7517,12 @@ var makeStackedDelim = function makeStackedDelim2(delim, heightTotal, center, op
     var path2 = new PathNode(svgLabel, pathStr);
     var width = (viewBoxWidth / 1e3).toFixed(3) + "em";
     var height = (viewBoxHeight / 1e3).toFixed(3) + "em";
-    var svg = new SvgNode([path2], {
+    var svg2 = new SvgNode([path2], {
       "width": width,
       "height": height,
       "viewBox": "0 0 " + viewBoxWidth + " " + viewBoxHeight
     });
-    var wrapper = buildCommon.makeSvgSpan([], [svg], options);
+    var wrapper = buildCommon.makeSvgSpan([], [svg2], options);
     wrapper.height = viewBoxHeight / 1e3;
     wrapper.style.width = width;
     wrapper.style.height = height;
@@ -7560,21 +7560,21 @@ var emPad = 0.08;
 var sqrtSvg = function sqrtSvg2(sqrtName, height, viewBoxHeight, extraVinculum, options) {
   var path2 = sqrtPath(sqrtName, extraVinculum, viewBoxHeight);
   var pathNode = new PathNode(sqrtName, path2);
-  var svg = new SvgNode([pathNode], {
+  var svg2 = new SvgNode([pathNode], {
     // Note: 1000:1 ratio of viewBox to document em width.
     "width": "400em",
     "height": makeEm(height),
     "viewBox": "0 0 400000 " + viewBoxHeight,
     "preserveAspectRatio": "xMinYMin slice"
   });
-  return buildCommon.makeSvgSpan(["hide-tail"], [svg], options);
+  return buildCommon.makeSvgSpan(["hide-tail"], [svg2], options);
 };
 var makeSqrtImage = function makeSqrtImage2(height, options) {
   var newOptions = options.havingBaseSizing();
   var delim = traverseSequence("\\surd", height * newOptions.sizeMultiplier, stackLargeDelimiterSequence, newOptions);
   var sizeMultiplier = newOptions.sizeMultiplier;
   var extraVinculum = Math.max(0, options.minRuleThickness - options.fontMetrics().sqrtRuleThickness);
-  var span;
+  var span2;
   var spanHeight = 0;
   var texHeight = 0;
   var viewBoxHeight = 0;
@@ -7588,28 +7588,28 @@ var makeSqrtImage = function makeSqrtImage2(height, options) {
     }
     spanHeight = (1 + extraVinculum + emPad) / sizeMultiplier;
     texHeight = (1 + extraVinculum) / sizeMultiplier;
-    span = sqrtSvg("sqrtMain", spanHeight, viewBoxHeight, extraVinculum, options);
-    span.style.minWidth = "0.853em";
+    span2 = sqrtSvg("sqrtMain", spanHeight, viewBoxHeight, extraVinculum, options);
+    span2.style.minWidth = "0.853em";
     advanceWidth = 0.833 / sizeMultiplier;
   } else if (delim.type === "large") {
     viewBoxHeight = (1e3 + vbPad) * sizeToMaxHeight[delim.size];
     texHeight = (sizeToMaxHeight[delim.size] + extraVinculum) / sizeMultiplier;
     spanHeight = (sizeToMaxHeight[delim.size] + extraVinculum + emPad) / sizeMultiplier;
-    span = sqrtSvg("sqrtSize" + delim.size, spanHeight, viewBoxHeight, extraVinculum, options);
-    span.style.minWidth = "1.02em";
+    span2 = sqrtSvg("sqrtSize" + delim.size, spanHeight, viewBoxHeight, extraVinculum, options);
+    span2.style.minWidth = "1.02em";
     advanceWidth = 1 / sizeMultiplier;
   } else {
     spanHeight = height + extraVinculum + emPad;
     texHeight = height + extraVinculum;
     viewBoxHeight = Math.floor(1e3 * height + extraVinculum) + vbPad;
-    span = sqrtSvg("sqrtTall", spanHeight, viewBoxHeight, extraVinculum, options);
-    span.style.minWidth = "0.742em";
+    span2 = sqrtSvg("sqrtTall", spanHeight, viewBoxHeight, extraVinculum, options);
+    span2.style.minWidth = "0.742em";
     advanceWidth = 1.056;
   }
-  span.height = texHeight;
-  span.style.height = makeEm(spanHeight);
+  span2.height = texHeight;
+  span2.style.height = makeEm(spanHeight);
   return {
-    span,
+    span: span2,
     advanceWidth,
     // Calculate the actual line width.
     // This actually should depend on the chosen font -- e.g. \boldmath
@@ -7867,32 +7867,32 @@ defineFunction({
       delim: delim.text
     };
   },
-  htmlBuilder: (group, options) => {
-    if (group.delim === ".") {
-      return buildCommon.makeSpan([group.mclass]);
+  htmlBuilder: (group2, options) => {
+    if (group2.delim === ".") {
+      return buildCommon.makeSpan([group2.mclass]);
     }
-    return delimiter.sizedDelim(group.delim, group.size, options, group.mode, [group.mclass]);
+    return delimiter.sizedDelim(group2.delim, group2.size, options, group2.mode, [group2.mclass]);
   },
-  mathmlBuilder: (group) => {
+  mathmlBuilder: (group2) => {
     var children = [];
-    if (group.delim !== ".") {
-      children.push(makeText(group.delim, group.mode));
+    if (group2.delim !== ".") {
+      children.push(makeText(group2.delim, group2.mode));
     }
     var node = new mathMLTree.MathNode("mo", children);
-    if (group.mclass === "mopen" || group.mclass === "mclose") {
+    if (group2.mclass === "mopen" || group2.mclass === "mclose") {
       node.setAttribute("fence", "true");
     } else {
       node.setAttribute("fence", "false");
     }
     node.setAttribute("stretchy", "true");
-    var size = makeEm(delimiter.sizeToMaxHeight[group.size]);
+    var size = makeEm(delimiter.sizeToMaxHeight[group2.size]);
     node.setAttribute("minsize", size);
     node.setAttribute("maxsize", size);
     return node;
   }
 });
-function assertParsed(group) {
-  if (!group.body) {
+function assertParsed(group2) {
+  if (!group2.body) {
     throw new Error("Bug: The leftright ParseNode wasn't fully parsed.");
   }
 }
@@ -7941,9 +7941,9 @@ defineFunction({
       rightColor: right.color
     };
   },
-  htmlBuilder: (group, options) => {
-    assertParsed(group);
-    var inner2 = buildExpression$1(group.body, options, true, ["mopen", "mclose"]);
+  htmlBuilder: (group2, options) => {
+    assertParsed(group2);
+    var inner2 = buildExpression$1(group2.body, options, true, ["mopen", "mclose"]);
     var innerHeight = 0;
     var innerDepth = 0;
     var hadMiddle = false;
@@ -7958,10 +7958,10 @@ defineFunction({
     innerHeight *= options.sizeMultiplier;
     innerDepth *= options.sizeMultiplier;
     var leftDelim;
-    if (group.left === ".") {
+    if (group2.left === ".") {
       leftDelim = makeNullDelimiter(options, ["mopen"]);
     } else {
-      leftDelim = delimiter.leftRightDelim(group.left, innerHeight, innerDepth, options, group.mode, ["mopen"]);
+      leftDelim = delimiter.leftRightDelim(group2.left, innerHeight, innerDepth, options, group2.mode, ["mopen"]);
     }
     inner2.unshift(leftDelim);
     if (hadMiddle) {
@@ -7969,33 +7969,33 @@ defineFunction({
         var middleDelim = inner2[_i6];
         var isMiddle = middleDelim.isMiddle;
         if (isMiddle) {
-          inner2[_i6] = delimiter.leftRightDelim(isMiddle.delim, innerHeight, innerDepth, isMiddle.options, group.mode, []);
+          inner2[_i6] = delimiter.leftRightDelim(isMiddle.delim, innerHeight, innerDepth, isMiddle.options, group2.mode, []);
         }
       }
     }
     var rightDelim;
-    if (group.right === ".") {
+    if (group2.right === ".") {
       rightDelim = makeNullDelimiter(options, ["mclose"]);
     } else {
-      var colorOptions = group.rightColor ? options.withColor(group.rightColor) : options;
-      rightDelim = delimiter.leftRightDelim(group.right, innerHeight, innerDepth, colorOptions, group.mode, ["mclose"]);
+      var colorOptions = group2.rightColor ? options.withColor(group2.rightColor) : options;
+      rightDelim = delimiter.leftRightDelim(group2.right, innerHeight, innerDepth, colorOptions, group2.mode, ["mclose"]);
     }
     inner2.push(rightDelim);
     return buildCommon.makeSpan(["minner"], inner2, options);
   },
-  mathmlBuilder: (group, options) => {
-    assertParsed(group);
-    var inner2 = buildExpression2(group.body, options);
-    if (group.left !== ".") {
-      var leftNode = new mathMLTree.MathNode("mo", [makeText(group.left, group.mode)]);
+  mathmlBuilder: (group2, options) => {
+    assertParsed(group2);
+    var inner2 = buildExpression2(group2.body, options);
+    if (group2.left !== ".") {
+      var leftNode = new mathMLTree.MathNode("mo", [makeText(group2.left, group2.mode)]);
       leftNode.setAttribute("fence", "true");
       inner2.unshift(leftNode);
     }
-    if (group.right !== ".") {
-      var rightNode = new mathMLTree.MathNode("mo", [makeText(group.right, group.mode)]);
+    if (group2.right !== ".") {
+      var rightNode = new mathMLTree.MathNode("mo", [makeText(group2.right, group2.mode)]);
       rightNode.setAttribute("fence", "true");
-      if (group.rightColor) {
-        rightNode.setAttribute("mathcolor", group.rightColor);
+      if (group2.rightColor) {
+        rightNode.setAttribute("mathcolor", group2.rightColor);
       }
       inner2.push(rightNode);
     }
@@ -8020,22 +8020,22 @@ defineFunction({
       delim: delim.text
     };
   },
-  htmlBuilder: (group, options) => {
+  htmlBuilder: (group2, options) => {
     var middleDelim;
-    if (group.delim === ".") {
+    if (group2.delim === ".") {
       middleDelim = makeNullDelimiter(options, []);
     } else {
-      middleDelim = delimiter.sizedDelim(group.delim, 1, options, group.mode, []);
+      middleDelim = delimiter.sizedDelim(group2.delim, 1, options, group2.mode, []);
       var isMiddle = {
-        delim: group.delim,
+        delim: group2.delim,
         options
       };
       middleDelim.isMiddle = isMiddle;
     }
     return middleDelim;
   },
-  mathmlBuilder: (group, options) => {
-    var textNode = group.delim === "\\vert" || group.delim === "|" ? makeText("|", "text") : makeText(group.delim, group.mode);
+  mathmlBuilder: (group2, options) => {
+    var textNode = group2.delim === "\\vert" || group2.delim === "|" ? makeText("|", "text") : makeText(group2.delim, group2.mode);
     var middleNode = new mathMLTree.MathNode("mo", [textNode]);
     middleNode.setAttribute("fence", "true");
     middleNode.setAttribute("lspace", "0.05em");
@@ -8043,13 +8043,13 @@ defineFunction({
     return middleNode;
   }
 });
-var htmlBuilder$7 = (group, options) => {
-  var inner2 = buildCommon.wrapFragment(buildGroup$1(group.body, options), options);
-  var label = group.label.slice(1);
+var htmlBuilder$7 = (group2, options) => {
+  var inner2 = buildCommon.wrapFragment(buildGroup$1(group2.body, options), options);
+  var label = group2.label.slice(1);
   var scale = options.sizeMultiplier;
   var img;
   var imgShift = 0;
-  var isSingleChar = utils.isCharacterBox(group.body);
+  var isSingleChar = utils.isCharacterBox(group2.body);
   if (label === "sout") {
     img = buildCommon.makeSpan(["stretchy", "sout"]);
     img.height = options.fontMetrics().defaultRuleThickness / scale;
@@ -8117,15 +8117,15 @@ var htmlBuilder$7 = (group, options) => {
       img.style.borderRightWidth = makeEm(ruleThickness);
     }
     imgShift = inner2.depth + bottomPad;
-    if (group.backgroundColor) {
-      img.style.backgroundColor = group.backgroundColor;
-      if (group.borderColor) {
-        img.style.borderColor = group.borderColor;
+    if (group2.backgroundColor) {
+      img.style.backgroundColor = group2.backgroundColor;
+      if (group2.borderColor) {
+        img.style.borderColor = group2.borderColor;
       }
     }
   }
   var vlist;
-  if (group.backgroundColor) {
+  if (group2.backgroundColor) {
     vlist = buildCommon.makeVList({
       positionType: "individualShift",
       children: [
@@ -8172,10 +8172,10 @@ var htmlBuilder$7 = (group, options) => {
     return buildCommon.makeSpan(["mord"], [vlist], options);
   }
 };
-var mathmlBuilder$6 = (group, options) => {
+var mathmlBuilder$6 = (group2, options) => {
   var fboxsep = 0;
-  var node = new mathMLTree.MathNode(group.label.indexOf("colorbox") > -1 ? "mpadded" : "menclose", [buildGroup2(group.body, options)]);
-  switch (group.label) {
+  var node = new mathMLTree.MathNode(group2.label.indexOf("colorbox") > -1 ? "mpadded" : "menclose", [buildGroup2(group2.body, options)]);
+  switch (group2.label) {
     case "\\cancel":
       node.setAttribute("notation", "updiagonalstrike");
       break;
@@ -8201,22 +8201,22 @@ var mathmlBuilder$6 = (group, options) => {
       node.setAttribute("height", "+" + 2 * fboxsep + "pt");
       node.setAttribute("lspace", fboxsep + "pt");
       node.setAttribute("voffset", fboxsep + "pt");
-      if (group.label === "\\fcolorbox") {
+      if (group2.label === "\\fcolorbox") {
         var thk = Math.max(
           options.fontMetrics().fboxrule,
           // default
           options.minRuleThickness
           // user override
         );
-        node.setAttribute("style", "border: " + thk + "em solid " + String(group.borderColor));
+        node.setAttribute("style", "border: " + thk + "em solid " + String(group2.borderColor));
       }
       break;
     case "\\xcancel":
       node.setAttribute("notation", "updiagonalstrike downdiagonalstrike");
       break;
   }
-  if (group.backgroundColor) {
-    node.setAttribute("mathbackground", group.backgroundColor);
+  if (group2.backgroundColor) {
+    node.setAttribute("mathbackground", group2.backgroundColor);
   }
   return node;
 };
@@ -8523,11 +8523,11 @@ function dCellStyle(envName) {
     return "text";
   }
 }
-var htmlBuilder$6 = function htmlBuilder(group, options) {
+var htmlBuilder$6 = function htmlBuilder(group2, options) {
   var r;
   var c;
-  var nr = group.body.length;
-  var hLinesBeforeRow = group.hLinesBeforeRow;
+  var nr = group2.body.length;
+  var hLinesBeforeRow = group2.hLinesBeforeRow;
   var nc = 0;
   var body = new Array(nr);
   var hlines = [];
@@ -8539,16 +8539,16 @@ var htmlBuilder$6 = function htmlBuilder(group, options) {
   );
   var pt = 1 / options.fontMetrics().ptPerEm;
   var arraycolsep = 5 * pt;
-  if (group.colSeparationType && group.colSeparationType === "small") {
+  if (group2.colSeparationType && group2.colSeparationType === "small") {
     var localMultiplier = options.havingStyle(Style$1.SCRIPT).sizeMultiplier;
     arraycolsep = 0.2778 * (localMultiplier / options.sizeMultiplier);
   }
-  var baselineskip = group.colSeparationType === "CD" ? calculateSize({
+  var baselineskip = group2.colSeparationType === "CD" ? calculateSize({
     number: 3,
     unit: "ex"
   }, options) : 12 * pt;
   var jot = 3 * pt;
-  var arrayskip = group.arraystretch * baselineskip;
+  var arrayskip = group2.arraystretch * baselineskip;
   var arstrutHeight = 0.7 * arrayskip;
   var arstrutDepth = 0.3 * arrayskip;
   var totalHeight = 0;
@@ -8564,8 +8564,8 @@ var htmlBuilder$6 = function htmlBuilder(group, options) {
     }
   }
   setHLinePos(hLinesBeforeRow[0]);
-  for (r = 0; r < group.body.length; ++r) {
-    var inrow = group.body[r];
+  for (r = 0; r < group2.body.length; ++r) {
+    var inrow = group2.body[r];
     var height = arstrutHeight;
     var depth = arstrutDepth;
     if (nc < inrow.length) {
@@ -8582,7 +8582,7 @@ var htmlBuilder$6 = function htmlBuilder(group, options) {
       }
       outrow[c] = elt;
     }
-    var rowGap = group.rowGaps[r];
+    var rowGap = group2.rowGaps[r];
     var gap = 0;
     if (rowGap) {
       gap = calculateSize(rowGap, options);
@@ -8594,7 +8594,7 @@ var htmlBuilder$6 = function htmlBuilder(group, options) {
         gap = 0;
       }
     }
-    if (group.addJot) {
+    if (group2.addJot) {
       depth += jot;
     }
     outrow.height = height;
@@ -8606,16 +8606,16 @@ var htmlBuilder$6 = function htmlBuilder(group, options) {
     setHLinePos(hLinesBeforeRow[r + 1]);
   }
   var offset = totalHeight / 2 + options.fontMetrics().axisHeight;
-  var colDescriptions = group.cols || [];
+  var colDescriptions = group2.cols || [];
   var cols = [];
   var colSep;
   var colDescrNum;
   var tagSpans = [];
-  if (group.tags && group.tags.some((tag2) => tag2)) {
+  if (group2.tags && group2.tags.some((tag2) => tag2)) {
     for (r = 0; r < nr; ++r) {
       var rw = body[r];
       var shift = rw.pos - offset;
-      var tag = group.tags[r];
+      var tag = group2.tags[r];
       var tagSpan = void 0;
       if (tag === true) {
         tagSpan = buildCommon.makeSpan(["eqn-num"], [], options);
@@ -8671,7 +8671,7 @@ var htmlBuilder$6 = function htmlBuilder(group, options) {
       continue;
     }
     var sepwidth = void 0;
-    if (c > 0 || group.hskipBeforeAndAfter) {
+    if (c > 0 || group2.hskipBeforeAndAfter) {
       sepwidth = utils.deflt(colDescr.pregap, arraycolsep);
       if (sepwidth !== 0) {
         colSep = buildCommon.makeSpan(["arraycolsep"], []);
@@ -8701,7 +8701,7 @@ var htmlBuilder$6 = function htmlBuilder(group, options) {
     }, options);
     col = buildCommon.makeSpan(["col-align-" + (colDescr.align || "c")], [col]);
     cols.push(col);
-    if (c < nc - 1 || group.hskipBeforeAndAfter) {
+    if (c < nc - 1 || group2.hskipBeforeAndAfter) {
       sepwidth = utils.deflt(colDescr.postgap, arraycolsep);
       if (sepwidth !== 0) {
         colSep = buildCommon.makeSpan(["arraycolsep"], []);
@@ -8757,20 +8757,20 @@ var alignMap = {
   l: "left ",
   r: "right "
 };
-var mathmlBuilder$5 = function mathmlBuilder(group, options) {
+var mathmlBuilder$5 = function mathmlBuilder(group2, options) {
   var tbl = [];
   var glue = new mathMLTree.MathNode("mtd", [], ["mtr-glue"]);
   var tag = new mathMLTree.MathNode("mtd", [], ["mml-eqn-num"]);
-  for (var i2 = 0; i2 < group.body.length; i2++) {
-    var rw = group.body[i2];
+  for (var i2 = 0; i2 < group2.body.length; i2++) {
+    var rw = group2.body[i2];
     var row = [];
     for (var j = 0; j < rw.length; j++) {
       row.push(new mathMLTree.MathNode("mtd", [buildGroup2(rw[j], options)]));
     }
-    if (group.tags && group.tags[i2]) {
+    if (group2.tags && group2.tags[i2]) {
       row.unshift(glue);
       row.push(glue);
-      if (group.leqno) {
+      if (group2.leqno) {
         row.unshift(tag);
       } else {
         row.push(tag);
@@ -8779,12 +8779,12 @@ var mathmlBuilder$5 = function mathmlBuilder(group, options) {
     tbl.push(new mathMLTree.MathNode("mtr", row));
   }
   var table = new mathMLTree.MathNode("mtable", tbl);
-  var gap = group.arraystretch === 0.5 ? 0.1 : 0.16 + group.arraystretch - 1 + (group.addJot ? 0.09 : 0);
+  var gap = group2.arraystretch === 0.5 ? 0.1 : 0.16 + group2.arraystretch - 1 + (group2.addJot ? 0.09 : 0);
   table.setAttribute("rowspacing", makeEm(gap));
   var menclose = "";
   var align = "";
-  if (group.cols && group.cols.length > 0) {
-    var cols = group.cols;
+  if (group2.cols && group2.cols.length > 0) {
+    var cols = group2.cols;
     var columnLines = "";
     var prevTypeWasAlign = false;
     var iStart = 0;
@@ -8816,24 +8816,24 @@ var mathmlBuilder$5 = function mathmlBuilder(group, options) {
       table.setAttribute("columnlines", columnLines.trim());
     }
   }
-  if (group.colSeparationType === "align") {
-    var _cols = group.cols || [];
+  if (group2.colSeparationType === "align") {
+    var _cols = group2.cols || [];
     var spacing2 = "";
     for (var _i22 = 1; _i22 < _cols.length; _i22++) {
       spacing2 += _i22 % 2 ? "0em " : "1em ";
     }
     table.setAttribute("columnspacing", spacing2.trim());
-  } else if (group.colSeparationType === "alignat" || group.colSeparationType === "gather") {
+  } else if (group2.colSeparationType === "alignat" || group2.colSeparationType === "gather") {
     table.setAttribute("columnspacing", "0em");
-  } else if (group.colSeparationType === "small") {
+  } else if (group2.colSeparationType === "small") {
     table.setAttribute("columnspacing", "0.2778em");
-  } else if (group.colSeparationType === "CD") {
+  } else if (group2.colSeparationType === "CD") {
     table.setAttribute("columnspacing", "0.5em");
   } else {
     table.setAttribute("columnspacing", "1em");
   }
   var rowLines = "";
-  var hlines = group.hLinesBeforeRow;
+  var hlines = group2.hLinesBeforeRow;
   menclose += hlines[0].length > 0 ? "left " : "";
   menclose += hlines[hlines.length - 1].length > 0 ? "right " : "";
   for (var _i32 = 1; _i32 < hlines.length - 1; _i32++) {
@@ -8846,7 +8846,7 @@ var mathmlBuilder$5 = function mathmlBuilder(group, options) {
     table = new mathMLTree.MathNode("menclose", [table]);
     table.setAttribute("notation", menclose.trim());
   }
-  if (group.arraystretch && group.arraystretch < 1) {
+  if (group2.arraystretch && group2.arraystretch < 1) {
     table = new mathMLTree.MathNode("mstyle", [table]);
     table.setAttribute("scriptlevel", "1");
   }
@@ -9260,15 +9260,15 @@ defineFunction({
     };
   }
 });
-var htmlBuilder$5 = (group, options) => {
-  var font = group.font;
+var htmlBuilder$5 = (group2, options) => {
+  var font = group2.font;
   var newOptions = options.withFont(font);
-  return buildGroup$1(group.body, newOptions);
+  return buildGroup$1(group2.body, newOptions);
 };
-var mathmlBuilder$4 = (group, options) => {
-  var font = group.font;
+var mathmlBuilder$4 = (group2, options) => {
+  var font = group2.font;
   var newOptions = options.withFont(font);
-  return buildGroup2(group.body, newOptions);
+  return buildGroup2(group2.body, newOptions);
 };
 var fontAliases = {
   "\\Bbb": "\\mathbb",
@@ -9392,27 +9392,27 @@ var adjustStyle = (size, originalStyle) => {
   }
   return style;
 };
-var htmlBuilder$4 = (group, options) => {
-  var style = adjustStyle(group.size, options.style);
+var htmlBuilder$4 = (group2, options) => {
+  var style = adjustStyle(group2.size, options.style);
   var nstyle = style.fracNum();
   var dstyle = style.fracDen();
   var newOptions;
   newOptions = options.havingStyle(nstyle);
-  var numerm = buildGroup$1(group.numer, newOptions, options);
-  if (group.continued) {
+  var numerm = buildGroup$1(group2.numer, newOptions, options);
+  if (group2.continued) {
     var hStrut = 8.5 / options.fontMetrics().ptPerEm;
     var dStrut = 3.5 / options.fontMetrics().ptPerEm;
     numerm.height = numerm.height < hStrut ? hStrut : numerm.height;
     numerm.depth = numerm.depth < dStrut ? dStrut : numerm.depth;
   }
   newOptions = options.havingStyle(dstyle);
-  var denomm = buildGroup$1(group.denom, newOptions, options);
+  var denomm = buildGroup$1(group2.denom, newOptions, options);
   var rule;
   var ruleWidth;
   var ruleSpacing;
-  if (group.hasBarLine) {
-    if (group.barSize) {
-      ruleWidth = calculateSize(group.barSize, options);
+  if (group2.hasBarLine) {
+    if (group2.barSize) {
+      ruleWidth = calculateSize(group2.barSize, options);
       rule = buildCommon.makeLineSpan("frac-line", options, ruleWidth);
     } else {
       rule = buildCommon.makeLineSpan("frac-line", options);
@@ -9427,7 +9427,7 @@ var htmlBuilder$4 = (group, options) => {
   var numShift;
   var clearance;
   var denomShift;
-  if (style.size === Style$1.DISPLAY.size || group.size === "display") {
+  if (style.size === Style$1.DISPLAY.size || group2.size === "display") {
     numShift = options.fontMetrics().num1;
     if (ruleWidth > 0) {
       clearance = 3 * ruleSpacing;
@@ -9503,45 +9503,45 @@ var htmlBuilder$4 = (group, options) => {
   }
   var leftDelim;
   var rightDelim;
-  if (group.leftDelim == null) {
+  if (group2.leftDelim == null) {
     leftDelim = makeNullDelimiter(options, ["mopen"]);
   } else {
-    leftDelim = delimiter.customSizedDelim(group.leftDelim, delimSize, true, options.havingStyle(style), group.mode, ["mopen"]);
+    leftDelim = delimiter.customSizedDelim(group2.leftDelim, delimSize, true, options.havingStyle(style), group2.mode, ["mopen"]);
   }
-  if (group.continued) {
+  if (group2.continued) {
     rightDelim = buildCommon.makeSpan([]);
-  } else if (group.rightDelim == null) {
+  } else if (group2.rightDelim == null) {
     rightDelim = makeNullDelimiter(options, ["mclose"]);
   } else {
-    rightDelim = delimiter.customSizedDelim(group.rightDelim, delimSize, true, options.havingStyle(style), group.mode, ["mclose"]);
+    rightDelim = delimiter.customSizedDelim(group2.rightDelim, delimSize, true, options.havingStyle(style), group2.mode, ["mclose"]);
   }
   return buildCommon.makeSpan(["mord"].concat(newOptions.sizingClasses(options)), [leftDelim, buildCommon.makeSpan(["mfrac"], [frac]), rightDelim], options);
 };
-var mathmlBuilder$3 = (group, options) => {
-  var node = new mathMLTree.MathNode("mfrac", [buildGroup2(group.numer, options), buildGroup2(group.denom, options)]);
-  if (!group.hasBarLine) {
+var mathmlBuilder$3 = (group2, options) => {
+  var node = new mathMLTree.MathNode("mfrac", [buildGroup2(group2.numer, options), buildGroup2(group2.denom, options)]);
+  if (!group2.hasBarLine) {
     node.setAttribute("linethickness", "0px");
-  } else if (group.barSize) {
-    var ruleWidth = calculateSize(group.barSize, options);
+  } else if (group2.barSize) {
+    var ruleWidth = calculateSize(group2.barSize, options);
     node.setAttribute("linethickness", makeEm(ruleWidth));
   }
-  var style = adjustStyle(group.size, options.style);
+  var style = adjustStyle(group2.size, options.style);
   if (style.size !== options.style.size) {
     node = new mathMLTree.MathNode("mstyle", [node]);
     var isDisplay = style.size === Style$1.DISPLAY.size ? "true" : "false";
     node.setAttribute("displaystyle", isDisplay);
     node.setAttribute("scriptlevel", "0");
   }
-  if (group.leftDelim != null || group.rightDelim != null) {
+  if (group2.leftDelim != null || group2.rightDelim != null) {
     var withDelims = [];
-    if (group.leftDelim != null) {
-      var leftOp = new mathMLTree.MathNode("mo", [new mathMLTree.TextNode(group.leftDelim.replace("\\", ""))]);
+    if (group2.leftDelim != null) {
+      var leftOp = new mathMLTree.MathNode("mo", [new mathMLTree.TextNode(group2.leftDelim.replace("\\", ""))]);
       leftOp.setAttribute("fence", "true");
       withDelims.push(leftOp);
     }
     withDelims.push(node);
-    if (group.rightDelim != null) {
-      var rightOp = new mathMLTree.MathNode("mo", [new mathMLTree.TextNode(group.rightDelim.replace("\\", ""))]);
+    if (group2.rightDelim != null) {
+      var rightOp = new mathMLTree.MathNode("mo", [new mathMLTree.TextNode(group2.rightDelim.replace("\\", ""))]);
       rightOp.setAttribute("fence", "true");
       withDelims.push(rightOp);
     }
@@ -9823,17 +9823,17 @@ defineFunction({
 var htmlBuilder$3 = (grp, options) => {
   var style = options.style;
   var supSubGroup;
-  var group;
+  var group2;
   if (grp.type === "supsub") {
     supSubGroup = grp.sup ? buildGroup$1(grp.sup, options.havingStyle(style.sup()), options) : buildGroup$1(grp.sub, options.havingStyle(style.sub()), options);
-    group = assertNodeType(grp.base, "horizBrace");
+    group2 = assertNodeType(grp.base, "horizBrace");
   } else {
-    group = assertNodeType(grp, "horizBrace");
+    group2 = assertNodeType(grp, "horizBrace");
   }
-  var body = buildGroup$1(group.base, options.havingBaseStyle(Style$1.DISPLAY));
-  var braceBody = stretchy.svgSpan(group, options);
+  var body = buildGroup$1(group2.base, options.havingBaseStyle(Style$1.DISPLAY));
+  var braceBody = stretchy.svgSpan(group2, options);
   var vlist;
-  if (group.isOver) {
+  if (group2.isOver) {
     vlist = buildCommon.makeVList({
       positionType: "firstBaseline",
       children: [{
@@ -9866,8 +9866,8 @@ var htmlBuilder$3 = (grp, options) => {
     vlist.children[0].children[0].children[0].classes.push("svg-align");
   }
   if (supSubGroup) {
-    var vSpan = buildCommon.makeSpan(["mord", group.isOver ? "mover" : "munder"], [vlist], options);
-    if (group.isOver) {
+    var vSpan = buildCommon.makeSpan(["mord", group2.isOver ? "mover" : "munder"], [vlist], options);
+    if (group2.isOver) {
       vlist = buildCommon.makeVList({
         positionType: "firstBaseline",
         children: [{
@@ -9898,11 +9898,11 @@ var htmlBuilder$3 = (grp, options) => {
       }, options);
     }
   }
-  return buildCommon.makeSpan(["mord", group.isOver ? "mover" : "munder"], [vlist], options);
+  return buildCommon.makeSpan(["mord", group2.isOver ? "mover" : "munder"], [vlist], options);
 };
-var mathmlBuilder$2 = (group, options) => {
-  var accentNode = stretchy.mathMLnode(group.label);
-  return new mathMLTree.MathNode(group.isOver ? "mover" : "munder", [buildGroup2(group.base, options), accentNode]);
+var mathmlBuilder$2 = (group2, options) => {
+  var accentNode = stretchy.mathMLnode(group2.label);
+  return new mathMLTree.MathNode(group2.isOver ? "mover" : "munder", [buildGroup2(group2.base, options), accentNode]);
 };
 defineFunction({
   type: "horizBrace",
@@ -9953,16 +9953,16 @@ defineFunction({
       body: ordargument(body)
     };
   },
-  htmlBuilder: (group, options) => {
-    var elements = buildExpression$1(group.body, options, false);
-    return buildCommon.makeAnchor(group.href, [], elements, options);
+  htmlBuilder: (group2, options) => {
+    var elements = buildExpression$1(group2.body, options, false);
+    return buildCommon.makeAnchor(group2.href, [], elements, options);
   },
-  mathmlBuilder: (group, options) => {
-    var math2 = buildExpressionRow(group.body, options);
+  mathmlBuilder: (group2, options) => {
+    var math2 = buildExpressionRow(group2.body, options);
     if (!(math2 instanceof MathNode)) {
       math2 = new MathNode("mrow", [math2]);
     }
-    math2.setAttribute("href", group.href);
+    math2.setAttribute("href", group2.href);
     return math2;
   }
 });
@@ -10030,12 +10030,12 @@ defineFunction({
       body: ordargument(args[0])
     };
   },
-  htmlBuilder(group, options) {
-    var elements = buildExpression$1(group.body, options, false);
+  htmlBuilder(group2, options) {
+    var elements = buildExpression$1(group2.body, options, false);
     return buildCommon.makeFragment(elements);
   },
-  mathmlBuilder(group, options) {
-    return new mathMLTree.MathNode("mrow", buildExpression2(group.body, options));
+  mathmlBuilder(group2, options) {
+    return new mathMLTree.MathNode("mrow", buildExpression2(group2.body, options));
   }
 });
 defineFunction({
@@ -10109,22 +10109,22 @@ defineFunction({
       body: ordargument(body)
     };
   },
-  htmlBuilder: (group, options) => {
-    var elements = buildExpression$1(group.body, options, false);
+  htmlBuilder: (group2, options) => {
+    var elements = buildExpression$1(group2.body, options, false);
     var classes = ["enclosing"];
-    if (group.attributes.class) {
-      classes.push(...group.attributes.class.trim().split(/\s+/));
+    if (group2.attributes.class) {
+      classes.push(...group2.attributes.class.trim().split(/\s+/));
     }
-    var span = buildCommon.makeSpan(classes, elements, options);
-    for (var attr in group.attributes) {
-      if (attr !== "class" && group.attributes.hasOwnProperty(attr)) {
-        span.setAttribute(attr, group.attributes[attr]);
+    var span2 = buildCommon.makeSpan(classes, elements, options);
+    for (var attr in group2.attributes) {
+      if (attr !== "class" && group2.attributes.hasOwnProperty(attr)) {
+        span2.setAttribute(attr, group2.attributes[attr]);
       }
     }
-    return span;
+    return span2;
   },
-  mathmlBuilder: (group, options) => {
-    return buildExpressionRow(group.body, options);
+  mathmlBuilder: (group2, options) => {
+    return buildExpressionRow(group2.body, options);
   }
 });
 defineFunction({
@@ -10145,12 +10145,12 @@ defineFunction({
       mathml: ordargument(args[1])
     };
   },
-  htmlBuilder: (group, options) => {
-    var elements = buildExpression$1(group.html, options, false);
+  htmlBuilder: (group2, options) => {
+    var elements = buildExpression$1(group2.html, options, false);
     return buildCommon.makeFragment(elements);
   },
-  mathmlBuilder: (group, options) => {
-    return buildExpressionRow(group.mathml, options);
+  mathmlBuilder: (group2, options) => {
+    return buildExpressionRow(group2.mathml, options);
   }
 });
 var sizeData = function sizeData2(str) {
@@ -10249,15 +10249,15 @@ defineFunction({
       src
     };
   },
-  htmlBuilder: (group, options) => {
-    var height = calculateSize(group.height, options);
+  htmlBuilder: (group2, options) => {
+    var height = calculateSize(group2.height, options);
     var depth = 0;
-    if (group.totalheight.number > 0) {
-      depth = calculateSize(group.totalheight, options) - height;
+    if (group2.totalheight.number > 0) {
+      depth = calculateSize(group2.totalheight, options) - height;
     }
     var width = 0;
-    if (group.width.number > 0) {
-      width = calculateSize(group.width, options);
+    if (group2.width.number > 0) {
+      width = calculateSize(group2.width, options);
     }
     var style = {
       height: makeEm(height + depth)
@@ -10268,26 +10268,26 @@ defineFunction({
     if (depth > 0) {
       style.verticalAlign = makeEm(-depth);
     }
-    var node = new Img(group.src, group.alt, style);
+    var node = new Img(group2.src, group2.alt, style);
     node.height = height;
     node.depth = depth;
     return node;
   },
-  mathmlBuilder: (group, options) => {
+  mathmlBuilder: (group2, options) => {
     var node = new mathMLTree.MathNode("mglyph", []);
-    node.setAttribute("alt", group.alt);
-    var height = calculateSize(group.height, options);
+    node.setAttribute("alt", group2.alt);
+    var height = calculateSize(group2.height, options);
     var depth = 0;
-    if (group.totalheight.number > 0) {
-      depth = calculateSize(group.totalheight, options) - height;
+    if (group2.totalheight.number > 0) {
+      depth = calculateSize(group2.totalheight, options) - height;
       node.setAttribute("valign", makeEm(-depth));
     }
     node.setAttribute("height", makeEm(height + depth));
-    if (group.width.number > 0) {
-      var width = calculateSize(group.width, options);
+    if (group2.width.number > 0) {
+      var width = calculateSize(group2.width, options);
       node.setAttribute("width", makeEm(width));
     }
-    node.setAttribute("src", group.src);
+    node.setAttribute("src", group2.src);
     return node;
   }
 });
@@ -10328,11 +10328,11 @@ defineFunction({
       dimension: size.value
     };
   },
-  htmlBuilder(group, options) {
-    return buildCommon.makeGlue(group.dimension, options);
+  htmlBuilder(group2, options) {
+    return buildCommon.makeGlue(group2.dimension, options);
   },
-  mathmlBuilder(group, options) {
-    var dimension = calculateSize(group.dimension, options);
+  mathmlBuilder(group2, options) {
+    var dimension = calculateSize(group2.dimension, options);
     return new mathMLTree.SpaceNode(dimension);
   }
 });
@@ -10356,16 +10356,16 @@ defineFunction({
       body
     };
   },
-  htmlBuilder: (group, options) => {
+  htmlBuilder: (group2, options) => {
     var inner2;
-    if (group.alignment === "clap") {
-      inner2 = buildCommon.makeSpan([], [buildGroup$1(group.body, options)]);
+    if (group2.alignment === "clap") {
+      inner2 = buildCommon.makeSpan([], [buildGroup$1(group2.body, options)]);
       inner2 = buildCommon.makeSpan(["inner"], [inner2], options);
     } else {
-      inner2 = buildCommon.makeSpan(["inner"], [buildGroup$1(group.body, options)]);
+      inner2 = buildCommon.makeSpan(["inner"], [buildGroup$1(group2.body, options)]);
     }
     var fix = buildCommon.makeSpan(["fix"], []);
-    var node = buildCommon.makeSpan([group.alignment], [inner2, fix], options);
+    var node = buildCommon.makeSpan([group2.alignment], [inner2, fix], options);
     var strut = buildCommon.makeSpan(["strut"]);
     strut.style.height = makeEm(node.height + node.depth);
     if (node.depth) {
@@ -10375,10 +10375,10 @@ defineFunction({
     node = buildCommon.makeSpan(["thinbox"], [node], options);
     return buildCommon.makeSpan(["mord", "vbox"], [node], options);
   },
-  mathmlBuilder: (group, options) => {
-    var node = new mathMLTree.MathNode("mpadded", [buildGroup2(group.body, options)]);
-    if (group.alignment !== "rlap") {
-      var offset = group.alignment === "llap" ? "-1" : "-0.5";
+  mathmlBuilder: (group2, options) => {
+    var node = new mathMLTree.MathNode("mpadded", [buildGroup2(group2.body, options)]);
+    if (group2.alignment !== "rlap") {
+      var offset = group2.alignment === "llap" ? "-1" : "-0.5";
       node.setAttribute("lspace", offset + "width");
     }
     node.setAttribute("width", "0px");
@@ -10425,18 +10425,18 @@ defineFunction({
     throw new ParseError("Mismatched " + context.funcName);
   }
 });
-var chooseMathStyle = (group, options) => {
+var chooseMathStyle = (group2, options) => {
   switch (options.style.size) {
     case Style$1.DISPLAY.size:
-      return group.display;
+      return group2.display;
     case Style$1.TEXT.size:
-      return group.text;
+      return group2.text;
     case Style$1.SCRIPT.size:
-      return group.script;
+      return group2.script;
     case Style$1.SCRIPTSCRIPT.size:
-      return group.scriptscript;
+      return group2.scriptscript;
     default:
-      return group.text;
+      return group2.text;
   }
 };
 defineFunction({
@@ -10459,13 +10459,13 @@ defineFunction({
       scriptscript: ordargument(args[3])
     };
   },
-  htmlBuilder: (group, options) => {
-    var body = chooseMathStyle(group, options);
+  htmlBuilder: (group2, options) => {
+    var body = chooseMathStyle(group2, options);
     var elements = buildExpression$1(body, options, false);
     return buildCommon.makeFragment(elements);
   },
-  mathmlBuilder: (group, options) => {
-    var body = chooseMathStyle(group, options);
+  mathmlBuilder: (group2, options) => {
+    var body = chooseMathStyle(group2, options);
     return buildExpressionRow(body, options);
   }
 });
@@ -10575,29 +10575,29 @@ var htmlBuilder$2 = (grp, options) => {
   var supGroup;
   var subGroup;
   var hasLimits = false;
-  var group;
+  var group2;
   if (grp.type === "supsub") {
     supGroup = grp.sup;
     subGroup = grp.sub;
-    group = assertNodeType(grp.base, "op");
+    group2 = assertNodeType(grp.base, "op");
     hasLimits = true;
   } else {
-    group = assertNodeType(grp, "op");
+    group2 = assertNodeType(grp, "op");
   }
   var style = options.style;
   var large = false;
-  if (style.size === Style$1.DISPLAY.size && group.symbol && !utils.contains(noSuccessor, group.name)) {
+  if (style.size === Style$1.DISPLAY.size && group2.symbol && !utils.contains(noSuccessor, group2.name)) {
     large = true;
   }
   var base;
-  if (group.symbol) {
+  if (group2.symbol) {
     var fontName = large ? "Size2-Regular" : "Size1-Regular";
     var stash = "";
-    if (group.name === "\\oiint" || group.name === "\\oiiint") {
-      stash = group.name.slice(1);
-      group.name = stash === "oiint" ? "\\iint" : "\\iiint";
+    if (group2.name === "\\oiint" || group2.name === "\\oiiint") {
+      stash = group2.name.slice(1);
+      group2.name = stash === "oiint" ? "\\iint" : "\\iiint";
     }
-    base = buildCommon.makeSymbol(group.name, fontName, "math", options, ["mop", "op-symbol", large ? "large-op" : "small-op"]);
+    base = buildCommon.makeSymbol(group2.name, fontName, "math", options, ["mop", "op-symbol", large ? "large-op" : "small-op"]);
     if (stash.length > 0) {
       var italic = base.italic;
       var oval = buildCommon.staticSvg(stash + "Size" + (large ? "2" : "1"), options);
@@ -10613,12 +10613,12 @@ var htmlBuilder$2 = (grp, options) => {
           shift: large ? 0.08 : 0
         }]
       }, options);
-      group.name = "\\" + stash;
+      group2.name = "\\" + stash;
       base.classes.unshift("mop");
       base.italic = italic;
     }
-  } else if (group.body) {
-    var inner2 = buildExpression$1(group.body, options, true);
+  } else if (group2.body) {
+    var inner2 = buildExpression$1(group2.body, options, true);
     if (inner2.length === 1 && inner2[0] instanceof SymbolNode) {
       base = inner2[0];
       base.classes[0] = "mop";
@@ -10627,14 +10627,14 @@ var htmlBuilder$2 = (grp, options) => {
     }
   } else {
     var output = [];
-    for (var i2 = 1; i2 < group.name.length; i2++) {
-      output.push(buildCommon.mathsym(group.name[i2], group.mode, options));
+    for (var i2 = 1; i2 < group2.name.length; i2++) {
+      output.push(buildCommon.mathsym(group2.name[i2], group2.mode, options));
     }
     base = buildCommon.makeSpan(["mop"], output, options);
   }
   var baseShift = 0;
   var slant = 0;
-  if ((base instanceof SymbolNode || group.name === "\\oiint" || group.name === "\\oiiint") && !group.suppressBaseShift) {
+  if ((base instanceof SymbolNode || group2.name === "\\oiint" || group2.name === "\\oiiint") && !group2.suppressBaseShift) {
     baseShift = (base.height - base.depth) / 2 - options.fontMetrics().axisHeight;
     slant = base.italic;
   }
@@ -10648,19 +10648,19 @@ var htmlBuilder$2 = (grp, options) => {
     return base;
   }
 };
-var mathmlBuilder$1 = (group, options) => {
+var mathmlBuilder$1 = (group2, options) => {
   var node;
-  if (group.symbol) {
-    node = new MathNode("mo", [makeText(group.name, group.mode)]);
-    if (utils.contains(noSuccessor, group.name)) {
+  if (group2.symbol) {
+    node = new MathNode("mo", [makeText(group2.name, group2.mode)]);
+    if (utils.contains(noSuccessor, group2.name)) {
       node.setAttribute("largeop", "false");
     }
-  } else if (group.body) {
-    node = new MathNode("mo", buildExpression2(group.body, options));
+  } else if (group2.body) {
+    node = new MathNode("mo", buildExpression2(group2.body, options));
   } else {
-    node = new MathNode("mi", [new TextNode(group.name.slice(1))]);
+    node = new MathNode("mi", [new TextNode(group2.name.slice(1))]);
     var operator = new MathNode("mo", [makeText("\u2061", "text")]);
-    if (group.parentIsSupSub) {
+    if (group2.parentIsSupSub) {
       node = new MathNode("mrow", [node, operator]);
     } else {
       node = newDocumentFragment([node, operator]);
@@ -10818,18 +10818,18 @@ var htmlBuilder$1 = (grp, options) => {
   var supGroup;
   var subGroup;
   var hasLimits = false;
-  var group;
+  var group2;
   if (grp.type === "supsub") {
     supGroup = grp.sup;
     subGroup = grp.sub;
-    group = assertNodeType(grp.base, "operatorname");
+    group2 = assertNodeType(grp.base, "operatorname");
     hasLimits = true;
   } else {
-    group = assertNodeType(grp, "operatorname");
+    group2 = assertNodeType(grp, "operatorname");
   }
   var base;
-  if (group.body.length > 0) {
-    var body = group.body.map((child2) => {
+  if (group2.body.length > 0) {
+    var body = group2.body.map((child2) => {
       var childText = child2.text;
       if (typeof childText === "string") {
         return {
@@ -10858,8 +10858,8 @@ var htmlBuilder$1 = (grp, options) => {
     return base;
   }
 };
-var mathmlBuilder2 = (group, options) => {
-  var expression = buildExpression2(group.body, options.withFont("mathrm"));
+var mathmlBuilder2 = (group2, options) => {
+  var expression = buildExpression2(group2.body, options.withFont("mathrm"));
   var isAllString = true;
   for (var i2 = 0; i2 < expression.length; i2++) {
     var node = expression[i2];
@@ -10896,7 +10896,7 @@ var mathmlBuilder2 = (group, options) => {
   var identifier = new mathMLTree.MathNode("mi", expression);
   identifier.setAttribute("mathvariant", "normal");
   var operator = new mathMLTree.MathNode("mo", [makeText("\u2061", "text")]);
-  if (group.parentIsSupSub) {
+  if (group2.parentIsSupSub) {
     return new mathMLTree.MathNode("mrow", [identifier, operator]);
   } else {
     return mathMLTree.newDocumentFragment([identifier, operator]);
@@ -10929,14 +10929,14 @@ defineFunction({
 defineMacro("\\operatorname", "\\@ifstar\\operatornamewithlimits\\operatorname@");
 defineFunctionBuilders({
   type: "ordgroup",
-  htmlBuilder(group, options) {
-    if (group.semisimple) {
-      return buildCommon.makeFragment(buildExpression$1(group.body, options, false));
+  htmlBuilder(group2, options) {
+    if (group2.semisimple) {
+      return buildCommon.makeFragment(buildExpression$1(group2.body, options, false));
     }
-    return buildCommon.makeSpan(["mord"], buildExpression$1(group.body, options, true), options);
+    return buildCommon.makeSpan(["mord"], buildExpression$1(group2.body, options, true), options);
   },
-  mathmlBuilder(group, options) {
-    return buildExpressionRow(group.body, options, true);
+  mathmlBuilder(group2, options) {
+    return buildExpressionRow(group2.body, options, true);
   }
 });
 defineFunction({
@@ -10956,8 +10956,8 @@ defineFunction({
       body
     };
   },
-  htmlBuilder(group, options) {
-    var innerGroup = buildGroup$1(group.body, options.havingCrampedStyle());
+  htmlBuilder(group2, options) {
+    var innerGroup = buildGroup$1(group2.body, options.havingCrampedStyle());
     var line = buildCommon.makeLineSpan("overline-line", options);
     var defaultRuleThickness = options.fontMetrics().defaultRuleThickness;
     var vlist = buildCommon.makeVList({
@@ -10978,10 +10978,10 @@ defineFunction({
     }, options);
     return buildCommon.makeSpan(["mord", "overline"], [vlist], options);
   },
-  mathmlBuilder(group, options) {
+  mathmlBuilder(group2, options) {
     var operator = new mathMLTree.MathNode("mo", [new mathMLTree.TextNode("\u203E")]);
     operator.setAttribute("stretchy", "true");
-    var node = new mathMLTree.MathNode("mover", [buildGroup2(group.body, options), operator]);
+    var node = new mathMLTree.MathNode("mover", [buildGroup2(group2.body, options), operator]);
     node.setAttribute("accent", "true");
     return node;
   }
@@ -11004,12 +11004,12 @@ defineFunction({
       body: ordargument(body)
     };
   },
-  htmlBuilder: (group, options) => {
-    var elements = buildExpression$1(group.body, options.withPhantom(), false);
+  htmlBuilder: (group2, options) => {
+    var elements = buildExpression$1(group2.body, options.withPhantom(), false);
     return buildCommon.makeFragment(elements);
   },
-  mathmlBuilder: (group, options) => {
-    var inner2 = buildExpression2(group.body, options);
+  mathmlBuilder: (group2, options) => {
+    var inner2 = buildExpression2(group2.body, options);
     return new mathMLTree.MathNode("mphantom", inner2);
   }
 });
@@ -11031,8 +11031,8 @@ defineFunction({
       body
     };
   },
-  htmlBuilder: (group, options) => {
-    var node = buildCommon.makeSpan([], [buildGroup$1(group.body, options.withPhantom())]);
+  htmlBuilder: (group2, options) => {
+    var node = buildCommon.makeSpan([], [buildGroup$1(group2.body, options.withPhantom())]);
     node.height = 0;
     node.depth = 0;
     if (node.children) {
@@ -11050,8 +11050,8 @@ defineFunction({
     }, options);
     return buildCommon.makeSpan(["mord"], [node], options);
   },
-  mathmlBuilder: (group, options) => {
-    var inner2 = buildExpression2(ordargument(group.body), options);
+  mathmlBuilder: (group2, options) => {
+    var inner2 = buildExpression2(ordargument(group2.body), options);
     var phantom = new mathMLTree.MathNode("mphantom", inner2);
     var node = new mathMLTree.MathNode("mpadded", [phantom]);
     node.setAttribute("height", "0px");
@@ -11077,13 +11077,13 @@ defineFunction({
       body
     };
   },
-  htmlBuilder: (group, options) => {
-    var inner2 = buildCommon.makeSpan(["inner"], [buildGroup$1(group.body, options.withPhantom())]);
+  htmlBuilder: (group2, options) => {
+    var inner2 = buildCommon.makeSpan(["inner"], [buildGroup$1(group2.body, options.withPhantom())]);
     var fix = buildCommon.makeSpan(["fix"], []);
     return buildCommon.makeSpan(["mord", "rlap"], [inner2, fix], options);
   },
-  mathmlBuilder: (group, options) => {
-    var inner2 = buildExpression2(ordargument(group.body), options);
+  mathmlBuilder: (group2, options) => {
+    var inner2 = buildExpression2(ordargument(group2.body), options);
     var phantom = new mathMLTree.MathNode("mphantom", inner2);
     var node = new mathMLTree.MathNode("mpadded", [phantom]);
     node.setAttribute("width", "0px");
@@ -11111,9 +11111,9 @@ defineFunction({
       body
     };
   },
-  htmlBuilder(group, options) {
-    var body = buildGroup$1(group.body, options);
-    var dy = calculateSize(group.dy, options);
+  htmlBuilder(group2, options) {
+    var body = buildGroup$1(group2.body, options);
+    var dy = calculateSize(group2.dy, options);
     return buildCommon.makeVList({
       positionType: "shift",
       positionData: -dy,
@@ -11123,9 +11123,9 @@ defineFunction({
       }]
     }, options);
   },
-  mathmlBuilder(group, options) {
-    var node = new mathMLTree.MathNode("mpadded", [buildGroup2(group.body, options)]);
-    var dy = group.dy.number + group.dy.unit;
+  mathmlBuilder(group2, options) {
+    var node = new mathMLTree.MathNode("mpadded", [buildGroup2(group2.body, options)]);
+    var dy = group2.dy.number + group2.dy.unit;
     node.setAttribute("voffset", dy);
     return node;
   }
@@ -11173,11 +11173,11 @@ defineFunction({
       height: height.value
     };
   },
-  htmlBuilder(group, options) {
+  htmlBuilder(group2, options) {
     var rule = buildCommon.makeSpan(["mord", "rule"], [], options);
-    var width = calculateSize(group.width, options);
-    var height = calculateSize(group.height, options);
-    var shift = group.shift ? calculateSize(group.shift, options) : 0;
+    var width = calculateSize(group2.width, options);
+    var height = calculateSize(group2.height, options);
+    var shift = group2.shift ? calculateSize(group2.shift, options) : 0;
     rule.style.borderRightWidth = makeEm(width);
     rule.style.borderTopWidth = makeEm(height);
     rule.style.bottom = makeEm(shift);
@@ -11187,10 +11187,10 @@ defineFunction({
     rule.maxFontSize = height * 1.125 * options.sizeMultiplier;
     return rule;
   },
-  mathmlBuilder(group, options) {
-    var width = calculateSize(group.width, options);
-    var height = calculateSize(group.height, options);
-    var shift = group.shift ? calculateSize(group.shift, options) : 0;
+  mathmlBuilder(group2, options) {
+    var width = calculateSize(group2.width, options);
+    var height = calculateSize(group2.height, options);
+    var shift = group2.shift ? calculateSize(group2.shift, options) : 0;
     var color = options.color && options.getColor() || "black";
     var rule = new mathMLTree.MathNode("mspace");
     rule.setAttribute("mathbackground", color);
@@ -11223,9 +11223,9 @@ function sizingGroup(value, options, baseOptions) {
   return buildCommon.makeFragment(inner2);
 }
 var sizeFuncs = ["\\tiny", "\\sixptsize", "\\scriptsize", "\\footnotesize", "\\small", "\\normalsize", "\\large", "\\Large", "\\LARGE", "\\huge", "\\Huge"];
-var htmlBuilder2 = (group, options) => {
-  var newOptions = options.havingSize(group.size);
-  return sizingGroup(group.body, newOptions, options);
+var htmlBuilder2 = (group2, options) => {
+  var newOptions = options.havingSize(group2.size);
+  return sizingGroup(group2.body, newOptions, options);
 };
 defineFunction({
   type: "sizing",
@@ -11250,9 +11250,9 @@ defineFunction({
     };
   },
   htmlBuilder: htmlBuilder2,
-  mathmlBuilder: (group, options) => {
-    var newOptions = options.havingSize(group.size);
-    var inner2 = buildExpression2(group.body, newOptions);
+  mathmlBuilder: (group2, options) => {
+    var newOptions = options.havingSize(group2.size);
+    var inner2 = buildExpression2(group2.body, newOptions);
     var node = new mathMLTree.MathNode("mstyle", inner2);
     node.setAttribute("mathsize", makeEm(newOptions.sizeMultiplier));
     return node;
@@ -11301,12 +11301,12 @@ defineFunction({
       smashDepth
     };
   },
-  htmlBuilder: (group, options) => {
-    var node = buildCommon.makeSpan([], [buildGroup$1(group.body, options)]);
-    if (!group.smashHeight && !group.smashDepth) {
+  htmlBuilder: (group2, options) => {
+    var node = buildCommon.makeSpan([], [buildGroup$1(group2.body, options)]);
+    if (!group2.smashHeight && !group2.smashDepth) {
       return node;
     }
-    if (group.smashHeight) {
+    if (group2.smashHeight) {
       node.height = 0;
       if (node.children) {
         for (var i2 = 0; i2 < node.children.length; i2++) {
@@ -11314,7 +11314,7 @@ defineFunction({
         }
       }
     }
-    if (group.smashDepth) {
+    if (group2.smashDepth) {
       node.depth = 0;
       if (node.children) {
         for (var _i6 = 0; _i6 < node.children.length; _i6++) {
@@ -11331,12 +11331,12 @@ defineFunction({
     }, options);
     return buildCommon.makeSpan(["mord"], [smashedNode], options);
   },
-  mathmlBuilder: (group, options) => {
-    var node = new mathMLTree.MathNode("mpadded", [buildGroup2(group.body, options)]);
-    if (group.smashHeight) {
+  mathmlBuilder: (group2, options) => {
+    var node = new mathMLTree.MathNode("mpadded", [buildGroup2(group2.body, options)]);
+    if (group2.smashHeight) {
       node.setAttribute("height", "0px");
     }
-    if (group.smashDepth) {
+    if (group2.smashDepth) {
       node.setAttribute("depth", "0px");
     }
     return node;
@@ -11362,8 +11362,8 @@ defineFunction({
       index
     };
   },
-  htmlBuilder(group, options) {
-    var inner2 = buildGroup$1(group.body, options.havingCrampedStyle());
+  htmlBuilder(group2, options) {
+    var inner2 = buildGroup$1(group2.body, options.havingCrampedStyle());
     if (inner2.height === 0) {
       inner2.height = options.fontMetrics().xHeight;
     }
@@ -11404,11 +11404,11 @@ defineFunction({
         size: ruleWidth
       }]
     }, options);
-    if (!group.index) {
+    if (!group2.index) {
       return buildCommon.makeSpan(["mord", "sqrt"], [body], options);
     } else {
       var newOptions = options.havingStyle(Style$1.SCRIPTSCRIPT);
-      var rootm = buildGroup$1(group.index, newOptions, options);
+      var rootm = buildGroup$1(group2.index, newOptions, options);
       var toShift = 0.6 * (body.height - body.depth);
       var rootVList = buildCommon.makeVList({
         positionType: "shift",
@@ -11422,11 +11422,11 @@ defineFunction({
       return buildCommon.makeSpan(["mord", "sqrt"], [rootVListWrap, body], options);
     }
   },
-  mathmlBuilder(group, options) {
+  mathmlBuilder(group2, options) {
     var {
       body,
       index
-    } = group;
+    } = group2;
     return index ? new mathMLTree.MathNode("mroot", [buildGroup2(body, options), buildGroup2(index, options)]) : new mathMLTree.MathNode("msqrt", [buildGroup2(body, options)]);
   }
 });
@@ -11461,15 +11461,15 @@ defineFunction({
       body
     };
   },
-  htmlBuilder(group, options) {
-    var newStyle = styleMap[group.style];
+  htmlBuilder(group2, options) {
+    var newStyle = styleMap[group2.style];
     var newOptions = options.havingStyle(newStyle).withFont("");
-    return sizingGroup(group.body, newOptions, options);
+    return sizingGroup(group2.body, newOptions, options);
   },
-  mathmlBuilder(group, options) {
-    var newStyle = styleMap[group.style];
+  mathmlBuilder(group2, options) {
+    var newStyle = styleMap[group2.style];
     var newOptions = options.havingStyle(newStyle);
-    var inner2 = buildExpression2(group.body, newOptions);
+    var inner2 = buildExpression2(group2.body, newOptions);
     var node = new mathMLTree.MathNode("mstyle", inner2);
     var styleAttributes = {
       "display": ["0", "true"],
@@ -11477,14 +11477,14 @@ defineFunction({
       "script": ["1", "false"],
       "scriptscript": ["2", "false"]
     };
-    var attr = styleAttributes[group.style];
+    var attr = styleAttributes[group2.style];
     node.setAttribute("scriptlevel", attr[0]);
     node.setAttribute("displaystyle", attr[1]);
     return node;
   }
 });
-var htmlBuilderDelegate = function htmlBuilderDelegate2(group, options) {
-  var base = group.base;
+var htmlBuilderDelegate = function htmlBuilderDelegate2(group2, options) {
+  var base = group2.base;
   if (!base) {
     return null;
   } else if (base.type === "op") {
@@ -11496,7 +11496,7 @@ var htmlBuilderDelegate = function htmlBuilderDelegate2(group, options) {
   } else if (base.type === "accent") {
     return utils.isCharacterBox(base.base) ? htmlBuilder$a : null;
   } else if (base.type === "horizBrace") {
-    var isSup = !group.sub;
+    var isSup = !group2.sub;
     return isSup === base.isOver ? htmlBuilder$3 : null;
   } else {
     return null;
@@ -11504,16 +11504,16 @@ var htmlBuilderDelegate = function htmlBuilderDelegate2(group, options) {
 };
 defineFunctionBuilders({
   type: "supsub",
-  htmlBuilder(group, options) {
-    var builderDelegate = htmlBuilderDelegate(group, options);
+  htmlBuilder(group2, options) {
+    var builderDelegate = htmlBuilderDelegate(group2, options);
     if (builderDelegate) {
-      return builderDelegate(group, options);
+      return builderDelegate(group2, options);
     }
     var {
       base: valueBase,
       sup: valueSup,
       sub: valueSub
-    } = group;
+    } = group2;
     var base = buildGroup$1(valueBase, options);
     var supm;
     var subm;
@@ -11547,7 +11547,7 @@ defineFunctionBuilders({
     var marginRight = makeEm(0.5 / metrics.ptPerEm / multiplier);
     var marginLeft = null;
     if (subm) {
-      var isOiint = group.base && group.base.type === "op" && group.base.name && (group.base.name === "\\oiint" || group.base.name === "\\oiiint");
+      var isOiint = group2.base && group2.base.type === "op" && group2.base.name && (group2.base.name === "\\oiint" || group2.base.name === "\\oiiint");
       if (base instanceof SymbolNode || isOiint) {
         marginLeft = makeEm(-base.italic);
       }
@@ -11612,32 +11612,32 @@ defineFunctionBuilders({
     var mclass = getTypeOfDomTree(base, "right") || "mord";
     return buildCommon.makeSpan([mclass], [base, buildCommon.makeSpan(["msupsub"], [supsub])], options);
   },
-  mathmlBuilder(group, options) {
+  mathmlBuilder(group2, options) {
     var isBrace = false;
     var isOver;
     var isSup;
-    if (group.base && group.base.type === "horizBrace") {
-      isSup = !!group.sup;
-      if (isSup === group.base.isOver) {
+    if (group2.base && group2.base.type === "horizBrace") {
+      isSup = !!group2.sup;
+      if (isSup === group2.base.isOver) {
         isBrace = true;
-        isOver = group.base.isOver;
+        isOver = group2.base.isOver;
       }
     }
-    if (group.base && (group.base.type === "op" || group.base.type === "operatorname")) {
-      group.base.parentIsSupSub = true;
+    if (group2.base && (group2.base.type === "op" || group2.base.type === "operatorname")) {
+      group2.base.parentIsSupSub = true;
     }
-    var children = [buildGroup2(group.base, options)];
-    if (group.sub) {
-      children.push(buildGroup2(group.sub, options));
+    var children = [buildGroup2(group2.base, options)];
+    if (group2.sub) {
+      children.push(buildGroup2(group2.sub, options));
     }
-    if (group.sup) {
-      children.push(buildGroup2(group.sup, options));
+    if (group2.sup) {
+      children.push(buildGroup2(group2.sup, options));
     }
     var nodeType;
     if (isBrace) {
       nodeType = isOver ? "mover" : "munder";
-    } else if (!group.sub) {
-      var base = group.base;
+    } else if (!group2.sub) {
+      var base = group2.base;
       if (base && base.type === "op" && base.limits && (options.style === Style$1.DISPLAY || base.alwaysHandleSupSub)) {
         nodeType = "mover";
       } else if (base && base.type === "operatorname" && base.alwaysHandleSupSub && (base.limits || options.style === Style$1.DISPLAY)) {
@@ -11645,8 +11645,8 @@ defineFunctionBuilders({
       } else {
         nodeType = "msup";
       }
-    } else if (!group.sup) {
-      var _base = group.base;
+    } else if (!group2.sup) {
+      var _base = group2.base;
       if (_base && _base.type === "op" && _base.limits && (options.style === Style$1.DISPLAY || _base.alwaysHandleSupSub)) {
         nodeType = "munder";
       } else if (_base && _base.type === "operatorname" && _base.alwaysHandleSupSub && (_base.limits || options.style === Style$1.DISPLAY)) {
@@ -11655,7 +11655,7 @@ defineFunctionBuilders({
         nodeType = "msub";
       }
     } else {
-      var _base2 = group.base;
+      var _base2 = group2.base;
       if (_base2 && _base2.type === "op" && _base2.limits && options.style === Style$1.DISPLAY) {
         nodeType = "munderover";
       } else if (_base2 && _base2.type === "operatorname" && _base2.alwaysHandleSupSub && (options.style === Style$1.DISPLAY || _base2.limits)) {
@@ -11669,19 +11669,19 @@ defineFunctionBuilders({
 });
 defineFunctionBuilders({
   type: "atom",
-  htmlBuilder(group, options) {
-    return buildCommon.mathsym(group.text, group.mode, options, ["m" + group.family]);
+  htmlBuilder(group2, options) {
+    return buildCommon.mathsym(group2.text, group2.mode, options, ["m" + group2.family]);
   },
-  mathmlBuilder(group, options) {
-    var node = new mathMLTree.MathNode("mo", [makeText(group.text, group.mode)]);
-    if (group.family === "bin") {
-      var variant = getVariant(group, options);
+  mathmlBuilder(group2, options) {
+    var node = new mathMLTree.MathNode("mo", [makeText(group2.text, group2.mode)]);
+    if (group2.family === "bin") {
+      var variant = getVariant(group2, options);
       if (variant === "bold-italic") {
         node.setAttribute("mathvariant", variant);
       }
-    } else if (group.family === "punct") {
+    } else if (group2.family === "punct") {
       node.setAttribute("separator", "true");
-    } else if (group.family === "open" || group.family === "close") {
+    } else if (group2.family === "open" || group2.family === "close") {
       node.setAttribute("stretchy", "false");
     }
     return node;
@@ -11694,12 +11694,12 @@ var defaultVariant = {
 };
 defineFunctionBuilders({
   type: "mathord",
-  htmlBuilder(group, options) {
-    return buildCommon.makeOrd(group, options, "mathord");
+  htmlBuilder(group2, options) {
+    return buildCommon.makeOrd(group2, options, "mathord");
   },
-  mathmlBuilder(group, options) {
-    var node = new mathMLTree.MathNode("mi", [makeText(group.text, group.mode, options)]);
-    var variant = getVariant(group, options) || "italic";
+  mathmlBuilder(group2, options) {
+    var node = new mathMLTree.MathNode("mi", [makeText(group2.text, group2.mode, options)]);
+    var variant = getVariant(group2, options) || "italic";
     if (variant !== defaultVariant[node.type]) {
       node.setAttribute("mathvariant", variant);
     }
@@ -11708,18 +11708,18 @@ defineFunctionBuilders({
 });
 defineFunctionBuilders({
   type: "textord",
-  htmlBuilder(group, options) {
-    return buildCommon.makeOrd(group, options, "textord");
+  htmlBuilder(group2, options) {
+    return buildCommon.makeOrd(group2, options, "textord");
   },
-  mathmlBuilder(group, options) {
-    var text2 = makeText(group.text, group.mode, options);
-    var variant = getVariant(group, options) || "normal";
+  mathmlBuilder(group2, options) {
+    var text2 = makeText(group2.text, group2.mode, options);
+    var variant = getVariant(group2, options) || "normal";
     var node;
-    if (group.mode === "text") {
+    if (group2.mode === "text") {
       node = new mathMLTree.MathNode("mtext", [text2]);
-    } else if (/[0-9]/.test(group.text)) {
+    } else if (/[0-9]/.test(group2.text)) {
       node = new mathMLTree.MathNode("mn", [text2]);
-    } else if (group.text === "\\prime") {
+    } else if (group2.text === "\\prime") {
       node = new mathMLTree.MathNode("mo", [text2]);
     } else {
       node = new mathMLTree.MathNode("mi", [text2]);
@@ -11747,30 +11747,30 @@ var regularSpace = {
 };
 defineFunctionBuilders({
   type: "spacing",
-  htmlBuilder(group, options) {
-    if (regularSpace.hasOwnProperty(group.text)) {
-      var className = regularSpace[group.text].className || "";
-      if (group.mode === "text") {
-        var ord = buildCommon.makeOrd(group, options, "textord");
+  htmlBuilder(group2, options) {
+    if (regularSpace.hasOwnProperty(group2.text)) {
+      var className = regularSpace[group2.text].className || "";
+      if (group2.mode === "text") {
+        var ord = buildCommon.makeOrd(group2, options, "textord");
         ord.classes.push(className);
         return ord;
       } else {
-        return buildCommon.makeSpan(["mspace", className], [buildCommon.mathsym(group.text, group.mode, options)], options);
+        return buildCommon.makeSpan(["mspace", className], [buildCommon.mathsym(group2.text, group2.mode, options)], options);
       }
-    } else if (cssSpace.hasOwnProperty(group.text)) {
-      return buildCommon.makeSpan(["mspace", cssSpace[group.text]], [], options);
+    } else if (cssSpace.hasOwnProperty(group2.text)) {
+      return buildCommon.makeSpan(["mspace", cssSpace[group2.text]], [], options);
     } else {
-      throw new ParseError('Unknown type of space "' + group.text + '"');
+      throw new ParseError('Unknown type of space "' + group2.text + '"');
     }
   },
-  mathmlBuilder(group, options) {
+  mathmlBuilder(group2, options) {
     var node;
-    if (regularSpace.hasOwnProperty(group.text)) {
+    if (regularSpace.hasOwnProperty(group2.text)) {
       node = new mathMLTree.MathNode("mtext", [new mathMLTree.TextNode("\xA0")]);
-    } else if (cssSpace.hasOwnProperty(group.text)) {
+    } else if (cssSpace.hasOwnProperty(group2.text)) {
       return new mathMLTree.MathNode("mspace");
     } else {
-      throw new ParseError('Unknown type of space "' + group.text + '"');
+      throw new ParseError('Unknown type of space "' + group2.text + '"');
     }
     return node;
   }
@@ -11782,8 +11782,8 @@ var pad = () => {
 };
 defineFunctionBuilders({
   type: "tag",
-  mathmlBuilder(group, options) {
-    var table = new mathMLTree.MathNode("mtable", [new mathMLTree.MathNode("mtr", [pad(), new mathMLTree.MathNode("mtd", [buildExpressionRow(group.body, options)]), pad(), new mathMLTree.MathNode("mtd", [buildExpressionRow(group.tag, options)])])]);
+  mathmlBuilder(group2, options) {
+    var table = new mathMLTree.MathNode("mtable", [new mathMLTree.MathNode("mtr", [pad(), new mathMLTree.MathNode("mtd", [buildExpressionRow(group2.body, options)]), pad(), new mathMLTree.MathNode("mtd", [buildExpressionRow(group2.tag, options)])])]);
     table.setAttribute("width", "100%");
     return table;
   }
@@ -11803,8 +11803,8 @@ var textFontShapes = {
   "\\textit": "textit",
   "\\textup": "textup"
 };
-var optionsWithFont = (group, options) => {
-  var font = group.font;
+var optionsWithFont = (group2, options) => {
+  var font = group2.font;
   if (!font) {
     return options;
   } else if (textFontFamilies[font]) {
@@ -11852,14 +11852,14 @@ defineFunction({
       font: funcName
     };
   },
-  htmlBuilder(group, options) {
-    var newOptions = optionsWithFont(group, options);
-    var inner2 = buildExpression$1(group.body, newOptions, true);
+  htmlBuilder(group2, options) {
+    var newOptions = optionsWithFont(group2, options);
+    var inner2 = buildExpression$1(group2.body, newOptions, true);
     return buildCommon.makeSpan(["mord", "text"], inner2, newOptions);
   },
-  mathmlBuilder(group, options) {
-    var newOptions = optionsWithFont(group, options);
-    return buildExpressionRow(group.body, newOptions);
+  mathmlBuilder(group2, options) {
+    var newOptions = optionsWithFont(group2, options);
+    return buildExpressionRow(group2.body, newOptions);
   }
 });
 defineFunction({
@@ -11879,8 +11879,8 @@ defineFunction({
       body: args[0]
     };
   },
-  htmlBuilder(group, options) {
-    var innerGroup = buildGroup$1(group.body, options);
+  htmlBuilder(group2, options) {
+    var innerGroup = buildGroup$1(group2.body, options);
     var line = buildCommon.makeLineSpan("underline-line", options);
     var defaultRuleThickness = options.fontMetrics().defaultRuleThickness;
     var vlist = buildCommon.makeVList({
@@ -11902,10 +11902,10 @@ defineFunction({
     }, options);
     return buildCommon.makeSpan(["mord", "underline"], [vlist], options);
   },
-  mathmlBuilder(group, options) {
+  mathmlBuilder(group2, options) {
     var operator = new mathMLTree.MathNode("mo", [new mathMLTree.TextNode("\u203E")]);
     operator.setAttribute("stretchy", "true");
-    var node = new mathMLTree.MathNode("munder", [buildGroup2(group.body, options), operator]);
+    var node = new mathMLTree.MathNode("munder", [buildGroup2(group2.body, options), operator]);
     node.setAttribute("accentunder", "true");
     return node;
   }
@@ -11929,8 +11929,8 @@ defineFunction({
       body: args[0]
     };
   },
-  htmlBuilder(group, options) {
-    var body = buildGroup$1(group.body, options);
+  htmlBuilder(group2, options) {
+    var body = buildGroup$1(group2.body, options);
     var axisHeight = options.fontMetrics().axisHeight;
     var dy = 0.5 * (body.height - axisHeight - (body.depth + axisHeight));
     return buildCommon.makeVList({
@@ -11942,8 +11942,8 @@ defineFunction({
       }]
     }, options);
   },
-  mathmlBuilder(group, options) {
-    return new mathMLTree.MathNode("mpadded", [buildGroup2(group.body, options)], ["vcenter"]);
+  mathmlBuilder(group2, options) {
+    return new mathMLTree.MathNode("mpadded", [buildGroup2(group2.body, options)], ["vcenter"]);
   }
 });
 defineFunction({
@@ -11956,8 +11956,8 @@ defineFunction({
   handler(context, args, optArgs) {
     throw new ParseError("\\verb ended by end of line instead of matching delimiter");
   },
-  htmlBuilder(group, options) {
-    var text2 = makeVerb(group);
+  htmlBuilder(group2, options) {
+    var text2 = makeVerb(group2);
     var body = [];
     var newOptions = options.havingStyle(options.style.text());
     for (var i2 = 0; i2 < text2.length; i2++) {
@@ -11965,18 +11965,18 @@ defineFunction({
       if (c === "~") {
         c = "\\textasciitilde";
       }
-      body.push(buildCommon.makeSymbol(c, "Typewriter-Regular", group.mode, newOptions, ["mord", "texttt"]));
+      body.push(buildCommon.makeSymbol(c, "Typewriter-Regular", group2.mode, newOptions, ["mord", "texttt"]));
     }
     return buildCommon.makeSpan(["mord", "text"].concat(newOptions.sizingClasses(options)), buildCommon.tryCombineChars(body), newOptions);
   },
-  mathmlBuilder(group, options) {
-    var text2 = new mathMLTree.TextNode(makeVerb(group));
+  mathmlBuilder(group2, options) {
+    var text2 = new mathMLTree.TextNode(makeVerb(group2));
     var node = new mathMLTree.MathNode("mtext", [text2]);
     node.setAttribute("mathvariant", "monospace");
     return node;
   }
 });
-var makeVerb = (group) => group.body.replace(/ /g, group.star ? "\u2423" : "\xA0");
+var makeVerb = (group2) => group2.body.replace(/ /g, group2.star ? "\u2423" : "\xA0");
 var functions = _functions;
 var spaceRegexString = "[ \r\n	]";
 var controlWordRegexString = "\\\\[a-zA-Z@]+";
@@ -12740,7 +12740,7 @@ var braketHelper = (one) => (context) => {
     context.macros.set("\\|", midMacro(true));
   }
   var arg = context.consumeArg().tokens;
-  var expanded = context.expandTokens([
+  var expanded2 = context.expandTokens([
     ...right,
     ...arg,
     ...left
@@ -12748,7 +12748,7 @@ var braketHelper = (one) => (context) => {
   ]);
   context.macros.endGroup();
   return {
-    tokens: expanded.reverse(),
+    tokens: expanded2.reverse(),
     numArgs: 0
   };
 };
@@ -13179,11 +13179,11 @@ var MacroExpander = class {
         tok = bodyLexer.lex();
       }
       tokens.reverse();
-      var expanded = {
+      var expanded2 = {
         tokens,
         numArgs
       };
-      return expanded;
+      return expanded2;
     }
     return expansion;
   }
@@ -13890,15 +13890,15 @@ var Parser = class _Parser {
     var symbol = symbolToken.text;
     this.consume();
     this.consumeSpaces();
-    var group;
+    var group2;
     do {
       var _group;
-      group = this.parseGroup(name);
-    } while (((_group = group) == null ? void 0 : _group.type) === "internal");
-    if (!group) {
+      group2 = this.parseGroup(name);
+    } while (((_group = group2) == null ? void 0 : _group.type) === "internal");
+    if (!group2) {
       throw new ParseError("Expected group after '" + symbol + "'", symbolToken);
     }
-    return group;
+    return group2;
   }
   /**
    * Converts the textual input of an unsupported command into a text node
@@ -14124,11 +14124,11 @@ var Parser = class _Parser {
       case "text":
         return this.parseArgumentGroup(optional, type);
       case "hbox": {
-        var group = this.parseArgumentGroup(optional, "text");
-        return group != null ? {
+        var group2 = this.parseArgumentGroup(optional, "text");
+        return group2 != null ? {
           type: "styling",
-          mode: group.mode,
-          body: [group],
+          mode: group2.mode,
+          body: [group2],
           style: "text"
           // simulate \textstyle
         } : null;
@@ -14362,35 +14362,35 @@ var Parser = class _Parser {
    * characters in its value.  The representation is still ASCII source.
    * The group will be modified in place.
    */
-  formLigatures(group) {
-    var n = group.length - 1;
+  formLigatures(group2) {
+    var n = group2.length - 1;
     for (var i2 = 0; i2 < n; ++i2) {
-      var a = group[i2];
+      var a = group2[i2];
       var v = a.text;
-      if (v === "-" && group[i2 + 1].text === "-") {
-        if (i2 + 1 < n && group[i2 + 2].text === "-") {
-          group.splice(i2, 3, {
+      if (v === "-" && group2[i2 + 1].text === "-") {
+        if (i2 + 1 < n && group2[i2 + 2].text === "-") {
+          group2.splice(i2, 3, {
             type: "textord",
             mode: "text",
-            loc: SourceLocation.range(a, group[i2 + 2]),
+            loc: SourceLocation.range(a, group2[i2 + 2]),
             text: "---"
           });
           n -= 2;
         } else {
-          group.splice(i2, 2, {
+          group2.splice(i2, 2, {
             type: "textord",
             mode: "text",
-            loc: SourceLocation.range(a, group[i2 + 1]),
+            loc: SourceLocation.range(a, group2[i2 + 1]),
             text: "--"
           });
           n -= 1;
         }
       }
-      if ((v === "'" || v === "`") && group[i2 + 1].text === v) {
-        group.splice(i2, 2, {
+      if ((v === "'" || v === "`") && group2[i2 + 1].text === v) {
+        group2.splice(i2, 2, {
           type: "textord",
           mode: "text",
-          loc: SourceLocation.range(a, group[i2 + 1]),
+          loc: SourceLocation.range(a, group2[i2 + 1]),
           text: v + v
         });
         n -= 1;
@@ -14442,11 +14442,11 @@ var Parser = class _Parser {
       if (this.settings.strict && this.mode === "math" && extraLatin.indexOf(text2) >= 0) {
         this.settings.reportNonstrict("unicodeTextInMathMode", 'Latin-1/Unicode text character "' + text2[0] + '" used in math mode', nucleus);
       }
-      var group = symbols[this.mode][text2].group;
+      var group2 = symbols[this.mode][text2].group;
       var loc = SourceLocation.range(nucleus);
       var s;
-      if (ATOMS.hasOwnProperty(group)) {
-        var family = group;
+      if (ATOMS.hasOwnProperty(group2)) {
+        var family = group2;
         s = {
           type: "atom",
           mode: this.mode,
@@ -14456,7 +14456,7 @@ var Parser = class _Parser {
         };
       } else {
         s = {
-          type: group,
+          type: group2,
           mode: this.mode,
           loc,
           text: text2
@@ -14752,6 +14752,7226 @@ function parseSprEntry(raw) {
 // extension/src/types.ts
 var LETTERS = ["A", "B", "C", "D"];
 
+// extension/src/addons/dom.ts
+function h(tag, props = null, ...children) {
+  const el = document.createElement(tag);
+  if (props) {
+    for (const [key, value] of Object.entries(props)) {
+      if (value === void 0 || value === null || value === false) continue;
+      if (key === "class") el.className = String(value);
+      else if (key === "text") el.textContent = String(value);
+      else if (key.startsWith("on") && typeof value === "function") el.addEventListener(key.slice(2).toLowerCase(), value);
+      else if (key === "checked" || key === "disabled" || key === "value") el[key] = value;
+      else el.setAttribute(key, String(value));
+    }
+  }
+  for (const child of children) {
+    if (child === null || child === void 0 || child === false) continue;
+    el.append(child instanceof Node ? child : document.createTextNode(child));
+  }
+  return el;
+}
+var chip = (text2, tone = "") => h("span", { class: `chip ${tone}`.trim(), text: text2 });
+var spinner = () => h("span", { class: "spinner", "aria-label": "working" });
+function svg(tag, attrs, ...children) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  for (const c of children) el.append(typeof c === "string" ? document.createTextNode(c) : c);
+  return el;
+}
+
+// extension/src/addons/types.ts
+var LETTERS2 = ["A", "B", "C", "D"];
+function hasChoices(c) {
+  return !!c && LETTERS2.every((l) => typeof c[l] === "string" && c[l].trim() !== "");
+}
+function choicesOf(c) {
+  return { A: c?.A ?? "", B: c?.B ?? "", C: c?.C ?? "", D: c?.D ?? "" };
+}
+function normalizeQuestion(q) {
+  return { ...q, choices: choicesOf(q.choices), format: q.format ?? (hasChoices(q.choices) ? "mcq" : "spr") };
+}
+var MATH_DOMAINS = ["Algebra", "Advanced Math", "Problem-Solving and Data Analysis", "Geometry and Trigonometry"];
+var MATH_SKILLS = [
+  "Linear equations in one variable",
+  "Linear functions",
+  "Linear equations in two variables",
+  "Systems of two linear equations in two variables",
+  "Linear inequalities in one or two variables",
+  "Nonlinear functions",
+  "Nonlinear equations in one variable and systems of equations in two variables",
+  "Equivalent expressions",
+  "Ratios, rates, proportional relationships, and units",
+  "Percentages",
+  "One-variable data: Distributions and measures of center and spread",
+  "Two-variable data: Models and scatterplots",
+  "Probability and conditional probability",
+  "Inference from sample statistics and margin of error",
+  "Evaluating statistical claims: Observational studies and experiments",
+  "Area and volume",
+  "Lines, angles, and triangles",
+  "Right triangles and trigonometry",
+  "Circles"
+];
+var fold = (s) => s.toLowerCase().replace(/\s+/g, " ").trim();
+var MATH_NAMES = new Set([...MATH_DOMAINS, ...MATH_SKILLS].map(fold));
+function isMathTaxonomy(domain, skill) {
+  return [domain, skill].some((x) => !!x && MATH_NAMES.has(fold(x)));
+}
+
+// extension/src/addons/store.ts
+var chromeKV = {
+  async get(key) {
+    const out = await chrome.storage.local.get(key);
+    return out[key];
+  },
+  async set(key, value) {
+    await chrome.storage.local.set({ [key]: value });
+  },
+  async remove(key) {
+    await chrome.storage.local.remove(key);
+  }
+};
+function memoryKV(seed = {}) {
+  const data = structuredClone(seed);
+  return {
+    async get(key) {
+      return structuredClone(data[key]);
+    },
+    async set(key, value) {
+      data[key] = structuredClone(value);
+    },
+    async remove(key) {
+      delete data[key];
+    },
+    dump: () => structuredClone(data)
+  };
+}
+var current = null;
+function kv() {
+  if (!current) current = typeof chrome !== "undefined" && chrome?.storage?.local ? chromeKV : memoryKV();
+  return current;
+}
+var KEYS = {
+  log: "rc.addons.log.v1",
+  srs: "rc.addons.srs.v1",
+  prefs: "rc.addons.prefs.v1",
+  timer: "rc.addons.timer.v1",
+  sets: "rc.addons.sets.v1",
+  /** achievements.ts: { [badgeId]: earnedAt } */
+  badges: "rc.addons.badges.v1"
+};
+
+// extension/src/addons/log.ts
+var MAX_ENTRIES = 1500;
+var STEM_MAX = 500;
+var PASSAGE_MAX = 1200;
+var FIGURE_MAX = 800;
+var STEP_MAX = 300;
+var STEPS_MAX = 8;
+var TYPED_MAX = 20;
+var NO_LETTER = "A";
+var clip = (s, n) => s ? s.length > n ? `${s.slice(0, n - 1)}\u2026` : s : null;
+function uniq(xs) {
+  const out = [];
+  for (const x of xs) {
+    const t = typeof x === "string" ? x.trim() : "";
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+function isGridIn(e) {
+  return e.format === "spr";
+}
+function hasChoiceList(e) {
+  return !isGridIn(e) && hasChoices(e.choices);
+}
+function sectionOf(e) {
+  if (e.section === "math" || e.section === "rw") return e.section;
+  return isMathTaxonomy(e.domain, e.skill) ? "math" : "rw";
+}
+function answerText(e) {
+  if (!isGridIn(e)) return e.correct;
+  return e.accepted?.[0] ?? "?";
+}
+function otherAnswers(e) {
+  return isGridIn(e) ? (e.accepted ?? []).slice(1) : [];
+}
+function responseText(e) {
+  if (isGridIn(e)) return e.typed ?? null;
+  return e.picked === "correct" ? null : e.picked;
+}
+function entryFromExplain(data, picked, extras = {}) {
+  const { card, question } = data;
+  const gridIn = question.format === "spr" || picked === "spr";
+  const letter = picked === "correct" || picked === "spr" ? null : picked;
+  const graded = typeof data.isCorrect === "boolean" ? data.isCorrect : null;
+  const right = graded ?? (picked === "correct" || letter !== null && letter === card.correct_letter || card.diagnosis === "got_it_right");
+  const domain = question.domain ?? null;
+  const skill = question.skill ?? null;
+  const steps = uniq(card.steps ?? []).slice(0, STEPS_MAX).map((s) => clip(s, STEP_MAX) ?? "");
+  const entry = {
+    attemptId: data.attemptId,
+    at: extras.now ?? Date.now(),
+    ruleId: card.rule_id,
+    ruleName: data.rule?.name ?? null,
+    ruleStatement: card.rule_statement,
+    takeaway: card.takeaway,
+    whyCorrect: card.why_correct,
+    whyPickFails: card.why_pick_fails ?? null,
+    diagnosis: card.diagnosis,
+    confidence: card.confidence,
+    picked: letter ?? "correct",
+    correct: gridIn ? NO_LETTER : card.correct_letter ?? question.correct ?? NO_LETTER,
+    result: right ? "right" : "missed",
+    qbId: question.qbId ?? null,
+    domain,
+    skill,
+    difficulty: question.difficulty ?? null,
+    stem: clip(question.stem, STEM_MAX) ?? "",
+    passage: clip(question.passage, PASSAGE_MAX),
+    choices: gridIn ? choicesOf(null) : choicesOf(question.choices),
+    solvedByModel: Boolean(card.solved_by_model),
+    seconds: extras.seconds ?? null,
+    note: "",
+    starred: false,
+    drills: [],
+    selfConfidence: extras.selfConfidence ?? null,
+    section: sectionOf({ section: question.section, domain, skill }),
+    format: gridIn ? "spr" : "mcq"
+  };
+  if (gridIn) {
+    entry.typed = picked === "spr" ? extras.typed?.trim().slice(0, TYPED_MAX) || null : null;
+    entry.accepted = uniq([card.correct_answer, ...question.answers ?? []]);
+  }
+  if (question.figure) entry.figure = clip(question.figure, FIGURE_MAX);
+  if (steps.length) entry.steps = steps;
+  if (card.shortcut) entry.shortcut = clip(card.shortcut, STEP_MAX);
+  return entry;
+}
+var queue = Promise.resolve();
+function serial(fn) {
+  const run = queue.then(fn, fn);
+  queue = run.catch(() => void 0);
+  return run;
+}
+async function readLog() {
+  const raw = await kv().get(KEYS.log);
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((e) => {
+    const ok = sanitizeEntry(e);
+    return ok ? [ok] : [];
+  });
+}
+async function writeLog(entries) {
+  entries.sort((a, b) => b.at - a.at);
+  await kv().set(KEYS.log, entries.slice(0, MAX_ENTRIES));
+}
+function recordAttempt(entry) {
+  return serial(async () => {
+    const entries = (await readLog()).filter((e) => e.attemptId !== entry.attemptId);
+    entries.push(entry);
+    await writeLog(entries);
+    return entries;
+  });
+}
+function updateEntry(attemptId, patch) {
+  return serial(async () => {
+    const entries = await readLog();
+    const hit = entries.find((e) => e.attemptId === attemptId);
+    if (!hit) return null;
+    Object.assign(hit, patch);
+    await writeLog(entries);
+    return hit;
+  });
+}
+function recordDrill(attemptId, correct, review2 = false, now = Date.now()) {
+  return serial(async () => {
+    const entries = await readLog();
+    const hit = entries.find((e) => e.attemptId === attemptId);
+    if (!hit) return;
+    hit.drills.push({ at: now, correct, review: review2 });
+    await writeLog(entries);
+  });
+}
+function clearLog() {
+  return serial(() => kv().remove(KEYS.log));
+}
+var isStrings = (x) => Array.isArray(x) && x.every((s) => typeof s === "string");
+var isStr = (x) => typeof x === "string";
+var isNum = (x) => typeof x === "number" && Number.isFinite(x);
+var LETTER_SET = /* @__PURE__ */ new Set(["A", "B", "C", "D"]);
+function sanitizeEntry(x) {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return null;
+  const e = x;
+  if (!isStr(e.attemptId) || !e.attemptId || !isNum(e.at) || !isStr(e.ruleId) || !isStr(e.stem)) return null;
+  if (!isStr(e.correct) || !LETTER_SET.has(e.correct)) return null;
+  if (e.picked !== "correct" && !(isStr(e.picked) && LETTER_SET.has(e.picked))) return null;
+  if (e.result !== "right" && e.result !== "missed") return null;
+  const drills = Array.isArray(e.drills) ? e.drills.filter((d) => !!d && typeof d === "object" && isNum(d.at) && typeof d.correct === "boolean") : [];
+  const text2 = (v, fallback = "") => isStr(v) ? v : fallback;
+  const entry = repairEntry({
+    ...e,
+    drills,
+    ruleName: isStr(e.ruleName) ? e.ruleName : null,
+    ruleStatement: text2(e.ruleStatement),
+    takeaway: text2(e.takeaway),
+    whyCorrect: text2(e.whyCorrect),
+    whyPickFails: isStr(e.whyPickFails) ? e.whyPickFails : null,
+    confidence: isNum(e.confidence) ? e.confidence : 0,
+    note: text2(e.note)
+  });
+  if (!entry.diagnosis || !["misread", "rule_gap", "careless", "got_it_right", "unknown"].includes(entry.diagnosis)) entry.diagnosis = "unknown";
+  return entry;
+}
+function repairEntry(e) {
+  const out = {
+    ...e,
+    choices: choicesOf(e.choices && typeof e.choices === "object" ? e.choices : null),
+    drills: Array.isArray(e.drills) ? e.drills : [],
+    note: e.note ?? "",
+    starred: Boolean(e.starred)
+  };
+  if (out.section !== void 0 && out.section !== null && out.section !== "rw" && out.section !== "math") delete out.section;
+  if (out.format !== void 0 && out.format !== null && out.format !== "mcq" && out.format !== "spr") delete out.format;
+  if (out.typed !== void 0 && out.typed !== null && typeof out.typed !== "string") delete out.typed;
+  if (out.accepted !== void 0 && !isStrings(out.accepted)) delete out.accepted;
+  if (out.steps !== void 0 && !isStrings(out.steps)) delete out.steps;
+  return out;
+}
+function importEntries(incoming) {
+  return serial(async () => {
+    const entries = await readLog();
+    const seen = new Set(entries.map((e) => e.attemptId));
+    let added = 0;
+    for (const raw of Array.isArray(incoming) ? incoming : []) {
+      const e = sanitizeEntry(raw);
+      if (!e || seen.has(e.attemptId)) continue;
+      entries.push(e);
+      seen.add(e.attemptId);
+      added++;
+    }
+    await writeLog(entries);
+    return added;
+  });
+}
+
+// extension/src/addons/srs.ts
+var DAY = 864e5;
+var INTERVAL_DAYS = [0, 1, 2, 4, 8, 16, 32];
+var MAX_BOX = INTERVAL_DAYS.length - 1;
+var MASTERED_BOX = 5;
+var intervalFor = (box) => (INTERVAL_DAYS[Math.min(Math.max(box, 1), MAX_BOX)] ?? 1) * DAY;
+function applyAttempt(state2, entry, now) {
+  const next = { ...state2 };
+  const prev = state2[entry.ruleId];
+  if (entry.result === "missed") {
+    next[entry.ruleId] = {
+      ruleId: entry.ruleId,
+      ruleName: entry.ruleName ?? prev?.ruleName ?? null,
+      box: 1,
+      due: now + intervalFor(1),
+      attemptId: entry.attemptId,
+      reps: prev?.reps ?? 0,
+      lapses: (prev?.lapses ?? 0) + (prev ? 1 : 0),
+      lastReviewed: prev?.lastReviewed ?? null
+    };
+  } else if (!prev) {
+    next[entry.ruleId] = {
+      ruleId: entry.ruleId,
+      ruleName: entry.ruleName ?? null,
+      box: 3,
+      due: now + intervalFor(3),
+      attemptId: entry.attemptId,
+      reps: 0,
+      lapses: 0,
+      lastReviewed: null
+    };
+  } else {
+    const promoted = now >= prev.due ? Math.min(prev.box + 1, MAX_BOX) : prev.box;
+    next[entry.ruleId] = {
+      ...prev,
+      ruleName: entry.ruleName ?? prev.ruleName,
+      attemptId: entry.attemptId,
+      box: promoted,
+      due: promoted !== prev.box ? now + intervalFor(promoted) : prev.due
+    };
+  }
+  return next;
+}
+function applyReview(state2, ruleId, correct, now) {
+  const prev = state2[ruleId];
+  if (!prev) return state2;
+  const box = correct ? Math.min(prev.box + 1, MAX_BOX) : 1;
+  return {
+    ...state2,
+    [ruleId]: {
+      ...prev,
+      box,
+      due: now + intervalFor(box),
+      reps: prev.reps + 1,
+      lapses: prev.lapses + (correct ? 0 : 1),
+      lastReviewed: now
+    }
+  };
+}
+function dueRules(state2, now) {
+  return Object.values(state2).filter((r) => r.due <= now).sort((a, b) => a.due - b.due || b.lapses - a.lapses || a.box - b.box);
+}
+function nextDue(state2, now) {
+  const upcoming = Object.values(state2).filter((r) => r.due > now).sort((a, b) => a.due - b.due);
+  return upcoming[0] ?? null;
+}
+function masteryCounts(state2) {
+  let learning = 0, reviewing = 0, mastered2 = 0;
+  for (const r of Object.values(state2)) {
+    if (r.box >= MASTERED_BOX) mastered2++;
+    else if (r.box <= 2) learning++;
+    else reviewing++;
+  }
+  return { learning, reviewing, mastered: mastered2 };
+}
+function rebuildFromLog(entries) {
+  let state2 = {};
+  const chronological = [...entries].sort((a, b) => a.at - b.at);
+  for (const e of chronological) {
+    state2 = applyAttempt(state2, e, e.at);
+    for (const d of e.drills) if (d.review) state2 = applyReview(state2, e.ruleId, d.correct, d.at);
+  }
+  return state2;
+}
+async function readSrs() {
+  return await kv().get(KEYS.srs) ?? {};
+}
+async function writeSrs(state2) {
+  await kv().set(KEYS.srs, state2);
+}
+function describeDue(ms, now) {
+  const diff = ms - now;
+  if (diff <= 0) return "due now";
+  const hours = Math.round(diff / 36e5);
+  if (hours < 24) return `in ${Math.max(1, hours)}h`;
+  const days = Math.round(diff / DAY);
+  return `in ${days} day${days === 1 ? "" : "s"}`;
+}
+
+// extension/src/addons/stats.ts
+var TARGET_SECONDS = 71;
+var MATH_TARGET_SECONDS = 95;
+var SECTION_LABEL = { rw: "Reading and Writing", math: "Math" };
+function targetSecondsFor(e) {
+  if (!e) return TARGET_SECONDS;
+  return sectionOf({ section: e.section, domain: e.domain ?? null, skill: e.skill ?? null }) === "math" ? MATH_TARGET_SECONDS : TARGET_SECONDS;
+}
+function dayKey(ts) {
+  const d = new Date(ts);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+function startOfDay(ts) {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+function shiftDays(ts, days) {
+  const d = new Date(ts);
+  d.setDate(d.getDate() + days);
+  return d.getTime();
+}
+function group(entries, keyOf, labelOf) {
+  const map = /* @__PURE__ */ new Map();
+  for (const e of entries) {
+    const key = keyOf(e);
+    if (!key) continue;
+    const g = map.get(key) ?? { key, label: labelOf(e), attempts: 0, misses: 0, missRate: 0, lastAt: 0 };
+    g.attempts++;
+    if (e.result === "missed") g.misses++;
+    if (e.at > g.lastAt) {
+      g.lastAt = e.at;
+      g.label = labelOf(e);
+    }
+    map.set(key, g);
+  }
+  for (const g of map.values()) g.missRate = g.attempts ? g.misses / g.attempts : 0;
+  return [...map.values()].sort((a, b) => b.misses - a.misses || b.missRate - a.missRate || b.lastAt - a.lastAt);
+}
+var acc = (right, total) => total ? right / total : null;
+function summarize(entries, srs, now = Date.now()) {
+  const right = entries.filter((e) => e.result === "right").length;
+  const missed = entries.length - right;
+  const missesByDiagnosis = { misread: 0, rule_gap: 0, careless: 0, got_it_right: 0, unknown: 0 };
+  for (const e of entries) if (e.result === "missed") missesByDiagnosis[e.diagnosis] = (missesByDiagnosis[e.diagnosis] ?? 0) + 1;
+  const days = new Set(entries.map((e) => dayKey(e.at)));
+  const today = startOfDay(now);
+  const practicedToday = days.has(dayKey(today));
+  let cursor = practicedToday ? today : shiftDays(today, -1);
+  let streakDays = 0;
+  while (days.has(dayKey(cursor))) {
+    streakDays++;
+    cursor = shiftDays(cursor, -1);
+  }
+  const daily = [];
+  for (let i2 = 13; i2 >= 0; i2--) {
+    const day = dayKey(shiftDays(today, -i2));
+    const onDay = entries.filter((e) => dayKey(e.at) === day);
+    daily.push({ day, attempts: onDay.length, misses: onDay.filter((e) => e.result === "missed").length });
+  }
+  const drills = entries.flatMap((e) => e.drills);
+  const drillsCorrect = drills.filter((d) => d.correct).length;
+  const timed = entries.filter((e) => typeof e.seconds === "number" && e.seconds > 0 && e.seconds < 1800);
+  const totalSec = timed.reduce((s, e) => s + (e.seconds ?? 0), 0);
+  const targetSum = timed.reduce((s, e) => s + targetSecondsFor(e), 0);
+  const weekStart = shiftDays(today, -6);
+  const prevStart = shiftDays(today, -13);
+  const thisWeekE = entries.filter((e) => e.at >= weekStart);
+  const lastWeekE = entries.filter((e) => e.at >= prevStart && e.at < weekStart);
+  const calibration = { sure: { attempts: 0, right: 0, accuracy: null }, unsure: { attempts: 0, right: 0, accuracy: null }, guess: { attempts: 0, right: 0, accuracy: null } };
+  for (const e of entries) {
+    if (!e.selfConfidence) continue;
+    const c = calibration[e.selfConfidence];
+    c.attempts++;
+    if (e.result === "right") c.right++;
+  }
+  for (const c of Object.values(calibration)) c.accuracy = acc(c.right, c.attempts);
+  const confidentlyWrong = entries.filter((e) => e.selfConfidence === "sure" && e.result === "missed").length;
+  return {
+    calibration,
+    confidentlyWrong,
+    attempts: entries.length,
+    right,
+    missed,
+    accuracy: acc(right, entries.length),
+    missesByDiagnosis,
+    byRule: group(entries, (e) => e.ruleId, (e) => e.ruleName ? `${e.ruleId} \xB7 ${e.ruleName}` : e.ruleId),
+    bySkill: group(entries, (e) => e.skill, (e) => e.skill ?? ""),
+    byDifficulty: group(entries, (e) => e.difficulty, (e) => e.difficulty ?? ""),
+    bySection: group(entries, (e) => sectionOf(e), (e) => SECTION_LABEL[sectionOf(e)]),
+    streakDays,
+    practicedToday,
+    daily,
+    drills: { total: drills.length, correct: drillsCorrect, accuracy: acc(drillsCorrect, drills.length) },
+    pacing: {
+      timed: timed.length,
+      avgSeconds: timed.length ? Math.round(totalSec / timed.length) : null,
+      slow: timed.filter((e) => (e.seconds ?? 0) > targetSecondsFor(e)).length,
+      target: timed.length ? Math.round(targetSum / timed.length) : TARGET_SECONDS
+    },
+    mastery: masteryCounts(srs),
+    thisWeek: { attempts: thisWeekE.length, accuracy: acc(thisWeekE.filter((e) => e.result === "right").length, thisWeekE.length) },
+    lastWeek: { attempts: lastWeekE.length, accuracy: acc(lastWeekE.filter((e) => e.result === "right").length, lastWeekE.length) }
+  };
+}
+var pct = (x) => `${Math.round(x * 100)}%`;
+function insights(s, dueCount = 0) {
+  const out = [];
+  if (s.attempts === 0) {
+    return [{ tone: "accent", text: "Capture and explain a few questions and your patterns will show up here." }];
+  }
+  if (dueCount > 0) out.push({ tone: "accent", text: `${dueCount} rule${dueCount === 1 ? " is" : "s are"} due for review. A quick round now locks them in.` });
+  const realMisses = s.missed;
+  const mathMisses = s.bySection.find((g) => g.key === "math")?.misses ?? 0;
+  if (realMisses >= 4) {
+    const careless = s.missesByDiagnosis.careless / realMisses;
+    const misread = s.missesByDiagnosis.misread / realMisses;
+    const gap = s.missesByDiagnosis.rule_gap / realMisses;
+    if (careless >= 0.4)
+      out.push({
+        tone: "warn",
+        text: mathMisses > realMisses / 2 ? `${pct(careless)} of your misses are careless slips, not missing rules. Before you lock an answer, reread what the question asks for (x or 2x, the units) and plug your answer back in.` : `${pct(careless)} of your misses are careless slips, not missing rules. Before you lock an answer, plug it into the blank and read the whole sentence once.`
+      });
+    if (misread >= 0.35)
+      out.push({ tone: "warn", text: `${pct(misread)} of your misses come from misreading. Say what the question asks in your own words before you look at the choices.` });
+    if (gap >= 0.5) out.push({ tone: "danger", text: `${pct(gap)} of your misses are rule gaps. Review the rules more and do fewer new questions until those cards stick.` });
+  }
+  const worst = s.byRule.find((r) => r.misses >= 2);
+  if (worst) out.push({ tone: "danger", text: `Your most-missed rule is ${worst.label} (${worst.misses} of ${worst.attempts}). Start your next review there.` });
+  const [rw, math2] = ["rw", "math"].map((k) => s.bySection.find((g) => g.key === k));
+  if (rw && math2 && rw.attempts >= 5 && math2.attempts >= 5 && Math.abs(rw.missRate - math2.missRate) >= 0.2) {
+    const [weak, strong] = rw.missRate > math2.missRate ? [rw, math2] : [math2, rw];
+    out.push({ tone: "warn", text: `You miss ${pct(weak.missRate)} in ${weak.label} and ${pct(strong.missRate)} in ${strong.label}. Give ${weak.label} more of your next sessions.` });
+  }
+  const weakSkill = s.bySkill.find((g) => g.attempts >= 3 && g.missRate >= 0.5);
+  if (weakSkill) out.push({ tone: "warn", text: `${weakSkill.label} is your weakest skill (${pct(weakSkill.missRate)} missed). Filter the Question Bank to it for one focused set.` });
+  const target = s.pacing.target ?? TARGET_SECONDS;
+  if (s.pacing.avgSeconds !== null && s.pacing.timed >= 5 && s.pacing.avgSeconds > target)
+    out.push({ tone: "warn", text: `You average ${s.pacing.avgSeconds}s a question. Test pace is about ${target}s, so ${s.pacing.slow} of ${s.pacing.timed} timed questions ran long.` });
+  if (s.drills.total >= 5 && s.drills.accuracy !== null && s.drills.accuracy < 0.6)
+    out.push({ tone: "warn", text: `Test me accuracy is ${pct(s.drills.accuracy)}. Re-read the rule statement before each drill and say why each wrong choice breaks it.` });
+  if (s.thisWeek.accuracy !== null && s.lastWeek.accuracy !== null && s.thisWeek.attempts >= 5 && s.lastWeek.attempts >= 5) {
+    const delta = s.thisWeek.accuracy - s.lastWeek.accuracy;
+    if (delta >= 0.05) out.push({ tone: "good", text: `Accuracy is up ${pct(delta)} on last week. Keep the same routine.` });
+    else if (delta <= -0.05) out.push({ tone: "warn", text: `Accuracy is down ${pct(-delta)} on last week. You may be taking on harder sets; check the difficulty mix below.` });
+  }
+  if (s.streakDays >= 3) out.push({ tone: "good", text: `${s.streakDays}-day streak.${s.practicedToday ? "" : " Do one question today to keep it going."}` });
+  else if (!s.practicedToday && s.streakDays > 0) out.push({ tone: "accent", text: `Do one question today to keep your ${s.streakDays}-day streak.` });
+  if (s.confidentlyWrong >= 2)
+    out.push({ tone: "danger", text: `You were sure on ${s.confidentlyWrong} questions you missed. Those are misunderstood rules, not slips, so they're worth the most review time.` });
+  const sure = s.calibration.sure;
+  if (sure.attempts >= 5 && sure.accuracy !== null && sure.accuracy < 0.75)
+    out.push({ tone: "warn", text: `When you feel sure, you're right only ${pct(sure.accuracy)} of the time. On easy-looking questions, check every choice before you lock in.` });
+  const guess = s.calibration.guess;
+  if (guess.attempts >= 5 && guess.accuracy !== null && guess.accuracy >= 0.6)
+    out.push({ tone: "good", text: `Your "guesses" are right ${pct(guess.accuracy)} of the time. Your instincts are better than you think.` });
+  if (s.mastery.mastered > 0) out.push({ tone: "good", text: `${s.mastery.mastered} rule${s.mastery.mastered === 1 ? "" : "s"} mastered (passed reviews spaced 8+ days apart).` });
+  return out;
+}
+function countdown(testDate, s, now = Date.now()) {
+  const m = testDate?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const days = Math.round((date.getTime() - startOfDay(now)) / 864e5);
+  if (days < 0) return null;
+  const perDay = Math.round(s.thisWeek.attempts / 7 * 10) / 10;
+  return {
+    days,
+    label: date.toLocaleDateString(void 0, { month: "short", day: "numeric" }),
+    perDay,
+    projected: Math.round(perDay * days)
+  };
+}
+
+// extension/src/addons/taxonomy.ts
+var RW_DOMAIN_OF = {
+  "Central Ideas and Details": "Information and Ideas",
+  "Command of Evidence": "Information and Ideas",
+  Inferences: "Information and Ideas",
+  "Words in Context": "Craft and Structure",
+  "Text Structure and Purpose": "Craft and Structure",
+  "Cross-Text Connections": "Craft and Structure",
+  "Rhetorical Synthesis": "Expression of Ideas",
+  Transitions: "Expression of Ideas",
+  Boundaries: "Standard English Conventions",
+  "Form, Structure, and Sense": "Standard English Conventions"
+};
+var MATH_DOMAIN_OF = {
+  "Linear equations in one variable": "Algebra",
+  "Linear functions": "Algebra",
+  "Linear equations in two variables": "Algebra",
+  "Systems of two linear equations in two variables": "Algebra",
+  "Linear inequalities in one or two variables": "Algebra",
+  "Nonlinear functions": "Advanced Math",
+  "Nonlinear equations in one variable and systems of equations in two variables": "Advanced Math",
+  "Equivalent expressions": "Advanced Math",
+  "Ratios, rates, proportional relationships, and units": "Problem-Solving and Data Analysis",
+  Percentages: "Problem-Solving and Data Analysis",
+  "One-variable data: Distributions and measures of center and spread": "Problem-Solving and Data Analysis",
+  "Two-variable data: Models and scatterplots": "Problem-Solving and Data Analysis",
+  "Probability and conditional probability": "Problem-Solving and Data Analysis",
+  "Inference from sample statistics and margin of error": "Problem-Solving and Data Analysis",
+  "Evaluating statistical claims: Observational studies and experiments": "Problem-Solving and Data Analysis",
+  "Area and volume": "Geometry and Trigonometry",
+  "Lines, angles, and triangles": "Geometry and Trigonometry",
+  "Right triangles and trigonometry": "Geometry and Trigonometry",
+  Circles: "Geometry and Trigonometry"
+};
+var SKILLS = [
+  ...Object.entries(RW_DOMAIN_OF).map(([skill, domain]) => ({ skill, domain, section: "rw" })),
+  // Keep upstream's MATH_SKILLS order; fall back to the map if a name ever drifts.
+  ...MATH_SKILLS.filter((s) => s in MATH_DOMAIN_OF).map((skill) => ({ skill, domain: MATH_DOMAIN_OF[skill], section: "math" }))
+];
+var fold2 = (s) => s.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").replace(/\band\b/g, " ").replace(/\s+/g, " ").trim();
+var BY_FOLD = new Map(SKILLS.map((s) => [fold2(s.skill), s]));
+var DOMAIN_FOLDS = new Set(SKILLS.map((s) => fold2(s.domain)));
+var ALIASES = {
+  "central ideas": "Central Ideas and Details",
+  "main idea": "Central Ideas and Details",
+  evidence: "Command of Evidence",
+  inference: "Inferences",
+  "words in context": "Words in Context",
+  vocab: "Words in Context",
+  vocabulary: "Words in Context",
+  "text structure": "Text Structure and Purpose",
+  purpose: "Text Structure and Purpose",
+  "cross text": "Cross-Text Connections",
+  synthesis: "Rhetorical Synthesis",
+  "rhetorical synthesis": "Rhetorical Synthesis",
+  punctuation: "Boundaries",
+  grammar: "Form, Structure, and Sense",
+  fss: "Form, Structure, and Sense",
+  "systems of equations": "Systems of two linear equations in two variables",
+  systems: "Systems of two linear equations in two variables",
+  ratios: "Ratios, rates, proportional relationships, and units",
+  percent: "Percentages",
+  percents: "Percentages",
+  probability: "Probability and conditional probability",
+  trig: "Right triangles and trigonometry",
+  trigonometry: "Right triangles and trigonometry",
+  scatterplots: "Two-variable data: Models and scatterplots",
+  "margin of error": "Inference from sample statistics and margin of error",
+  quadratics: "Nonlinear equations in one variable and systems of equations in two variables"
+};
+function skillInfo(text2) {
+  if (!text2) return null;
+  const f = fold2(text2);
+  if (!f) return null;
+  const direct = BY_FOLD.get(f);
+  if (direct) return direct;
+  const colon = text2.indexOf(":");
+  if (colon > 0 && DOMAIN_FOLDS.has(fold2(text2.slice(0, colon)))) {
+    const hit = skillInfo(text2.slice(colon + 1));
+    if (hit) return hit;
+  }
+  const alias = ALIASES[f];
+  if (alias) return BY_FOLD.get(fold2(alias)) ?? null;
+  const hits = SKILLS.filter((s) => {
+    const k = fold2(s.skill);
+    return k.startsWith(f) || f.length >= 6 && k.includes(f);
+  });
+  if (hits.length) return hits.length === 1 ? hits[0] : null;
+  const words = f.split(" ");
+  if (words.length < 2) return null;
+  const byWords = SKILLS.filter((s) => {
+    const k = new Set(fold2(s.skill).split(" "));
+    return words.every((w) => k.has(w));
+  });
+  return byWords.length === 1 ? byWords[0] : null;
+}
+var normalizeSkill = (text2) => skillInfo(text2)?.skill ?? null;
+var domainOfSkill = (text2) => skillInfo(text2)?.domain ?? null;
+var skillsFor = (section) => SKILLS.filter((s) => s.section === section);
+function qbFilterSteps(info, difficulty) {
+  const test = info.section === "math" ? "Math" : "Reading and Writing";
+  return `In the Question Bank pick Assessment: SAT, Test: ${test}, Domain: ${info.domain}, Skill: ${info.skill}${difficulty ? `, Difficulty: ${difficulty}` : ""}.`;
+}
+
+// extension/src/addons/achievements.ts
+var count = (value, goal) => ({ value, goal });
+var volume = (n) => ({
+  id: `questions-${n}`,
+  group: "volume",
+  mark: String(n),
+  label: `${n} questions`,
+  detail: `Explain ${n} questions with Rulecard.`,
+  progress: (m) => count(m.questions, n)
+});
+var streak = (n) => ({
+  id: `streak-${n}`,
+  group: "streak",
+  mark: `${n}d`,
+  label: `${n}-day streak`,
+  detail: `Practice ${n} days in a row. Your longest streak counts, so a missed day later won't take it back.`,
+  progress: (m) => count(m.longestStreak, n)
+});
+var mastered = (n) => ({
+  id: `mastered-${n}`,
+  group: "mastery",
+  mark: `M${n}`,
+  label: n === 1 ? "First mastered rule" : `${n} rules mastered`,
+  detail: n === 1 ? "Get a rule to the mastered box by reviewing it on schedule." : `Get ${n} rules to the mastered box.`,
+  progress: (m) => count(m.mastered, n)
+});
+var reviews = (n) => ({
+  id: `reviews-${n}`,
+  group: "review",
+  mark: `R${n}`,
+  label: `${n} review drills right`,
+  detail: `Answer ${n} review drills correctly from the Review queue.`,
+  progress: (m) => count(m.reviewRight, n)
+});
+var BADGES = [
+  { id: "first-card", group: "start", mark: "1", label: "First rule card", detail: "Explain your first question.", progress: (m) => count(m.questions, 1) },
+  { id: "both-sections", group: "start", mark: "RW+M", label: "Both sections", detail: "Practice at least one Reading and Writing and one Math question.", progress: (m) => count(m.sections, 2) },
+  ...[10, 50, 100, 250, 500].map(volume),
+  ...[3, 7, 14, 30].map(streak),
+  ...[1, 5, 10, 25].map(mastered),
+  {
+    id: "comeback",
+    group: "mastery",
+    mark: "UP",
+    label: "Comeback",
+    detail: "Master a rule you had missed at least twice.",
+    progress: (m) => count(m.comebacks, 1)
+  },
+  ...[5, 25].map(reviews),
+  {
+    id: "perfect-set",
+    group: "habits",
+    mark: "5/5",
+    label: "Perfect set",
+    detail: "Get every question right in a practice set of 5 or more.",
+    progress: (m) => ({ value: m.perfectSet ? 1 : 0, goal: 1, hint: m.bestSet ? `best ${m.bestSet.right}/${m.bestSet.count}` : "start a set" })
+  },
+  {
+    id: "calibrated",
+    group: "habits",
+    mark: "SURE",
+    label: "Sure means sure",
+    detail: "Mark 10 answers as Sure, and be right on at least 80% of them. Knowing when you know is a test skill.",
+    progress: (m) => {
+      if (m.sureAnswers < 10) return { value: m.sureAnswers, goal: 10, hint: `${m.sureAnswers}/10 sure answers` };
+      const pct8 = Math.round(m.sureRight / m.sureAnswers * 100);
+      return { value: pct8 >= 80 ? 10 : 9, goal: 10, hint: `${pct8}% right when sure, need 80%` };
+    }
+  },
+  { id: "hard-10", group: "habits", mark: "H10", label: "Hard hitter", detail: "Get 10 Hard questions right.", progress: (m) => count(m.hardRight, 10) },
+  {
+    id: "on-pace-25",
+    group: "habits",
+    mark: "71s",
+    label: "On the clock",
+    detail: "Finish 25 timed questions at or under test pace (71 s Reading and Writing, 95 s Math).",
+    progress: (m) => count(m.onPace, 25)
+  },
+  {
+    id: "goal-day",
+    group: "habits",
+    mark: "GOAL",
+    label: "Daily goal met",
+    detail: "Hit your daily question goal in a single day.",
+    progress: (m) => ({ value: Math.min(m.bestDay, m.dailyGoal), goal: m.dailyGoal, hint: `best day ${m.bestDay}/${m.dailyGoal}` })
+  },
+  {
+    id: "rw-tour",
+    group: "habits",
+    mark: "R&W",
+    label: "Every R&W skill",
+    detail: "Practice all 10 Reading and Writing skills at least once.",
+    progress: (m) => count(m.rwSkills, skillsFor("rw").length)
+  },
+  {
+    id: "math-tour",
+    group: "habits",
+    mark: "MATH",
+    label: "Every Math skill",
+    detail: "Practice all 19 Math skills at least once.",
+    progress: (m) => count(m.mathSkills, skillsFor("math").length)
+  }
+];
+var BY_ID = new Map(BADGES.map((b) => [b.id, b]));
+function shiftKey(key, days) {
+  const [y, m, d] = key.split("-").map(Number);
+  return dayKey(new Date(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + days, 12).getTime());
+}
+function longestStreak(log) {
+  const days = new Set(log.map((e) => dayKey(e.at)));
+  let best = 0;
+  for (const d of days) {
+    if (days.has(shiftKey(d, -1))) continue;
+    let run = 1;
+    let cursor = shiftKey(d, 1);
+    while (days.has(cursor)) {
+      run++;
+      cursor = shiftKey(cursor, 1);
+    }
+    best = Math.max(best, run);
+  }
+  return best;
+}
+function badgeMetrics(input) {
+  const { log, srs } = input;
+  const rules = Object.values(srs);
+  const missesByRule = /* @__PURE__ */ new Map();
+  for (const e of log) if (e.result === "missed") missesByRule.set(e.ruleId, (missesByRule.get(e.ruleId) ?? 0) + 1);
+  const sets = (input.recaps ?? []).filter((r) => r.count > 0);
+  const bestSet = sets.length ? [...sets].sort((a, b) => b.right / b.count - a.right / a.count || b.count - a.count)[0] : null;
+  const sure = log.filter((e) => e.selfConfidence === "sure");
+  const skills = new Set(log.map((e) => normalizeSkill(e.skill)).filter((s) => Boolean(s)));
+  const perDay = /* @__PURE__ */ new Map();
+  for (const e of log) perDay.set(dayKey(e.at), (perDay.get(dayKey(e.at)) ?? 0) + 1);
+  return {
+    questions: log.length,
+    longestStreak: longestStreak(log),
+    mastered: rules.filter((r) => r.box >= MASTERED_BOX).length,
+    comebacks: rules.filter((r) => r.box >= MASTERED_BOX && (missesByRule.get(r.ruleId) ?? 0) >= 2).length,
+    reviewRight: log.reduce((n, e) => n + e.drills.filter((d) => d.review && d.correct).length, 0),
+    perfectSet: sets.some((r) => r.count >= 5 && r.right === r.count),
+    bestSet: bestSet ? { count: bestSet.count, right: bestSet.right } : null,
+    sections: new Set(log.map((e) => sectionOf(e))).size,
+    sureAnswers: sure.length,
+    sureRight: sure.filter((e) => e.result === "right").length,
+    hardRight: log.filter((e) => e.result === "right" && (e.difficulty ?? "").toLowerCase() === "hard").length,
+    onPace: log.filter((e) => typeof e.seconds === "number" && e.seconds > 0 && e.seconds <= targetSecondsFor(e)).length,
+    rwSkills: skillsFor("rw").filter((s) => skills.has(s.skill)).length,
+    mathSkills: skillsFor("math").filter((s) => skills.has(s.skill)).length,
+    bestDay: Math.max(0, ...perDay.values()),
+    dailyGoal: Math.max(1, Math.round(input.dailyGoal ?? 10))
+  };
+}
+var earnedBy = (def, m) => {
+  const p = def.progress(m);
+  return p.value >= p.goal;
+};
+function evaluateBadges(input) {
+  const m = badgeMetrics(input);
+  return BADGES.filter((b) => earnedBy(b, m)).map((b) => b.id);
+}
+function awardBadges(prev, qualified, now) {
+  const badges = { ...prev };
+  const fresh = [];
+  for (const id of qualified) {
+    if (badges[id] !== void 0 || !BY_ID.has(id)) continue;
+    badges[id] = now;
+    fresh.push(id);
+  }
+  return { badges, fresh };
+}
+function badgeToast(ids) {
+  const labels = ids.map((id) => BY_ID.get(id)?.label ?? id);
+  if (!labels.length) return "";
+  if (labels.length === 1) return `Badge earned: ${labels[0]}`;
+  const shown = labels.slice(0, 3).join(", ");
+  return `${labels.length} badges earned: ${shown}${labels.length > 3 ? ", and more" : ""}`;
+}
+async function readBadges() {
+  return kv().get(KEYS.badges);
+}
+async function writeBadges(b) {
+  await kv().set(KEYS.badges, b);
+}
+async function syncBadges(input, now = Date.now()) {
+  const saved = await readBadges();
+  const { badges, fresh } = awardBadges(saved ?? {}, evaluateBadges(input), now);
+  if (!saved || fresh.length) await writeBadges(badges);
+  return { badges, fresh: saved ? fresh : [] };
+}
+function badgeProgress(input, earned) {
+  const m = badgeMetrics(input);
+  const views = BADGES.map((b, i2) => {
+    const p = b.progress(m);
+    const earnedAt = earned[b.id] ?? null;
+    return { ...b, earnedAt, value: Math.min(p.value, p.goal), goal: p.goal, hint: p.hint ?? `${Math.min(p.value, p.goal)}/${p.goal}`, i: i2 };
+  });
+  const done = views.filter((v) => v.earnedAt !== null).sort((a, b) => (a.earnedAt ?? 0) - (b.earnedAt ?? 0) || a.i - b.i);
+  const locked = views.filter((v) => v.earnedAt === null).sort((a, b) => b.value / b.goal - a.value / a.goal || a.i - b.i);
+  return [...done, ...locked].map(({ i: _i6, ...v }) => v);
+}
+var open2 = false;
+function renderBadges(views) {
+  const earned = views.filter((v) => v.earnedAt !== null);
+  const next = views.find((v) => v.earnedAt === null);
+  const medal = (v) => {
+    const locked = v.earnedAt === null;
+    const pct8 = Math.round(v.value / v.goal * 100);
+    return h(
+      "li",
+      { class: `rc-badge${locked ? " locked" : ""}`, title: `${v.label}. ${v.detail}${locked ? ` (${v.hint})` : ""}` },
+      h("span", { class: "rc-medal", "aria-hidden": "true", text: v.mark }),
+      h("span", { class: "rc-badge-label", text: v.label }),
+      locked ? h("span", { class: "rc-badge-hint" }, h("span", { class: "rc-meter good" }, h("span", { style: `width:${pct8}%` })), h("span", { class: "small muted", text: v.hint })) : h("span", { class: "small muted", text: new Date(v.earnedAt ?? 0).toLocaleDateString(void 0, { month: "short", day: "numeric" }) })
+    );
+  };
+  return h(
+    "details",
+    { class: "card rc-badges", open: open2 ? "" : null, ontoggle: (ev) => {
+      open2 = ev.target.open;
+    } },
+    h(
+      "summary",
+      null,
+      h("span", { class: "rc-badges-title", text: "Badges" }),
+      h("span", { class: "small muted", text: ` ${earned.length} of ${views.length} earned` }),
+      next ? h("span", { class: "small muted rc-badges-next", text: `Next: ${next.label} (${next.hint})` }) : null
+    ),
+    h("ul", { class: "rc-badge-grid" }, ...views.map(medal))
+  );
+}
+
+// extension/src/addons/crop.ts
+function toNaturalRect(a, b, display, natural) {
+  const clamp = (v, max) => Math.min(Math.max(v, 0), max);
+  const x1 = clamp(Math.min(a.x, b.x), display.w), x2 = clamp(Math.max(a.x, b.x), display.w);
+  const y1 = clamp(Math.min(a.y, b.y), display.h), y2 = clamp(Math.max(a.y, b.y), display.h);
+  if (x2 - x1 < 8 || y2 - y1 < 8) return null;
+  const sx = natural.w / display.w, sy = natural.h / display.h;
+  return { x: Math.round(x1 * sx), y: Math.round(y1 * sy), w: Math.round((x2 - x1) * sx), h: Math.round((y2 - y1) * sy) };
+}
+async function cropDataUrl(dataUrl, r) {
+  const blob = await (await fetch(dataUrl)).blob();
+  const bitmap = await createImageBitmap(blob, r.x, r.y, r.w, r.h);
+  try {
+    const canvas = new OffscreenCanvas(r.w, r.h);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not available");
+    ctx.drawImage(bitmap, 0, 0);
+    const out = await canvas.convertToBlob({ type: "image/png" });
+    const bytes = new Uint8Array(await out.arrayBuffer());
+    let bin2 = "";
+    for (let i2 = 0; i2 < bytes.length; i2 += 32768) bin2 += String.fromCharCode(...bytes.subarray(i2, i2 + 32768));
+    return `data:image/png;base64,${btoa(bin2)}`;
+  } finally {
+    bitmap.close();
+  }
+}
+function renderCropper(dataUrl, onDone) {
+  let start = null;
+  let rect = null;
+  const box = h("div", { class: "rc-crop-box", hidden: "" });
+  const img = h("img", { src: dataUrl, alt: "Captured tab", draggable: "false" });
+  const stage = h("div", { class: "rc-crop-stage" }, img, box);
+  const sendSel = h("button", { class: "btn primary", disabled: true, text: "Send selection" });
+  const point = (ev) => {
+    const r = img.getBoundingClientRect();
+    return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+  };
+  const paint = (a, b) => {
+    box.hidden = false;
+    box.style.left = `${Math.min(a.x, b.x)}px`;
+    box.style.top = `${Math.min(a.y, b.y)}px`;
+    box.style.width = `${Math.abs(a.x - b.x)}px`;
+    box.style.height = `${Math.abs(a.y - b.y)}px`;
+  };
+  stage.addEventListener("pointerdown", (ev) => {
+    start = point(ev);
+    stage.setPointerCapture(ev.pointerId);
+  });
+  stage.addEventListener("pointermove", (ev) => {
+    if (start) paint(start, point(ev));
+  });
+  stage.addEventListener("pointerup", (ev) => {
+    if (!start) return;
+    const end = point(ev);
+    rect = toNaturalRect(start, end, { w: img.clientWidth, h: img.clientHeight }, { w: img.naturalWidth, h: img.naturalHeight });
+    start = null;
+    if (!rect) box.hidden = true;
+    sendSel.disabled = !rect;
+  });
+  sendSel.addEventListener("click", async () => {
+    if (!rect) return;
+    sendSel.disabled = true;
+    try {
+      onDone(await cropDataUrl(dataUrl, rect));
+    } catch {
+      onDone(dataUrl);
+    }
+  });
+  return h(
+    "div",
+    { class: "card" },
+    h("h2", { text: "Crop to the question" }),
+    h("p", { class: "muted small", text: "Drag a box around the passage, question and choices (and the answer, if it's showing). Cropping makes the read more accurate." }),
+    stage,
+    h(
+      "div",
+      { class: "row" },
+      sendSel,
+      h("button", { class: "btn", text: "Send whole tab", onclick: () => onDone(dataUrl) }),
+      h("button", { class: "btn link small", text: "Cancel", onclick: () => onDone(null) })
+    )
+  );
+}
+
+// extension/src/addons/export.ts
+var esc = (s) => (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var csvCell = (s) => `"${s.replace(/"/g, '""')}"`;
+var MATH_SYMBOLS = {
+  cdot: "\xB7",
+  times: "\xD7",
+  div: "\xF7",
+  pm: "\xB1",
+  le: "\u2264",
+  leq: "\u2264",
+  ge: "\u2265",
+  geq: "\u2265",
+  ne: "\u2260",
+  neq: "\u2260",
+  approx: "\u2248",
+  pi: "\u03C0",
+  theta: "\u03B8",
+  alpha: "\u03B1",
+  beta: "\u03B2",
+  infty: "\u221E",
+  circ: "\xB0",
+  degree: "\xB0",
+  angle: "\u2220",
+  triangle: "\u25B3",
+  parallel: "\u2225",
+  perp: "\u22A5",
+  left: "",
+  right: "",
+  quad: " ",
+  qquad: " "
+};
+var wrapMath = (s) => /^√?[\w.]+$/.test(s.trim()) ? s.trim() : `(${s.trim()})`;
+function latexToText(src) {
+  let t = src;
+  for (let i2 = 0; i2 < 6; i2++) {
+    const before = t;
+    t = t.replace(/\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, (_m, a, b) => `${wrapMath(a)}/${wrapMath(b)}`).replace(/\\sqrt\s*\{([^{}]*)\}/g, (_m, a) => `\u221A${wrapMath(a)}`).replace(/\\(?:text|textbf|mathrm|mathbf|mathit|operatorname|overline)\s*\{([^{}]*)\}/g, "$1").replace(/\^\s*\{\s*\\circ\s*\}|\^\s*\\circ/g, "\xB0").replace(/([\^_])\s*\{([^{}]*)\}/g, (_m, op2, a) => `${op2}${wrapMath(a)}`);
+    if (t === before) break;
+  }
+  return t.replace(/\\([a-zA-Z]+)/g, (_m, name) => MATH_SYMBOLS[name] ?? name).replace(/\\([%$#&_,;:! ])/g, (_m, c) => ",;:! ".includes(c) ? " " : c).replace(/[{}]/g, "").replace(/\s+/g, " ").trim();
+}
+function plainMath(s) {
+  if (!s.includes("\\")) return s;
+  return s.replace(/\\\(([\s\S]*?)\\\)|\\\[([\s\S]*?)\\\]/g, (_m, a, b) => latexToText(a ?? b ?? ""));
+}
+function answerLine(e, mark = (s) => s) {
+  const others = otherAnswers(e);
+  const answer = `Answer ${mark(answerText(e))}${others.length ? ` (also accepted: ${others.join(", ")})` : ""}`;
+  const said = responseText(e);
+  if (e.result !== "missed" || !said) return `${answer}.`;
+  return `${answer}, you ${isGridIn(e) ? "entered" : "picked"} ${mark(said)}.`;
+}
+function whyFailsLabel(e) {
+  if (e.result !== "missed" || !e.whyPickFails) return null;
+  const said = responseText(e);
+  return said ? `Why ${said} fails` : "Why your answer fails";
+}
+function filterScope(entries, scope) {
+  if (scope === "missed") return entries.filter((e) => e.result === "missed");
+  if (scope === "starred") return entries.filter((e) => e.starred);
+  return entries;
+}
+function toAnkiCsv(entries) {
+  const rows = ["#separator:comma", "#html:true", "#columns:Front,Back,Tags"];
+  for (const e of entries) {
+    const gridIn = isGridIn(e);
+    const choices = hasChoiceList(e) ? LETTERS2.map((l) => `${l}. ${esc(e.choices[l])}`).join("<br>") : gridIn ? "<i>Grid-in: type your answer.</i>" : "";
+    const front = [
+      e.passage ? `<div>${esc(e.passage)}</div><br>` : "",
+      e.figure ? `<div><i>Figure:</i> ${esc(e.figure)}</div><br>` : "",
+      `<b>${esc(e.stem)}</b><br><br>`,
+      choices
+    ].join("");
+    const others = otherAnswers(e);
+    const fails = whyFailsLabel(e);
+    const back = [
+      `<b>Answer: ${esc(answerText(e))}</b>`,
+      others.length ? `<br>Also accepted: ${esc(others.join(", "))}` : "",
+      `<br><br><i>Rule ${esc(e.ruleId)}${e.ruleName ? ` \xB7 ${esc(e.ruleName)}` : ""}</i><br>${esc(e.ruleStatement)}`,
+      `<br><br>${esc(e.whyCorrect)}`,
+      e.steps?.length ? `<br><br><b>Steps:</b><ol>${e.steps.map((st) => `<li>${esc(st)}</li>`).join("")}</ol>` : "",
+      e.shortcut ? `<br><b>Shortcut:</b> ${esc(e.shortcut)}` : "",
+      fails ? `<br><br><b>${esc(fails)}:</b> ${esc(e.whyPickFails)}` : "",
+      gridIn && !fails && e.result === "missed" && e.typed ? `<br><br><b>You entered:</b> ${esc(e.typed)}` : "",
+      `<br><br><b>Takeaway:</b> ${esc(e.takeaway)}`,
+      e.note ? `<br><br><b>My note:</b> ${esc(e.note)}` : ""
+    ].join("");
+    const tag = (s) => s ? s.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "") : "";
+    const tags = [
+      "rulecard",
+      `rule::${tag(e.ruleId)}`,
+      e.skill ? `skill::${tag(e.skill)}` : "",
+      sectionOf(e) === "math" ? "section::math" : "",
+      gridIn ? "grid_in" : "",
+      e.result === "missed" ? "missed" : ""
+    ].filter(Boolean).join(" ");
+    rows.push([csvCell(front), csvCell(back), csvCell(tags)].join(","));
+  }
+  return rows.join("\n") + "\n";
+}
+function groupByRule(entries) {
+  const map = /* @__PURE__ */ new Map();
+  for (const e of [...entries].sort((a, b) => a.at - b.at)) {
+    const g = map.get(e.ruleId) ?? { ruleId: e.ruleId, ruleName: e.ruleName, statement: e.ruleStatement, takeaways: [], items: [] };
+    g.ruleName = e.ruleName ?? g.ruleName;
+    g.statement = e.ruleStatement || g.statement;
+    if (e.takeaway && !g.takeaways.includes(e.takeaway)) g.takeaways.push(e.takeaway);
+    g.items.push(e);
+    map.set(e.ruleId, g);
+  }
+  return [...map.values()].sort((a, b) => b.items.filter((i2) => i2.result === "missed").length - a.items.filter((i2) => i2.result === "missed").length);
+}
+function toMarkdown(entries, title = "Rulecard study notes") {
+  const lines = [`# ${title}`, "", `_${entries.length} questions \xB7 exported ${(/* @__PURE__ */ new Date()).toLocaleDateString()}_`, ""];
+  for (const g of groupByRule(entries)) {
+    const missed = g.items.filter((i2) => i2.result === "missed").length;
+    lines.push(`## ${g.ruleId}${g.ruleName ? ` \xB7 ${g.ruleName}` : ""}  (${missed} missed / ${g.items.length})`, "", `> ${g.statement}`, "");
+    if (g.takeaways.length) {
+      lines.push("**Takeaways**", "", ...g.takeaways.map((t) => `- ${t}`), "");
+    }
+    for (const e of g.items) {
+      lines.push(`- ${e.result === "missed" ? "\u274C" : "\u2705"} ${e.qbId ? `\`${e.qbId}\` ` : ""}${plainMath(e.stem)}`);
+      lines.push(`  - ${answerLine(e, (s) => `**${s}**`)} ${plainMath(e.whyCorrect)}`);
+      if (e.steps?.length) lines.push("  - Steps:", ...e.steps.map((st, i2) => `    ${i2 + 1}. ${plainMath(st)}`));
+      if (e.shortcut) lines.push(`  - Shortcut: ${plainMath(e.shortcut)}`);
+      if (e.note) lines.push(`  - Note: ${e.note}`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+function toPrintableHtml(entries, title = "Rulecard study sheet") {
+  const groups = groupByRule(entries);
+  const body = groups.map((g) => {
+    const missed = g.items.filter((i2) => i2.result === "missed");
+    return `<section>
+  <h2>${esc(g.ruleId)}${g.ruleName ? ` \xB7 ${esc(g.ruleName)}` : ""}</h2>
+  <p class="rule">${esc(g.statement)}</p>
+  ${g.takeaways.length ? `<ul class="take">${g.takeaways.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
+  ${missed.length ? `<h3>Questions you missed</h3><ol>${missed.map((e) => `<li><p>${esc(plainMath(e.stem))}</p><p class="ans">${esc(answerLine(e))} ${esc(plainMath(e.whyPickFails ?? e.whyCorrect))}</p>${e.steps?.length ? `<ol class="steps">${e.steps.map((st) => `<li>${esc(plainMath(st))}</li>`).join("")}</ol>` : ""}${e.shortcut ? `<p class="small">Shortcut: ${esc(plainMath(e.shortcut))}</p>` : ""}${e.note ? `<p class="note">Note: ${esc(e.note)}</p>` : ""}</li>`).join("")}</ol>` : ""}
+</section>`;
+  }).join("\n");
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+  body{font:13px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#16161a}
+  h1{font-size:20px;margin:0 0 4px} .meta{color:#6b6b70;margin:0 0 20px}
+  section{border:1px solid #e4e4e0;border-radius:10px;padding:12px 14px;margin:0 0 12px;break-inside:avoid}
+  h2{font-size:14px;margin:0 0 6px;color:#2f5bea} h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6b6b70;margin:10px 0 4px}
+  .rule{font-weight:600;margin:0 0 6px} .take{margin:0;padding-left:18px} .ans{color:#15803d;margin:2px 0} .note{color:#b45309;margin:2px 0}
+  ol{padding-left:18px;margin:0} li p{margin:0} .steps{color:#3f3f46;font-size:12px;margin:2px 0} .small{font-size:12px;color:#3f3f46}
+  .hint{background:#e8eefc;color:#2f5bea;border-radius:8px;padding:8px 12px;margin:0 0 16px}
+  @media print{body{margin:0} section{border-color:#bbb} .hint{display:none}}
+</style></head><body>
+<p class="hint">To save as PDF: press \u2318P (Mac) or Ctrl+P, then choose "Save as PDF".</p>
+<h1>${esc(title)}</h1><p class="meta">${groups.length} rules \xB7 ${entries.length} questions \xB7 ${esc((/* @__PURE__ */ new Date()).toLocaleDateString())}</p>
+${body || "<p>No questions yet.</p>"}
+</body></html>`;
+}
+function toBackup(entries) {
+  const b = { kind: "rulecard-addons-backup", version: 1, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), entries };
+  return JSON.stringify(b, null, 2);
+}
+function parseBackup(text2) {
+  const data = JSON.parse(text2);
+  if (data.kind !== "rulecard-addons-backup" || !Array.isArray(data.entries)) throw new Error("That file is not a Rulecard backup.");
+  return data.entries;
+}
+function cardAsText(e) {
+  const others = otherAnswers(e);
+  const fails = whyFailsLabel(e);
+  return [
+    `Rule ${e.ruleId}${e.ruleName ? ` \xB7 ${e.ruleName}` : ""}`,
+    plainMath(e.ruleStatement),
+    "",
+    `Why ${answerText(e)} is right: ${plainMath(e.whyCorrect)}`,
+    others.length ? `Also accepted: ${others.join(", ")}` : "",
+    ...e.steps?.length ? ["Steps:", ...e.steps.map((st, i2) => `${i2 + 1}. ${plainMath(st)}`)] : [],
+    e.shortcut ? `Shortcut: ${plainMath(e.shortcut)}` : "",
+    fails ? `${fails}: ${plainMath(e.whyPickFails ?? "")}` : "",
+    !fails && isGridIn(e) && e.result === "missed" && e.typed ? `You entered ${e.typed}.` : "",
+    `Takeaway: ${plainMath(e.takeaway)}`
+  ].filter((l, i2, a) => l !== "" || a[i2 - 1] !== "").join("\n").trim();
+}
+function downloadText(filename, text2, mime = "text/plain") {
+  const url = URL.createObjectURL(new Blob([text2], { type: `${mime};charset=utf-8` }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5e3);
+}
+function openPrintable(html) {
+  const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+  void chrome.tabs.create({ url });
+  setTimeout(() => URL.revokeObjectURL(url), 6e4);
+}
+var stamp = (d = /* @__PURE__ */ new Date()) => d.toISOString().slice(0, 10);
+
+// extension/src/addons/flashcards.ts
+var FLASH_GRADES = ["again", "hard", "good"];
+var newestFirst = (a, b) => b.at - a.at;
+var clean = (s) => typeof s === "string" ? s.trim() : "";
+var norm = (s) => s.trim().replace(/\s+/g, " ").replace(/[\s.!?;:,]+$/, "").toLowerCase();
+function byRule(log) {
+  const map = /* @__PURE__ */ new Map();
+  for (const e of [...log].sort(newestFirst)) {
+    if (!e || typeof e.ruleId !== "string" || !e.ruleId) continue;
+    const list2 = map.get(e.ruleId);
+    if (list2) list2.push(e);
+    else map.set(e.ruleId, [e]);
+  }
+  return map;
+}
+function distinct(items, textOf) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const item of items) {
+    const text2 = clean(textOf(item));
+    const key = norm(text2);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ item, text: text2 });
+  }
+  return out;
+}
+function buildCard(ruleId, entries, srs, reason) {
+  const withStem = entries.filter((e) => clean(e.stem));
+  const cueEntry = withStem.find((e) => e.result === "missed") ?? withStem[0];
+  const misses = entries.filter((e) => e.result === "missed").length;
+  return {
+    ruleId,
+    ruleName: entries.find((e) => e.ruleName)?.ruleName ?? srs[ruleId]?.ruleName ?? null,
+    reason,
+    cue: cueEntry ? { attemptId: cueEntry.attemptId, at: cueEntry.at, stem: clean(cueEntry.stem), passage: clean(cueEntry.passage) || null, missed: cueEntry.result === "missed" } : null,
+    statement: entries.map((e) => clean(e.ruleStatement)).find(Boolean) ?? "",
+    takeaways: distinct(entries, (e) => e.takeaway).map((d) => d.text),
+    notes: distinct(entries, (e) => e.note).map(({ item, text: text2 }) => ({ attemptId: item.attemptId, at: item.at, text: text2 })),
+    attempts: entries.length,
+    misses,
+    missRate: entries.length ? misses / entries.length : 0,
+    box: srs[ruleId]?.box ?? null
+  };
+}
+function weakestRules(log, srs, now, limit = Infinity) {
+  const due = new Set(dueRules(srs, now).map((r) => r.ruleId));
+  const rows = [];
+  for (const [ruleId, entries] of byRule(log)) {
+    if (due.has(ruleId)) continue;
+    const missed = entries.filter((e) => e.result === "missed");
+    if (!missed.length) continue;
+    rows.push({ ruleId, rate: missed.length / entries.length, misses: missed.length, lastMiss: missed[0]?.at ?? 0 });
+  }
+  rows.sort((a, b) => b.rate - a.rate || b.misses - a.misses || b.lastMiss - a.lastMiss || (a.ruleId < b.ruleId ? -1 : a.ruleId > b.ruleId ? 1 : 0));
+  return rows.slice(0, Math.max(0, limit)).map((r) => r.ruleId);
+}
+function createDeck(log, srs, now, opts = {}) {
+  const groups = byRule(log);
+  const cards = dueRules(srs, now).map((r) => buildCard(r.ruleId, groups.get(r.ruleId) ?? [], srs, "due"));
+  const extra = Math.max(0, Math.floor(opts.extra ?? 0)) || 0;
+  if (extra) for (const ruleId of weakestRules(log, srs, now, extra)) cards.push(buildCard(ruleId, groups.get(ruleId) ?? [], srs, "weak"));
+  return { cards, index: 0, flipped: false, results: [], srs, startedAt: now };
+}
+function currentCard(state2) {
+  return state2.cards[state2.index] ?? null;
+}
+function isDone(state2) {
+  return state2.index >= state2.cards.length;
+}
+function flip(state2) {
+  return isDone(state2) ? state2 : { ...state2, flipped: !state2.flipped };
+}
+function grade(state2, g, now, latest = state2.srs) {
+  const card = currentCard(state2);
+  if (!card || !state2.flipped || !FLASH_GRADES.includes(g)) return { state: state2, srs: latest };
+  const srs = applyReview(latest, card.ruleId, g !== "again", now);
+  const result = {
+    ruleId: card.ruleId,
+    grade: g,
+    at: now,
+    boxBefore: latest[card.ruleId]?.box ?? null,
+    boxAfter: srs[card.ruleId]?.box ?? null
+  };
+  return { state: { ...state2, index: state2.index + 1, flipped: false, results: [...state2.results, result], srs }, srs };
+}
+function nextDueIf(state2, g, now, latest = state2.srs) {
+  const card = currentCard(state2);
+  if (!card || !latest[card.ruleId]) return null;
+  return applyReview(latest, card.ruleId, g !== "again", now)[card.ruleId]?.due ?? null;
+}
+function deckSummary(state2) {
+  const count2 = (g) => state2.results.filter((r) => r.grade === g).length;
+  const again = count2("again");
+  const hard = count2("hard");
+  const good = count2("good");
+  const graded = state2.results.length;
+  const names = new Map(state2.cards.map((c) => [c.ruleId, c.ruleName]));
+  return {
+    total: state2.cards.length,
+    graded,
+    remaining: Math.max(0, state2.cards.length - state2.index),
+    again,
+    hard,
+    good,
+    recalled: graded ? (hard + good) / graded : null,
+    againRules: state2.results.filter((r) => r.grade === "again").map((r) => ({ ruleId: r.ruleId, ruleName: names.get(r.ruleId) ?? null }))
+  };
+}
+function deckCounts(log, srs, now, extra = 5) {
+  return { due: dueRules(srs, now).length, weak: weakestRules(log, srs, now, extra).length };
+}
+
+// extension/src/addons/hotkeys.ts
+var HOTKEY_HELP = [
+  ["1\u20134", "pick answer A\u2013D (A, B, D keys work too)"],
+  ["G", "I got it right, explain anyway"],
+  ["Enter", "explain"],
+  ["C", "capture this tab (so use 3 for choice C)"],
+  ["T", "Test me (new question on the rule)"],
+  ["R", "start a review"],
+  ["/", "ask a follow-up"],
+  ["Y", "copy the rule card"],
+  ["?", "show these shortcuts"],
+  ["Esc", "leave a text box, or quit practice"],
+  ["Space", "practice: flip the card, or go to the next question"],
+  ["1\u20133", "flashcards: Again, Hard, Good"],
+  ["S", "redo my misses: skip this question"]
+];
+var typing = (el) => el instanceof HTMLElement && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
+function actionFor(key) {
+  const k = key.length === 1 ? key.toLowerCase() : key;
+  const letters2 = { a: "A", b: "B", c: null, d: "D", "1": "A", "2": "B", "3": "C", "4": "D" };
+  if (k in letters2 && letters2[k]) return { name: "pick", arg: letters2[k] };
+  switch (k) {
+    case "c":
+      return { name: "capture" };
+    case "g":
+      return { name: "pickCorrect" };
+    case "Enter":
+      return { name: "explain" };
+    case "t":
+      return { name: "testMe" };
+    case "r":
+      return { name: "review" };
+    case "/":
+      return { name: "focusChat" };
+    case "y":
+      return { name: "copyCard" };
+    case "?":
+      return { name: "help" };
+    default:
+      return null;
+  }
+}
+function installHotkeys(getActions, target = document) {
+  const onKey = (ev) => {
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (ev.key === "Escape" && typing(ev.target)) {
+      ev.target.blur();
+      return;
+    }
+    if (typing(ev.target)) return;
+    if ((ev.key === "Enter" || ev.key === " ") && ev.target instanceof HTMLElement && ev.target.closest("button, a, summary, [role=button]")) return;
+    const actions = getActions();
+    if (actions.raw?.(ev.key)) {
+      ev.preventDefault();
+      return;
+    }
+    const hit = actionFor(ev.key);
+    if (!hit) return;
+    const fn = actions[hit.name];
+    if (!fn) return;
+    ev.preventDefault();
+    fn(hit.arg);
+  };
+  target.addEventListener("keydown", onKey);
+  return () => target.removeEventListener("keydown", onKey);
+}
+
+// extension/src/addons/journal.ts
+var defaultFilter = () => ({ q: "", result: "missed", skill: "", diagnosis: "", limit: 20 });
+var hay = (e) => [e.ruleId, e.ruleName, e.ruleStatement, e.takeaway, e.stem, e.passage, e.note, e.skill, e.qbId, ...Object.values(e.choices ?? {}), e.typed, ...e.accepted ?? []].filter(Boolean).join(" ").toLowerCase();
+function filterJournal(entries, f) {
+  const terms = f.q.toLowerCase().split(/\s+/).filter(Boolean);
+  return entries.filter((e) => {
+    if (f.result === "missed" && e.result !== "missed") return false;
+    if (f.result === "starred" && !e.starred) return false;
+    if (f.result === "noted" && !e.note) return false;
+    if (f.skill && e.skill !== f.skill) return false;
+    if (f.section && sectionOf(e) !== f.section) return false;
+    if (f.diagnosis && e.diagnosis !== f.diagnosis) return false;
+    if (terms.length) {
+      const text2 = hay(e);
+      if (!terms.every((t) => text2.includes(t))) return false;
+    }
+    return true;
+  });
+}
+var DIAG_LABEL = { rule_gap: "rule gap", careless: "careless", misread: "misread", got_it_right: "got it", unknown: "no reason" };
+var openState = false;
+var expanded = /* @__PURE__ */ new Set();
+function renderJournal(entries, f, actions, rerender) {
+  const sections = new Set(entries.map((e) => sectionOf(e)));
+  const bothSections = sections.size > 1 || Boolean(f.section);
+  const inSection = f.section ? entries.filter((e) => sectionOf(e) === f.section) : entries;
+  const skills = [...new Set(inSection.map((e) => e.skill).filter((s) => !!s))].sort();
+  const hits = filterJournal(entries, f);
+  const select = (id, value, options, onChange) => {
+    const el = h(
+      "select",
+      { id, class: "input rc-select", onchange: (ev) => onChange(ev.target.value) },
+      ...options.map(([v, label]) => h("option", { value: v, text: label }))
+    );
+    el.value = value;
+    return el;
+  };
+  const search = h("input", { id: "rc-journal-q", class: "input", type: "search", placeholder: "Search rules, questions, notes\u2026", value: f.q });
+  let t = null;
+  search.addEventListener("input", () => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => actions.change({ ...f, q: search.value, limit: 20 }), 250);
+  });
+  const list2 = h("ul", { class: "rc-journal" }, ...hits.slice(0, f.limit).map((e) => {
+    const isOpen = expanded.has(e.attemptId);
+    const head3 = h(
+      "button",
+      {
+        class: "rc-journal-head",
+        "aria-expanded": String(isOpen),
+        onclick: () => {
+          if (isOpen) expanded.delete(e.attemptId);
+          else expanded.add(e.attemptId);
+          rerender();
+        }
+      },
+      h(
+        "span",
+        { class: "row rc-wrap" },
+        chip(e.result === "right" ? "right" : "missed", e.result === "right" ? "good" : "danger"),
+        h("span", { class: "small", text: e.ruleName ? `${e.ruleId} \xB7 ${e.ruleName}` : e.ruleId }),
+        e.starred ? h("span", { class: "small", text: "\u2605" }) : null,
+        h("span", { class: "small muted", text: new Date(e.at).toLocaleDateString(void 0, { month: "short", day: "numeric" }) })
+      ),
+      h("span", { class: "rc-journal-stem", text: plainMath(e.stem) }),
+      e.note ? h("span", { class: "rc-journal-note", text: `\u201C${e.note}\u201D` }) : null
+    );
+    const body = isOpen ? h(
+      "div",
+      { class: "rc-journal-body" },
+      h("p", { class: "rule-statement", text: e.ruleStatement }),
+      h("p", { class: "small", text: `${answerLine(e)} ${plainMath(e.result === "missed" && e.whyPickFails ? e.whyPickFails : e.whyCorrect)}` }),
+      e.steps?.length ? h("ol", { class: "steps small" }, ...e.steps.map((st) => h("li", { text: plainMath(st) }))) : null,
+      e.shortcut ? h("p", { class: "small" }, h("b", { text: "Shortcut: " }), plainMath(e.shortcut)) : null,
+      h("p", { class: "small" }, h("b", { text: "Takeaway: " }), plainMath(e.takeaway)),
+      h(
+        "div",
+        { class: "row rc-wrap small muted" },
+        sectionOf(e) === "math" ? chip("Math") : null,
+        isGridIn(e) ? chip("grid-in") : null,
+        e.skill ? chip(e.skill) : null,
+        e.difficulty ? chip(e.difficulty) : null,
+        chip(DIAG_LABEL[e.diagnosis] ?? e.diagnosis),
+        e.selfConfidence ? chip(`felt ${e.selfConfidence}`) : null,
+        e.seconds !== null ? chip(`${e.seconds}s`) : null
+      ),
+      h(
+        "div",
+        { class: "row rc-wrap" },
+        h("button", { class: "btn small", text: "Open in web app", onclick: () => actions.openWeb(`/history/${encodeURIComponent(e.attemptId)}`) }),
+        h("button", { class: "btn small", text: "Review this rule now", onclick: () => actions.reviewRule(e.ruleId) }),
+        h("button", { class: "btn small", text: e.starred ? "\u2605 Unstar" : "\u2606 Star", onclick: () => actions.toggleStar(e) })
+      )
+    ) : null;
+    return h("li", null, head3, body);
+  }));
+  const details = h(
+    "details",
+    { class: "card rc-journal-card", open: openState ? "" : null, ontoggle: (ev) => {
+      openState = ev.target.open;
+    } },
+    h("summary", null, h("h2", { text: "Journal" }), h("span", { class: "small muted", text: `${entries.length} saved` })),
+    search,
+    h(
+      "div",
+      { class: "row rc-wrap" },
+      select("rc-journal-result", f.result, [["missed", "Missed"], ["starred", "Starred"], ["noted", "With notes"], ["all", "All"]], (v) => actions.change({ ...f, result: v, limit: 20 })),
+      select("rc-journal-skill", f.skill, [["", "All skills"], ...skills.map((s) => [s, s])], (v) => actions.change({ ...f, skill: v, limit: 20 })),
+      select("rc-journal-diag", f.diagnosis, [["", "Any reason"], ["rule_gap", "Rule gap"], ["careless", "Careless"], ["misread", "Misread"]], (v) => actions.change({ ...f, diagnosis: v, limit: 20 })),
+      bothSections ? select("rc-journal-section", f.section ?? "", [["", "Both sections"], ["rw", "Reading and Writing"], ["math", "Math"]], (v) => actions.change({ ...f, section: v === "rw" || v === "math" ? v : "", limit: 20 })) : null
+    ),
+    hits.length ? list2 : h("p", { class: "muted small", text: entries.length ? "Nothing matches." : "Explained questions show up here." }),
+    hits.length > f.limit ? h("button", { class: "btn small", text: `Show more (${hits.length - f.limit})`, onclick: () => actions.change({ ...f, limit: f.limit + 20 }) }) : null
+  );
+  return details;
+}
+
+// extension/src/addons/selection-bg.ts
+var PENDING_SELECTION_KEY = "rc.addons.pendingSelection.v1";
+
+// extension/src/addons/textcapture.ts
+function canTextCapture(parsed, media) {
+  return Boolean(parsed && parsed.qbId && parsed.stem && LETTERS2.every((l) => parsed.choices[l]) && media === 0);
+}
+function wrapText(text2, maxWidth, measure) {
+  const out = [];
+  for (const para of text2.split(/\n/)) {
+    const words = para.split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      out.push("");
+      continue;
+    }
+    let line = "";
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (measure(candidate) <= maxWidth || !line) {
+        if (!line && measure(candidate) > maxWidth) {
+          let chunk = "";
+          for (const ch2 of word) {
+            if (measure(chunk + ch2) > maxWidth && chunk) {
+              out.push(chunk);
+              chunk = "";
+            }
+            chunk += ch2;
+          }
+          line = chunk;
+        } else line = candidate;
+      } else {
+        out.push(line);
+        line = word;
+      }
+    }
+    out.push(line);
+  }
+  return out;
+}
+var SERIF = 'Georgia, "Times New Roman", serif';
+var SANS = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+function blocksFor(p) {
+  const meta2 = [p.domain, p.skill, p.difficulty].filter(Boolean).join(" \xB7 ");
+  const blocks = [
+    { text: `Question ID ${p.qbId}${meta2 ? `   \xB7   ${meta2}` : ""}`, font: `600 18px ${SANS}`, color: "#4b5563", gapBefore: 0, lineHeight: 26 }
+  ];
+  if (p.passage) blocks.push({ text: p.passage, font: `22px ${SERIF}`, color: "#111827", gapBefore: 22, lineHeight: 34 });
+  blocks.push({ text: p.stem ?? "", font: `600 21px ${SANS}`, color: "#111827", gapBefore: 22, lineHeight: 31 });
+  for (const l of LETTERS2) blocks.push({ text: `${l}.  ${p.choices[l] ?? ""}`, font: `21px ${SERIF}`, color: "#111827", gapBefore: l === "A" ? 18 : 10, lineHeight: 31, indent: 12 });
+  if (p.correct) blocks.push({ text: `Correct Answer: ${p.correct}`, font: `700 21px ${SANS}`, color: "#166534", gapBefore: 24, lineHeight: 30 });
+  return blocks;
+}
+async function renderQuestionImage(p, width = 1100) {
+  const pad2 = 40;
+  const measureCanvas = new OffscreenCanvas(10, 10);
+  const mctx = measureCanvas.getContext("2d");
+  if (!mctx) throw new Error("Canvas not available");
+  const blocks = blocksFor(p);
+  const laid = blocks.map((b) => {
+    mctx.font = b.font;
+    const lines = wrapText(b.text, width - pad2 * 2 - (b.indent ?? 0), (s) => mctx.measureText(s).width);
+    return { b, lines };
+  });
+  const height = Math.ceil(pad2 * 2 + laid.reduce((h3, { b, lines }) => h3 + b.gapBefore + lines.length * b.lineHeight, 0));
+  const canvas = new OffscreenCanvas(width, Math.min(height, 6e3));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not available");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.textBaseline = "top";
+  let y = pad2;
+  for (const { b, lines } of laid) {
+    y += b.gapBefore;
+    ctx.font = b.font;
+    ctx.fillStyle = b.color;
+    for (const line of lines) {
+      ctx.fillText(line, pad2 + (b.indent ?? 0), y + (b.lineHeight - parseInt(b.font.match(/(\d+)px/)?.[1] ?? "20", 10)) / 2);
+      y += b.lineHeight;
+    }
+  }
+  const blob = await canvas.convertToBlob({ type: "image/png" });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin2 = "";
+  for (let i2 = 0; i2 < bytes.length; i2 += 32768) bin2 += String.fromCharCode(...bytes.subarray(i2, i2 + 32768));
+  return `data:image/png;base64,${btoa(bin2)}`;
+}
+
+// extension/src/addons/selection.ts
+var MIN_QUESTION_CHARS = 40;
+var MAX_QUESTION_CHARS = 6e3;
+var PENDING_MAX_AGE_MS = 10 * 6e4;
+var IMAGE_WIDTH = 1100;
+var MAX_IMAGE_HEIGHT = 6e3;
+var CIRCLED = {
+  "\u24B6": "(A)",
+  "\u24B7": "(B)",
+  "\u24B8": "(C)",
+  "\u24B9": "(D)",
+  "\u24D0": "(A)",
+  "\u24D1": "(B)",
+  "\u24D2": "(C)",
+  "\u24D3": "(D)"
+};
+function normalizeQuestionText(raw) {
+  return (raw ?? "").replace(/\r\n?|[\f\v\u2028\u2029]/g, "\n").replace(/[\u00AD\u200B-\u200D\u2060\uFEFF]/g, "").replace(/[\t\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, " ").replace(/[\u24B6-\u24B9\u24D0-\u24D3]/g, (c) => CIRCLED[c] ?? c).split("\n").map((line) => line.replace(/ {2,}/g, " ").trim()).join("\n").replace(/\n{3,}/g, "\n\n").replace(/^\(?(?:Choice|Option) ([A-D])\)?:?\n+\1$/gm, "$1").replace(/^\(?(?:Choice|Option) ([A-D])\)?:?$/gm, "$1").trim();
+}
+function checkQuestionText(raw, from = "selection") {
+  const text2 = normalizeQuestionText(raw);
+  const n = text2.replace(/\s+/g, " ").length;
+  if (n === 0) {
+    return { ok: false, message: from === "paste" ? "Paste a question first." : "No text came through. Select the question on the page, then try again." };
+  }
+  if (n < MIN_QUESTION_CHARS) {
+    const verb = from === "paste" ? "Paste" : "Select";
+    return {
+      ok: false,
+      message: `That's only ${n} character${n === 1 ? "" : "s"}, which is too short to be a question. ${verb} the whole question, including any answer choices, then try again.`
+    };
+  }
+  return { ok: true, text: text2.length > MAX_QUESTION_CHARS ? text2.slice(0, MAX_QUESTION_CHARS) : text2 };
+}
+var MARKER_RE = /(?<![^\s])(?:\(([A-D])\)|([A-D])([.)]))(?=\s|$)|(?<=^|\n)(?:Choice\s+)?([A-D])(?=\n|$)/g;
+var TRAILER_RE = /(^|\s)(?:Correct Answer:|Rationale(?=\s|$)|Question Difficulty:)/;
+function findMarkers(text2) {
+  const out = [];
+  for (const m of text2.matchAll(MARKER_RE)) {
+    const letter = m[1] ?? m[2] ?? m[4];
+    if (!letter || m.index === void 0) continue;
+    const style = m[1] ? "paren" : m[2] ? m[3] === ")" ? "close" : "dot" : "alone";
+    out.push({ letter, start: m.index, end: m.index + m[0].length, lineStart: m.index === 0 || text2[m.index - 1] === "\n", style });
+  }
+  return out;
+}
+function lastRun(markers) {
+  const run = [];
+  let want = LETTERS2.length - 1;
+  for (let i2 = markers.length - 1; i2 >= 0 && want >= 0; i2--) {
+    const m = markers[i2];
+    if (m.letter === LETTERS2[want]) {
+      run.unshift(m);
+      want--;
+    }
+  }
+  return want < 0 ? run : null;
+}
+function findChoiceRun(text2) {
+  const all = findMarkers(text2);
+  const atLineStart = lastRun(all.filter((m) => m.lineStart));
+  if (atLineStart) return atLineStart;
+  for (const style of ["close", "paren", "dot"]) {
+    const run = lastRun(all.filter((m) => m.style === style));
+    if (run) return run;
+  }
+  return null;
+}
+var lineEnd = (text2, from) => {
+  const i2 = text2.indexOf("\n", from);
+  return i2 < 0 ? text2.length : i2;
+};
+var oneLine = (s) => s.replace(/\s*\n\s*/g, " ").trim();
+function splitQuestion(raw) {
+  const text2 = normalizeQuestionText(raw);
+  const trailer = TRAILER_RE.exec(text2);
+  const cut = trailer ? trailer.index + (trailer[1]?.length ?? 0) : text2.length;
+  const main2 = text2.slice(0, cut);
+  const run = findChoiceRun(main2);
+  if (!run) return { body: text2, choices: [], after: "" };
+  const choices = [];
+  let afterStart = main2.length;
+  run.forEach((m, k) => {
+    const next = run[k + 1];
+    let end;
+    if (next) end = next.start;
+    else if (main2.slice(m.end, lineEnd(main2, m.end)).trim()) end = lineEnd(main2, m.end);
+    else {
+      let p = lineEnd(main2, m.end) + 1;
+      while (p < main2.length && main2[p] === "\n") p++;
+      end = p >= main2.length ? main2.length : lineEnd(main2, p);
+    }
+    if (!next) afterStart = end;
+    choices.push({ letter: m.letter, text: oneLine(main2.slice(m.end, end)) });
+  });
+  const after = [main2.slice(afterStart).trim(), text2.slice(cut).trim()].filter(Boolean).join("\n");
+  return { body: main2.slice(0, run[0].start).trim(), choices, after };
+}
+var SERIF2 = 'Georgia, "Times New Roman", serif';
+var SANS2 = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+var HEADER = { font: `600 18px ${SANS2}`, size: 18, color: "#4b5563", lineHeight: 26 };
+var BODY = { font: `22px ${SERIF2}`, size: 22, color: "#111827", lineHeight: 34 };
+var CHOICE = { font: `21px ${SERIF2}`, size: 21, color: "#111827", lineHeight: 31 };
+var AFTER = { font: `20px ${SANS2}`, size: 20, color: "#374151", lineHeight: 30 };
+var LAYOUT = {
+  pad: 40,
+  choiceIndent: 12,
+  /** Space between "A)" and the choice text. Wrapped choice lines hang under the text. */
+  labelGap: 14,
+  gapAfterHeader: 22,
+  gapBeforeChoices: 20,
+  gapBetweenChoices: 10,
+  gapBeforeAfter: 24
+};
+function layoutQuestion(q, header2, measure, width = IMAGE_WIDTH) {
+  const { pad: pad2 } = LAYOUT;
+  const inner2 = width - pad2 * 2;
+  const lines = [];
+  let y = pad2;
+  let first = true;
+  const gap = (px) => {
+    if (!first) y += px;
+    first = false;
+  };
+  const place = (text2, style, x) => {
+    if (text2) lines.push({ text: text2, x, y: y + (style.lineHeight - style.size) / 2, font: style.font, color: style.color });
+    y += style.lineHeight;
+  };
+  const block = (text2, style, before) => {
+    gap(before);
+    for (const line of wrapText(text2, inner2, (s) => measure(s, style.font))) place(line, style, pad2);
+  };
+  if (header2) block(header2, HEADER, 0);
+  if (q.body) block(q.body, BODY, LAYOUT.gapAfterHeader);
+  if (q.choices.length) {
+    const labelWidth = Math.max(...q.choices.map((c) => measure(`${c.letter})`, CHOICE.font))) + LAYOUT.labelGap;
+    const x0 = pad2 + LAYOUT.choiceIndent;
+    const textWidth = inner2 - LAYOUT.choiceIndent - labelWidth;
+    q.choices.forEach((c, i2) => {
+      gap(i2 === 0 ? LAYOUT.gapBeforeChoices : LAYOUT.gapBetweenChoices);
+      lines.push({ text: `${c.letter})`, x: x0, y: y + (CHOICE.lineHeight - CHOICE.size) / 2, font: CHOICE.font, color: CHOICE.color });
+      for (const line of wrapText(c.text, textWidth, (s) => measure(s, CHOICE.font))) place(line, CHOICE, x0 + labelWidth);
+    });
+  }
+  if (q.after) block(q.after, AFTER, LAYOUT.gapBeforeAfter);
+  return { width, height: Math.ceil(y + pad2), lines };
+}
+function sourceLabel(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol === "file:") return "a local file";
+    return u.hostname.replace(/^www\./, "") || null;
+  } catch {
+    return null;
+  }
+}
+function imageHeader(meta2) {
+  const where = sourceLabel(meta2.url);
+  if (!where) return null;
+  return `Selected from ${where}`;
+}
+async function blobToDataUrl2(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin2 = "";
+  for (let i2 = 0; i2 < bytes.length; i2 += 32768) bin2 += String.fromCharCode(...bytes.subarray(i2, i2 + 32768));
+  return `data:${blob.type || "application/octet-stream"};base64,${btoa(bin2)}`;
+}
+async function questionTextToImage(text2, meta2 = {}, width = IMAGE_WIDTH) {
+  const probe = new OffscreenCanvas(10, 10).getContext("2d");
+  if (!probe) throw new Error("Canvas not available");
+  let font = "";
+  const measure = (s, f) => {
+    if (f !== font) probe.font = font = f;
+    return probe.measureText(s).width;
+  };
+  const layout = layoutQuestion(splitQuestion(text2), imageHeader(meta2), measure, width);
+  const height = Math.min(layout.height, MAX_IMAGE_HEIGHT);
+  const canvas = new OffscreenCanvas(layout.width, height);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not available");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, layout.width, height);
+  ctx.textBaseline = "top";
+  for (const line of layout.lines) {
+    if (line.y >= height) break;
+    ctx.font = line.font;
+    ctx.fillStyle = line.color;
+    ctx.fillText(line.text, line.x, line.y);
+  }
+  return blobToDataUrl2(await canvas.convertToBlob({ type: "image/png" }));
+}
+function isPendingSelection(value) {
+  if (!value || typeof value !== "object") return false;
+  const o = value;
+  return typeof o.text === "string" && typeof o.at === "number";
+}
+function isFreshSelection(sel, now) {
+  return now - sel.at <= PENDING_MAX_AGE_MS && sel.at - now <= 6e4;
+}
+var forWindow = (sel, windowId) => windowId == null || sel.windowId == null || sel.windowId === windowId;
+var delivered = /* @__PURE__ */ new Set();
+function claim(sel) {
+  const id = `${sel.at}|${sel.text.length}|${sel.text.slice(0, 64)}`;
+  if (delivered.has(id)) return false;
+  delivered.add(id);
+  return true;
+}
+var sessionArea = () => typeof chrome !== "undefined" ? chrome.storage?.session : void 0;
+async function consumePendingSelection(opts = {}) {
+  const area = sessionArea();
+  if (!area) return null;
+  const value = (await area.get(PENDING_SELECTION_KEY))[PENDING_SELECTION_KEY];
+  if (value === void 0) return null;
+  if (isPendingSelection(value) && !forWindow(value, opts.windowId)) return null;
+  await area.remove(PENDING_SELECTION_KEY);
+  if (!isPendingSelection(value) || !isFreshSelection(value, opts.now ?? Date.now()) || !claim(value)) return null;
+  return value;
+}
+function watchSelections(cb, opts = {}) {
+  if (typeof chrome === "undefined" || !chrome.storage?.onChanged) return () => void 0;
+  const listener = (changes, area) => {
+    if (area !== "session") return;
+    const value = changes[PENDING_SELECTION_KEY]?.newValue;
+    if (!isPendingSelection(value) || !forWindow(value, opts.windowId)) return;
+    void sessionArea()?.remove(PENDING_SELECTION_KEY);
+    if (isFreshSelection(value, Date.now()) && claim(value)) cb(value);
+  };
+  chrome.storage.onChanged.addListener(listener);
+  return () => chrome.storage.onChanged.removeListener(listener);
+}
+async function currentWindowId() {
+  try {
+    const win = await chrome.windows.getCurrent();
+    return typeof win.id === "number" ? win.id : null;
+  } catch {
+    return null;
+  }
+}
+function describeError(host, error) {
+  if (host.describe) return host.describe(error);
+  return error instanceof Error && error.message ? error.message : "Something went wrong. Try again.";
+}
+function renderSelectionStatus(status, dismiss) {
+  if (status.kind === "idle") return null;
+  if (status.kind === "working") {
+    return h(
+      "div",
+      { class: "banner accent rc-selection", role: "status" },
+      spinner(),
+      h("span", { text: status.from ? `Reading the text you selected on ${status.from}...` : "Reading the text you selected..." })
+    );
+  }
+  return h(
+    "div",
+    { class: `banner ${status.tone} rc-selection`, role: "alert" },
+    h("span", { text: status.text }),
+    h("button", { class: "btn link small", text: "Dismiss", onclick: dismiss })
+  );
+}
+function createSelectionCapture(host) {
+  let status = { kind: "idle" };
+  let unwatch = null;
+  let queue2 = Promise.resolve();
+  const set = (next) => {
+    status = next;
+    host.rerender();
+  };
+  async function run(sel) {
+    const check = checkQuestionText(sel.text, "selection");
+    if (!check.ok) return set({ kind: "notice", tone: "warn", text: check.message });
+    set({ kind: "working", from: sourceLabel(sel.url) });
+    try {
+      const image = await questionTextToImage(check.text, { url: sel.url, title: sel.title });
+      await host.processImage(image);
+      set({ kind: "idle" });
+    } catch (error) {
+      set({ kind: "notice", tone: "danger", text: describeError(host, error) });
+    }
+  }
+  const explain2 = (sel) => queue2 = queue2.then(() => run(sel));
+  return {
+    /** Start listening, then take a selection saved before the panel opened. */
+    async start() {
+      if (unwatch) return;
+      const windowId = await currentWindowId();
+      unwatch = watchSelections((sel) => void explain2(sel), { windowId });
+      const first = await consumePendingSelection({ windowId });
+      if (first) await explain2(first);
+    },
+    stop() {
+      unwatch?.();
+      unwatch = null;
+    },
+    /** Explain text directly (same checks and rendering as a right-click selection). */
+    explain: explain2,
+    status: () => status,
+    render: () => renderSelectionStatus(status, () => set({ kind: "idle" }))
+  };
+}
+
+// extension/src/addons/paste.ts
+var PASTE_MAX_EDGE = 1600;
+var PASTE_MAX_BYTES = 20 * 1024 * 1024;
+var PASTE_TEXTAREA_ID = "rc-paste-text";
+var ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg"];
+var BULLET_RE = /^[ \t]*[\u2022\u25E6\u25AA\u25AB\u2023\u25CF\u25CB\u25A0\u25A1][ \t]*/gm;
+function normalizePastedText(raw) {
+  return normalizeQuestionText((raw ?? "").replace(BULLET_RE, ""));
+}
+var PROMPT_RE = /\?|\b(?:which choice|which of the following|which (?:quotation|finding|statement|word|option)|what is|what are|what was|how many|how much|according to|based on the|most logically|most nearly|best (?:describes|states|supports|completes|illustrates|explains)|conforms to the conventions|completes the text|main (?:idea|purpose)|solve for|value of)\b/i;
+var BLANK_RE = /_{3,}|\[\s*blank\s*\]/i;
+var MATH_RE = /\d\s*[=<>\u2264\u2265]|[=<>\u2264\u2265]\s*-?\d|\b[a-z]\s*=\s*[a-z\d(]/i;
+function questionSignals(raw) {
+  const text2 = normalizePastedText(raw);
+  return {
+    chars: text2.replace(/\s+/g, " ").length,
+    choices: splitQuestion(text2).choices.length === 4,
+    prompt: PROMPT_RE.test(text2),
+    blank: BLANK_RE.test(text2),
+    math: MATH_RE.test(text2)
+  };
+}
+function looksLikeQuestion(raw) {
+  const s = questionSignals(raw);
+  return s.chars >= MIN_QUESTION_CHARS && (s.choices || s.prompt || s.blank || s.math);
+}
+function scaleToFit(w, h3, max) {
+  if (!Number.isFinite(w) || !Number.isFinite(h3) || w <= 0 || h3 <= 0) return { width: 0, height: 0, scale: 0 };
+  const scale = max > 0 ? Math.min(1, max / Math.max(w, h3)) : 1;
+  return { width: Math.max(1, Math.round(w * scale)), height: Math.max(1, Math.round(h3 * scale)), scale };
+}
+function isAcceptedImage(file) {
+  const type = (file.type ?? "").toLowerCase();
+  if (type) return ACCEPTED_IMAGE_TYPES.includes(type) || type === "image/jpg" || type === "image/pjpeg";
+  return /\.(?:png|jpe?g)$/i.test(file.name ?? "");
+}
+function checkImageFile(file) {
+  if (!isAcceptedImage(file)) return "That file isn't a PNG or JPEG. Use a screenshot saved as PNG or JPEG.";
+  if (file.size <= 0) return "That file is empty. Choose another screenshot.";
+  if (file.size > PASTE_MAX_BYTES) return "That file is over 20 MB. Use a smaller screenshot.";
+  return null;
+}
+async function imageFileToDataUrl(file, max = PASTE_MAX_EDGE) {
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new Error("That file couldn't be opened as an image. Try a PNG or JPEG screenshot.");
+  }
+  try {
+    const fit = scaleToFit(bitmap.width, bitmap.height, max);
+    if (!fit.width) throw new Error("That image is empty. Choose another screenshot.");
+    const type = file.type === "image/jpeg" ? "image/jpeg" : "image/png";
+    if (fit.scale === 1 && file.type === type) return await blobToDataUrl2(file);
+    const canvas = new OffscreenCanvas(fit.width, fit.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not available");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, fit.width, fit.height);
+    ctx.drawImage(bitmap, 0, 0, fit.width, fit.height);
+    return await blobToDataUrl2(await canvas.convertToBlob({ type, quality: 0.92 }));
+  } finally {
+    bitmap.close();
+  }
+}
+function renderPasteStatus(status, act) {
+  switch (status.kind) {
+    case "idle":
+      return null;
+    case "working":
+      return h(
+        "div",
+        { class: "banner accent rc-paste-status", role: "status" },
+        spinner(),
+        h("span", { text: status.what === "image" ? "Reading your screenshot..." : "Reading your pasted text..." })
+      );
+    case "confirm":
+      return h(
+        "div",
+        { class: "banner warn rc-paste-status", role: "alert" },
+        h("span", { text: "This doesn't look like a test question. Rulecard works best with the passage, the question and all four answer choices." }),
+        h(
+          "div",
+          { class: "row rc-wrap" },
+          h("button", { class: "btn small primary", text: "Explain anyway", onclick: act.explainAnyway }),
+          h("button", { class: "btn small link", text: "Edit the text", onclick: act.dismiss })
+        )
+      );
+    case "notice":
+      return h(
+        "div",
+        { class: `banner ${status.tone} rc-paste-status`, role: "alert" },
+        h("span", { text: status.text }),
+        h("button", { class: "btn link small", text: "Dismiss", onclick: act.dismiss })
+      );
+  }
+}
+function renderPastePanel(view, act) {
+  if (!view.open) {
+    return h(
+      "div",
+      { class: "rc-paste rc-paste-closed" },
+      h("button", { class: "btn small", text: "Paste a question", title: "Paste question text or a screenshot", "aria-expanded": "false", onclick: act.toggle }),
+      renderPasteStatus(view.status, act)
+    );
+  }
+  const busy = view.status.kind === "working";
+  const hover = (e) => {
+    e.preventDefault();
+    e.currentTarget?.classList.add("rc-paste-drop-over");
+  };
+  const leave = (e) => {
+    const el = e.currentTarget;
+    const to = e.relatedTarget;
+    if (el && to && el.contains(to)) return;
+    el?.classList.remove("rc-paste-drop-over");
+  };
+  return h(
+    "section",
+    { class: "card rc-paste", "aria-label": "Paste a question" },
+    h(
+      "div",
+      { class: "row between" },
+      h("strong", { text: "Paste a question" }),
+      h("button", { class: "btn link small", text: "Close", "aria-expanded": "true", onclick: act.toggle })
+    ),
+    h("textarea", {
+      id: PASTE_TEXTAREA_ID,
+      class: "input rc-paste-text",
+      rows: "7",
+      placeholder: "Paste the passage, the question and the answer choices.",
+      "aria-label": "Question text",
+      value: view.draft,
+      disabled: busy,
+      oninput: (e) => act.draft(e.target.value),
+      onkeydown: (e) => {
+        const k = e;
+        if (k.key === "Enter" && (k.metaKey || k.ctrlKey)) {
+          k.preventDefault();
+          act.explainText();
+        }
+      },
+      onpaste: (e) => {
+        const data = e.clipboardData;
+        if (!data || data.getData("text/plain").trim()) return;
+        const files = Array.from(data.files);
+        if (files.some((f) => isAcceptedImage(f))) {
+          e.preventDefault();
+          act.files(files);
+        }
+      }
+    }),
+    h(
+      "div",
+      { class: "row rc-wrap" },
+      h("button", { class: "btn primary small", text: "Explain pasted text", disabled: busy, onclick: act.explainText }),
+      h("span", { class: "small muted", text: "Include all four answer choices." })
+    ),
+    h(
+      "div",
+      {
+        class: "rc-paste-drop",
+        ondragenter: hover,
+        ondragover: hover,
+        ondragleave: leave,
+        ondrop: (e) => {
+          e.preventDefault();
+          e.currentTarget?.classList.remove("rc-paste-drop-over");
+          if (!busy) act.files(e.dataTransfer?.files);
+        }
+      },
+      h("span", { class: "small", text: "Or drop a screenshot here (PNG or JPEG)." }),
+      h(
+        "label",
+        { class: "btn small rc-paste-pick" },
+        h("span", { text: "Choose a file" }),
+        // No id on purpose: render() copies values of inputs with ids, and a file input can't take one.
+        h("input", {
+          type: "file",
+          accept: "image/png,image/jpeg",
+          class: "rc-visually-hidden",
+          disabled: busy,
+          onchange: (e) => {
+            const input = e.target;
+            const files = input.files ? Array.from(input.files) : [];
+            input.value = "";
+            act.files(files);
+          }
+        })
+      )
+    ),
+    renderPasteStatus(view.status, act)
+  );
+}
+function createPastePanel(host) {
+  let open5 = false;
+  let draft = "";
+  let status = { kind: "idle" };
+  const set = (next) => {
+    status = next;
+    host.rerender();
+  };
+  const liveDraft = () => {
+    const el = typeof document !== "undefined" ? document.getElementById(PASTE_TEXTAREA_ID) : null;
+    if (el && "value" in el) draft = String(el.value);
+    return draft;
+  };
+  async function send(what, make) {
+    if (status.kind === "working") return;
+    set({ kind: "working", what });
+    try {
+      await host.processImage(await make());
+      draft = "";
+      open5 = false;
+      set({ kind: "idle" });
+    } catch (error) {
+      set({ kind: "notice", tone: "danger", text: describeError(host, error) });
+    }
+  }
+  function explainText(force = false) {
+    if (status.kind === "working") return Promise.resolve();
+    const check = checkQuestionText(normalizePastedText(liveDraft()), "paste");
+    if (!check.ok) {
+      set({ kind: "notice", tone: "warn", text: check.message });
+      return Promise.resolve();
+    }
+    if (!force && !looksLikeQuestion(check.text)) {
+      set({ kind: "confirm", text: check.text });
+      return Promise.resolve();
+    }
+    const text2 = check.text;
+    return send("text", () => questionTextToImage(text2));
+  }
+  function explainFiles(files) {
+    if (status.kind === "working") return Promise.resolve();
+    const list2 = files ? Array.from(files) : [];
+    const file = list2.find((f) => isAcceptedImage(f)) ?? list2[0];
+    if (!file) return Promise.resolve();
+    const problem = checkImageFile(file);
+    if (problem) {
+      set({ kind: "notice", tone: "warn", text: problem });
+      return Promise.resolve();
+    }
+    return send("image", () => imageFileToDataUrl(file));
+  }
+  const actions = {
+    toggle: () => {
+      liveDraft();
+      open5 = !open5;
+      if (!open5 && status.kind !== "working") status = { kind: "idle" };
+      host.rerender();
+      if (open5 && typeof document !== "undefined") document.getElementById(PASTE_TEXTAREA_ID)?.focus();
+    },
+    draft: (text2) => {
+      draft = text2;
+    },
+    explainText: () => void explainText(),
+    explainAnyway: () => {
+      if (status.kind !== "confirm") return;
+      const text2 = status.text;
+      void send("text", () => questionTextToImage(text2));
+    },
+    dismiss: () => set({ kind: "idle" }),
+    files: (files) => void explainFiles(files)
+  };
+  return {
+    render: () => renderPastePanel({ open: open5, draft, status }, actions),
+    open: () => {
+      if (!open5) actions.toggle();
+    },
+    close: () => {
+      if (open5) actions.toggle();
+    },
+    isOpen: () => open5,
+    status: () => status,
+    /** Explain the current draft. force skips the "doesn't look like a question" check. */
+    explainText,
+    explainFiles
+  };
+}
+
+// extension/src/addons/qbtext.ts
+var RW_DOMAINS = ["Information and Ideas", "Craft and Structure", "Expression of Ideas", "Standard English Conventions"];
+var RW_SKILLS = [
+  "Central Ideas and Details",
+  "Command of Evidence",
+  "Inferences",
+  "Words in Context",
+  "Text Structure and Purpose",
+  "Cross-Text Connections",
+  "Rhetorical Synthesis",
+  "Transitions",
+  "Boundaries",
+  "Form, Structure, and Sense"
+];
+function loose(phrase) {
+  return phrase.split("").map((c) => c === " " ? "\\s*" : c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*").join("");
+}
+var squash = (s) => s.replace(/\s+/g, "").toLowerCase();
+var tidy = (s) => s.replace(/[ \t\u00a0]+/g, " ").trim();
+var RE_QID = new RegExp(`${loose("Question ID")}\\s*:?\\s*((?:[0-9a-fA-F] ?){7}[0-9a-fA-F])(?![0-9A-Za-z])`, "i");
+var RE_QID_ANY = new RegExp(`${loose("Question ID")}\\s*:?\\s*([A-Za-z0-9-]{6,})`, "i");
+var RE_CORRECT = new RegExp(`${loose("Correct Answer")}\\s*:?\\s*\\(?([A-D])\\)?(?![A-Za-z])`, "i");
+var RE_RATIONALE = new RegExp(`^\\s*${loose("Rationale")}\\s*$`, "im");
+var RE_CHOICE_INLINE = /^\(?([A-D])\s*[.)]\s*(.*)$/;
+var RE_CHOICE_ALONE = /^\(?([A-D])\)?\s*\.?$/;
+var RE_STOP = new RegExp(`^(${loose("Correct Answer")}|${loose("Rationale")}|${loose("Question Difficulty")})`, "i");
+var RE_ANSWER_LABEL = new RegExp(`^${loose("Answer")}$`, "i");
+var RE_QUESTION_LABEL = new RegExp(`^${loose("Question")}$`, "i");
+function parseQuestionBankText(text2) {
+  const out = {
+    qbId: null,
+    domain: null,
+    skill: null,
+    difficulty: null,
+    passage: null,
+    stem: null,
+    choices: {},
+    correct: null,
+    rationale: null,
+    answerRevealed: false
+  };
+  if (!text2) return out;
+  out.qbId = (text2.match(RE_QID)?.[1] ?? text2.match(RE_QID_ANY)?.[1])?.replace(/\s+/g, "").toLowerCase() ?? null;
+  const correct = text2.match(RE_CORRECT)?.[1]?.toUpperCase();
+  out.correct = correct && LETTERS2.includes(correct) ? correct : null;
+  out.answerRevealed = out.correct !== null;
+  const ratIdx = text2.search(RE_RATIONALE);
+  if (ratIdx >= 0) {
+    const after = text2.slice(ratIdx).replace(RE_RATIONALE, "");
+    const rationale = after.split(/\n\s*Question\s*ID/i)[0]?.trim();
+    out.rationale = rationale ? tidy(rationale.replace(/\s*\n\s*/g, " ")) : null;
+  }
+  const headEnd = (() => {
+    const m = text2.search(/\n\s*Q\s*u\s*e\s*s\s*t\s*i\s*o\s*n\s*\n/i);
+    return m > 0 ? m : Math.min(text2.length, 600);
+  })();
+  const head3 = squash(text2.slice(0, headEnd));
+  out.domain = RW_DOMAINS.find((d) => head3.includes(squash(d))) ?? null;
+  out.skill = [...RW_SKILLS].sort((a, b) => b.length - a.length).find((s) => head3.includes(squash(s))) ?? null;
+  const rawHead = text2.slice(0, headEnd);
+  out.difficulty = ["Easy", "Medium", "Hard"].find((d) => new RegExp(`(^|[^A-Za-z])${loose(d)}(?![a-z])`, "i").test(rawHead)) ?? null;
+  const body = ratIdx >= 0 ? text2.slice(0, ratIdx) : text2;
+  const lines = body.split(/\r?\n/).map(tidy).filter(Boolean);
+  const starters = [];
+  lines.forEach((line, idx) => {
+    if (RE_STOP.test(line)) return;
+    const alone = line.match(RE_CHOICE_ALONE);
+    const inline = line.match(RE_CHOICE_INLINE);
+    const m = alone ?? inline;
+    if (m?.[1]) starters.push({ idx, letter: m[1], rest: alone ? "" : (m[2] ?? "").trim() });
+  });
+  let run = null;
+  for (let i2 = starters.length - 4; i2 >= 0; i2--) {
+    const seq = starters.slice(i2, i2 + 4);
+    if (seq.map((s) => s.letter).join("") === "ABCD" && seq.every((s, k) => k === 0 || s.idx > seq[k - 1].idx)) {
+      run = seq;
+      break;
+    }
+  }
+  if (run) {
+    const endIdx = (() => {
+      for (let j = run[3].idx + 1; j < lines.length; j++) if (RE_STOP.test(lines[j])) return j;
+      return lines.length;
+    })();
+    run.forEach((s, k) => {
+      const until = k < 3 ? run[k + 1].idx : Math.min(endIdx, s.idx + (s.rest ? 1 : 2));
+      const parts = [s.rest, ...lines.slice(s.idx + 1, until)].filter(Boolean);
+      out.choices[s.letter] = tidy(parts.join(" "));
+    });
+    const before = lines.slice(0, run[0].idx).filter((l) => !RE_ANSWER_LABEL.test(l));
+    let stemIdx = -1;
+    for (let j = before.length - 1; j >= 0; j--) {
+      if (/\?\s*$/.test(before[j]) || /^Which\s*choice/i.test(before[j])) {
+        stemIdx = j;
+        break;
+      }
+    }
+    if (stemIdx >= 0) {
+      out.stem = before[stemIdx];
+      const qLabel = before.findIndex((l) => RE_QUESTION_LABEL.test(l));
+      const passageLines = before.slice(qLabel >= 0 ? qLabel + 1 : 0, stemIdx);
+      out.passage = passageLines.length ? tidy(passageLines.join(" ")) : null;
+    }
+  }
+  return out;
+}
+function splitExport(text2) {
+  const re = new RegExp(loose("Question ID"), "gi");
+  const starts = [];
+  for (let m = re.exec(text2); m; m = re.exec(text2)) starts.push(m.index);
+  return starts.map((s, i2) => text2.slice(s, starts[i2 + 1] ?? text2.length));
+}
+var norm2 = (s) => (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+function similarity(a, b) {
+  const ta = norm2(a).split(" ").filter(Boolean);
+  const tb = norm2(b).split(" ").filter(Boolean);
+  if (!ta.length && !tb.length) return 1;
+  if (!ta.length || !tb.length) return 0;
+  const counts = /* @__PURE__ */ new Map();
+  for (const t of ta) counts.set(t, (counts.get(t) ?? 0) + 1);
+  let shared = 0;
+  for (const t of tb) {
+    const c = counts.get(t) ?? 0;
+    if (c > 0) {
+      shared++;
+      counts.set(t, c - 1);
+    }
+  }
+  return 2 * shared / (ta.length + tb.length);
+}
+function crossCheck(model, page) {
+  const warnings = [];
+  if (page.qbId && model.qbId && page.qbId.toLowerCase() !== model.qbId.toLowerCase())
+    warnings.push(`The page shows question ${page.qbId}, but the capture read ${model.qbId}. You may have captured a different question.`);
+  if (page.correct && model.correct && page.correct !== model.correct)
+    warnings.push(`The page says the answer is ${page.correct}, but the capture read ${model.correct}. Capture again before you trust this card.`);
+  if (page.correct && !model.correct)
+    warnings.push(`The page shows the answer is ${page.correct}. The capture missed it, so try capturing again with the answer in view.`);
+  const mismatched = LETTERS2.filter((l) => page.choices[l] && model.choices[l] && similarity(page.choices[l], model.choices[l]) < 0.6);
+  if (mismatched.length >= 2) warnings.push(`Choices ${mismatched.join(", ")} don't match the page text. The capture may have misread them.`);
+  return { ok: warnings.length === 0, warnings, pageCorrect: page.correct };
+}
+var QB_HOSTS = ["satsuitequestionbank.collegeboard.org", "satsuiteeducatorquestionbank.collegeboard.org"];
+var isQuestionBankUrl = (url) => {
+  try {
+    return !!url && QB_HOSTS.includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+};
+async function readQuestionBankPage(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      func: () => {
+        const root = document.querySelector("[role=dialog], .modal, .cb-modal") ?? document.body;
+        if (!root) return { text: "", media: 0 };
+        const media = [...root.querySelectorAll("img, svg, table, canvas, math, mjx-container, .MathJax, figure")].filter((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 60 && r.height > 40;
+        }).length;
+        return { text: (root.innerText || "").slice(0, 6e4), media };
+      }
+    });
+    const reads = results.map((r) => r.result).filter((r) => !!r && typeof r.text === "string" && r.text.length > 0);
+    const best = reads.map((r) => ({ r, score: (RE_QID_ANY.test(r.text) ? 2 : 0) + (/\bA[.)]/.test(r.text) ? 1 : 0) + r.text.length / 1e6 })).sort((a, b) => b.score - a.score)[0];
+    return best ? { parsed: parseQuestionBankText(best.r.text), media: best.r.media } : null;
+  } catch {
+    return null;
+  }
+}
+
+// extension/src/addons/qbquiz.ts
+var QUIZ_KEY = "rc.addons.qbquiz.v1";
+var HISTORY_MAX = 20;
+var MAX_SECONDS = 1800;
+var NO_SKILL = "No skill listed";
+var loose2 = (phrase) => phrase.split("").map((c) => c === " " ? "\\s*" : c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*").join("");
+var squash2 = (s) => s.replace(/\s+/g, "").toLowerCase();
+var tidy2 = (s) => s.replace(/\s+/g, " ").trim();
+var RE_HEAD_END = /\n\s*Q\s*u\s*e\s*s\s*t\s*i\s*o\s*n\s*\n/i;
+var RE_QDIFF = new RegExp(loose2("Question Difficulty"), "gi");
+var RE_STOP_LINE = new RegExp(`^(?:${loose2("Correct Answer")}|${loose2("Rationale")}|${loose2("Question Difficulty")})`, "i");
+var RE_QUESTION_LINE = new RegExp(`^${loose2("Question")}$`, "i");
+var RE_ANSWER_LINE = new RegExp(`^(?:ID\\s*:?\\s*\\S+\\s+)?${loose2("Answer")}$`, "i");
+var RE_ID_LINE = /^ID\s*:/i;
+var RE_CHOICE_A = /^\(?A(?:\s*[.)]|\)?\s*\.?$)/;
+var MATH_SKILLS_LONGEST = [...MATH_SKILLS].sort((a, b) => b.length - a.length);
+function mathTaxonomy(block) {
+  const end = block.search(RE_HEAD_END);
+  const head3 = squash2(block.slice(0, end > 0 ? end : Math.min(block.length, 600)));
+  const skill = MATH_SKILLS_LONGEST.find((s) => head3.includes(squash2(s))) ?? null;
+  const domain = MATH_DOMAINS.find((d) => head3.includes(squash2(d))) ?? (skill ? domainOfSkill(skill) : null);
+  return { domain, skill };
+}
+function fallbackStem(block) {
+  const lines = block.split(/\r?\n/).map(tidy2).filter(Boolean);
+  const stop = lines.findIndex((l) => RE_STOP_LINE.test(l));
+  const body = stop >= 0 ? lines.slice(0, stop) : lines;
+  const label = body.findIndex((l) => RE_QUESTION_LINE.test(l));
+  if (label < 0) return null;
+  let a = -1;
+  for (let j = body.length - 1; j > label; j--) {
+    if (RE_CHOICE_A.test(body[j])) {
+      a = j;
+      break;
+    }
+  }
+  if (a < 0) return null;
+  return tidy2(body.slice(label + 1, a).filter((l) => !RE_ANSWER_LINE.test(l) && !RE_ID_LINE.test(l)).join(" ")) || null;
+}
+function cleanRationale(r) {
+  if (!r) return null;
+  let cut = -1;
+  for (const m of r.matchAll(RE_QDIFF)) cut = m.index ?? cut;
+  return tidy2(cut >= 0 && r.length - cut < 48 ? r.slice(0, cut) : r) || null;
+}
+function toQuizQuestion(block) {
+  const p = parseQuestionBankText(block);
+  const texts = LETTERS2.map((l) => tidy2(p.choices[l] ?? ""));
+  if (!texts.every(Boolean)) return { question: null, noAnswer: false };
+  if (!p.correct) return { question: null, noAnswer: true };
+  const stem = p.stem ? tidy2(p.stem) : fallbackStem(block);
+  if (!stem) return { question: null, noAnswer: false };
+  const math2 = !p.domain && !p.skill ? mathTaxonomy(block) : null;
+  return {
+    question: {
+      qbId: p.qbId,
+      domain: p.domain ?? math2?.domain ?? null,
+      skill: p.skill ?? math2?.skill ?? null,
+      difficulty: p.difficulty,
+      passage: p.stem && p.passage ? tidy2(p.passage) || null : null,
+      stem,
+      choices: { A: texts[0], B: texts[1], C: texts[2], D: texts[3] },
+      correct: p.correct,
+      rationale: cleanRationale(p.rationale)
+    },
+    noAnswer: false
+  };
+}
+var fingerprint = (q) => squash2([q.passage ?? "", q.stem, ...LETTERS2.map((l) => q.choices[l])].join("|"));
+function parseExport(text2) {
+  const out = { questions: [], skipped: 0, noAnswer: 0, duplicates: 0 };
+  const src = typeof text2 === "string" ? text2.replace(/\r\n?/g, "\n") : "";
+  if (!src.trim()) return out;
+  const blocks = splitExport(src);
+  if (!blocks.length) {
+    const r = toQuizQuestion(src);
+    if (r.question) out.questions.push(r.question);
+    else if (r.noAnswer) {
+      out.skipped++;
+      out.noAnswer++;
+    }
+    return out;
+  }
+  const seen = /* @__PURE__ */ new Set();
+  for (const block of blocks) {
+    const r = toQuizQuestion(block);
+    if (!r.question) {
+      out.skipped++;
+      if (r.noAnswer) out.noAnswer++;
+      continue;
+    }
+    const key = r.question.qbId ? `id:${r.question.qbId}` : `text:${fingerprint(r.question)}`;
+    if (seen.has(key)) {
+      out.duplicates++;
+      continue;
+    }
+    seen.add(key);
+    out.questions.push(r.question);
+  }
+  return out;
+}
+var previewOf = (p) => ({
+  found: p.questions.length,
+  skipped: p.skipped,
+  noAnswer: p.noAnswer,
+  duplicates: p.duplicates
+});
+function toParsedQB(q) {
+  return {
+    qbId: q.qbId,
+    domain: q.domain,
+    skill: q.skill,
+    difficulty: q.difficulty,
+    passage: q.passage,
+    stem: q.stem,
+    choices: { ...q.choices },
+    correct: q.correct,
+    rationale: q.rationale,
+    answerRevealed: true
+  };
+}
+var questionTarget = (q) => targetSecondsFor(q);
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = a + 1831565813 >>> 0;
+    let t = a;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function shuffled(items, seed) {
+  const out = items.slice();
+  const rand = mulberry32(seed);
+  for (let i2 = out.length - 1; i2 > 0; i2--) {
+    const j = Math.floor(rand() * (i2 + 1));
+    const tmp = out[i2];
+    out[i2] = out[j];
+    out[j] = tmp;
+  }
+  return out;
+}
+var copyQuestion = (q) => ({ ...q, choices: { ...q.choices } });
+var toSeconds = (ms) => Number.isFinite(ms) ? Math.min(MAX_SECONDS, Math.max(0, Math.round(ms / 1e3))) : 0;
+function createQuiz(questions, opts) {
+  const now = opts.now;
+  const seed = (opts.seed ?? now) >>> 0;
+  const all = questions.map((_, i2) => i2);
+  let pick = opts.shuffle ? shuffled(all, seed) : all;
+  const limit = opts.limit && opts.limit > 0 ? Math.floor(opts.limit) : null;
+  if (limit !== null) pick = pick.slice(0, limit);
+  const kept = [...pick].sort((a, b) => a - b);
+  const pos = new Map(kept.map((orig, k) => [orig, k]));
+  return {
+    id: `quiz-${Math.round(now).toString(36)}-${seed.toString(36)}`,
+    questions: kept.map((i2) => copyQuestion(questions[i2])),
+    order: pick.map((i2) => pos.get(i2)),
+    index: 0,
+    answers: {},
+    shownAt: now,
+    startedAt: now,
+    finishedAt: kept.length ? null : now,
+    timed: opts.timed ?? true
+  };
+}
+var isFinished = (s) => s.finishedAt !== null;
+function onScreen(s) {
+  if (isFinished(s)) return null;
+  const qi = s.order[s.index];
+  return qi === void 0 || !s.questions[qi] ? null : qi;
+}
+function currentQuestion(s) {
+  const qi = onScreen(s);
+  return qi === null ? null : s.questions[qi];
+}
+function currentAnswer(s) {
+  const qi = onScreen(s);
+  return qi === null ? null : s.answers[qi] ?? null;
+}
+function quizProgress(s) {
+  const total = s.order.length;
+  return {
+    number: Math.min(s.index + 1, total),
+    total,
+    answered: s.order.filter((i2) => s.answers[i2]).length,
+    left: Math.max(0, total - s.index - 1)
+  };
+}
+function answerQuiz(s, letter, now) {
+  const qi = onScreen(s);
+  if (qi === null || s.answers[qi] || !LETTERS2.includes(letter)) return s;
+  const q = s.questions[qi];
+  return { ...s, answers: { ...s.answers, [qi]: { picked: letter, correct: letter === q.correct, seconds: toSeconds(now - s.shownAt) } } };
+}
+function advance(s, now) {
+  if (s.index >= s.order.length - 1) return { ...s, index: s.order.length, finishedAt: now };
+  return { ...s, index: s.index + 1, shownAt: now };
+}
+function nextQuiz(s, now) {
+  const qi = onScreen(s);
+  return qi === null || !s.answers[qi] ? s : advance(s, now);
+}
+function skipQuiz(s, now) {
+  return onScreen(s) === null ? s : advance(s, now);
+}
+function finishQuiz(s, now) {
+  return isFinished(s) ? s : { ...s, finishedAt: now };
+}
+function resumeQuiz(s, now) {
+  const qi = onScreen(s);
+  return qi === null || s.answers[qi] ? s : { ...s, shownAt: now };
+}
+function quizSummary(s) {
+  const asked = s.order.filter((i2) => s.questions[i2]);
+  const skills = /* @__PURE__ */ new Map();
+  const misses = [];
+  let answered = 0;
+  let right = 0;
+  let totalSeconds = 0;
+  let slow = 0;
+  for (const qi of asked) {
+    const a = s.answers[qi];
+    if (!a) continue;
+    const q = s.questions[qi];
+    answered++;
+    totalSeconds += a.seconds;
+    if (a.seconds > questionTarget(q)) slow++;
+    const key = q.skill ?? q.domain ?? NO_SKILL;
+    const g = skills.get(key) ?? { skill: key, right: 0, total: 0 };
+    g.total++;
+    if (a.correct) {
+      right++;
+      g.right++;
+    } else misses.push({ question: q, picked: a.picked, seconds: a.seconds });
+    skills.set(key, g);
+  }
+  const bySkill = [...skills.values()].sort((a, b) => a.right / a.total - b.right / b.total || b.total - b.right - (a.total - a.right) || b.total - a.total || a.skill.localeCompare(b.skill));
+  const allMath = asked.length > 0 && asked.every((i2) => questionTarget(s.questions[i2]) === MATH_TARGET_SECONDS);
+  return {
+    total: asked.length,
+    answered,
+    right,
+    wrong: answered - right,
+    unanswered: asked.length - answered,
+    accuracy: answered ? right / answered : null,
+    avgSeconds: answered ? Math.round(totalSeconds / answered) : null,
+    totalSeconds,
+    minutes: Math.round(totalSeconds / 60),
+    target: allMath ? MATH_TARGET_SECONDS : TARGET_SECONDS,
+    slow,
+    bySkill,
+    misses,
+    startedAt: s.startedAt,
+    finishedAt: s.finishedAt
+  };
+}
+function retryMisses(s, now) {
+  const missed = s.order.filter((i2) => s.answers[i2] && !s.answers[i2].correct && s.questions[i2]).map((i2) => s.questions[i2]);
+  return createQuiz(missed, { now, timed: s.timed });
+}
+var KEY_LETTERS = { a: "A", b: "B", c: "C", d: "D", "1": "A", "2": "B", "3": "C", "4": "D" };
+function quizKey(key) {
+  if (key === "Enter" || key === " ") return "next";
+  return key.length === 1 ? KEY_LETTERS[key.toLowerCase()] ?? null : null;
+}
+function toResult(s) {
+  const m = quizSummary(s);
+  return {
+    id: s.id,
+    startedAt: s.startedAt,
+    finishedAt: s.finishedAt ?? s.shownAt,
+    total: m.total,
+    answered: m.answered,
+    right: m.right,
+    accuracy: m.accuracy,
+    avgSeconds: m.avgSeconds,
+    slow: m.slow,
+    minutes: m.minutes,
+    target: m.target,
+    bySkill: m.bySkill
+  };
+}
+var isObj = (x) => typeof x === "object" && x !== null && !Array.isArray(x);
+var isNum2 = (x) => typeof x === "number" && Number.isFinite(x);
+function cleanActive(x) {
+  if (!isObj(x)) return null;
+  const ok = typeof x.id === "string" && Array.isArray(x.questions) && Array.isArray(x.order) && isNum2(x.index) && isObj(x.answers) && isNum2(x.shownAt) && isNum2(x.startedAt) && (x.finishedAt === null || isNum2(x.finishedAt));
+  return ok ? { ...x, timed: typeof x.timed === "boolean" ? x.timed : true } : null;
+}
+function cleanStore(raw) {
+  if (!isObj(raw)) return { active: null, history: [] };
+  const history = Array.isArray(raw.history) ? raw.history.filter((r) => isObj(r) && typeof r.id === "string" && isNum2(r.finishedAt)).slice(0, HISTORY_MAX) : [];
+  return { active: cleanActive(raw.active), history };
+}
+var tail = Promise.resolve();
+function queued(fn) {
+  const run = tail.then(fn, fn);
+  tail = run.catch(() => void 0);
+  return run;
+}
+var rawRead = async () => cleanStore(await kv().get(QUIZ_KEY));
+async function rawWrite(s) {
+  const clean2 = { active: s.active ?? null, history: (s.history ?? []).slice(0, HISTORY_MAX) };
+  await kv().set(QUIZ_KEY, clean2);
+  return clean2;
+}
+var readQuizStore = () => queued(rawRead);
+var writeQuizStore = (s) => queued(() => rawWrite(s));
+var saveActive = (state2) => queued(async () => rawWrite({ ...await rawRead(), active: state2 }));
+var recordResult = (state2) => queued(async () => {
+  const store = await rawRead();
+  const r = toResult(state2);
+  if (!isFinished(state2) || !r.answered) return store;
+  return rawWrite({ ...store, history: [r, ...store.history.filter((x) => x.id !== r.id)] });
+});
+
+// extension/src/addons/qbquiz-ui.ts
+var LIMIT_CHOICES = [
+  { value: 10, label: "10" },
+  { value: 20, label: "20" },
+  { value: null, label: "All" }
+];
+var plain = (text2) => text2;
+var plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+var secs = (n) => `${n} s`;
+var pct2 = (x) => x === null ? "0%" : `${Math.round(x * 100)}%`;
+var clip2 = (s, n) => s.length > n ? `${s.slice(0, n - 1).trimEnd()}\u2026` : s;
+function header(title, count2, extra, close2, closeLabel = "Quit") {
+  return h(
+    "div",
+    { class: "row between rc-quiz-head" },
+    h("h2", { text: title }),
+    h(
+      "div",
+      { class: "row rc-quiz-head-right" },
+      count2 ? h("span", { class: "small muted rc-quiz-count", text: count2 }) : null,
+      extra,
+      h("button", { class: "btn link small", title: "Esc", onclick: () => close2() }, closeLabel)
+    )
+  );
+}
+function bar(done, total) {
+  const n = Math.max(0, Math.min(done, total));
+  const fill = h("span");
+  fill.style.width = `${total ? Math.round(n / total * 100) : 100}%`;
+  return h("div", { class: "rc-quiz-bar", role: "progressbar", "aria-label": "Progress", "aria-valuemin": 0, "aria-valuemax": total, "aria-valuenow": n }, fill);
+}
+function clock(shownAt, ans, target, now) {
+  const el = h("span", { class: "rc-quiz-clock", title: `Time on this question. Test pace is ${target} s.` });
+  const show = (s) => {
+    el.textContent = secs(s);
+    el.classList.toggle("rc-quiz-over", s > target);
+  };
+  if (ans) {
+    show(ans.seconds);
+    return el;
+  }
+  const elapsed = () => Math.min(MAX_SECONDS, Math.max(0, Math.round((now() - shownAt) / 1e3)));
+  show(elapsed());
+  const timer = setInterval(() => {
+    if (!el.isConnected) return clearInterval(timer);
+    show(elapsed());
+  }, 1e3);
+  return el;
+}
+function meta(q) {
+  const label = q.skill ?? q.domain;
+  if (!label && !q.difficulty && !q.qbId) return null;
+  return h(
+    "div",
+    { class: "row rc-quiz-meta" },
+    label ? chip(label, "accent") : null,
+    q.difficulty ? chip(q.difficulty) : null,
+    q.qbId ? h("span", { class: "small muted", text: `ID ${q.qbId}` }) : null
+  );
+}
+function choiceList(q, ans, pick, t) {
+  return h("ol", { class: "choices" }, ...LETTERS2.map((letter, i2) => {
+    const live = !ans && pick !== null;
+    const choose = () => {
+      if (live && pick) pick(letter);
+    };
+    const state2 = ans ? letter === q.correct ? "correct" : letter === ans.picked ? "picked" : "" : live ? "selectable" : "";
+    return h(
+      "li",
+      {
+        class: `choice ${state2}`.trim(),
+        role: live ? "button" : null,
+        tabindex: live ? 0 : null,
+        title: live ? `${letter} or ${i2 + 1}` : null,
+        onclick: live ? choose : null,
+        onkeydown: live ? (ev) => {
+          if (ev.key !== "Enter" && ev.key !== " ") return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          choose();
+        } : null
+      },
+      h("span", { class: "letter", text: `${letter}.` }),
+      h("span", null, t(q.choices[letter])),
+      ans && letter === ans.picked ? h("span", { class: "rc-quiz-tag", text: "your pick" }) : null
+    );
+  }));
+}
+var stat = (value, label) => h("div", { class: "rc-quiz-stat" }, h("b", { text: value }), h("span", { text: label }));
+function previewLines(p) {
+  if (!p) return [h("p", { class: "small muted", text: "Paste an export to see how many questions it has." })];
+  if (!p.found && !p.skipped) {
+    return [h("p", { class: "small", text: "No questions found yet. Paste the whole export, from the first Question ID to the end." })];
+  }
+  const out = [h("p", { class: "rc-quiz-found", text: `Found ${plural(p.found, "question")}` })];
+  if (p.skipped) out.push(h("p", { class: "small muted", text: `${p.skipped} skipped (grid-in or no answer key)` }));
+  if (p.duplicates) out.push(h("p", { class: "small muted", text: `${plural(p.duplicates, "repeat")} left out` }));
+  if (!p.found && p.noAnswer) {
+    out.push(h("p", { class: "small rc-quiz-hint", text: "This export has no answer key. Include the answers when you export, then paste again." }));
+  }
+  return out;
+}
+function renderQuizEntry(state2, handlers) {
+  let preview = state2.preview;
+  let shuffle = state2.shuffle ?? true;
+  let limit = state2.limit === void 0 ? 20 : state2.limit;
+  const found = () => Math.max(0, preview?.found ?? 0);
+  const status = h("div", { class: "rc-quiz-preview", "aria-live": "polite" });
+  const start = h("button", { class: "btn primary", onclick: () => {
+    if (found()) handlers.start({ shuffle, limit });
+  } });
+  const paint = () => {
+    status.replaceChildren(...previewLines(preview));
+    const n = found();
+    start.disabled = n === 0;
+    start.textContent = n ? `Start ${plural(limit ? Math.min(limit, n) : n, "question")}` : "Start";
+  };
+  const area = h("textarea", {
+    id: "rc-quiz-text",
+    class: "input rc-quiz-text",
+    rows: 7,
+    spellcheck: "false",
+    placeholder: "Paste the whole export here",
+    "aria-label": "Question Bank export text",
+    oninput: (ev) => {
+      const r = handlers.input(ev.target.value);
+      if (r === void 0) return;
+      preview = r;
+      paint();
+    }
+  });
+  area.value = state2.text ?? "";
+  const shuffleBox = h("input", {
+    type: "checkbox",
+    id: "rc-quiz-shuffle",
+    checked: shuffle,
+    onchange: (ev) => {
+      shuffle = ev.target.checked;
+    }
+  });
+  const limits = h(
+    "fieldset",
+    { class: "rc-quiz-limits" },
+    h("legend", { class: "small muted", text: "Questions" }),
+    ...LIMIT_CHOICES.map(({ value, label }) => h(
+      "label",
+      { class: "rc-quiz-limit" },
+      h("input", {
+        type: "radio",
+        name: "rc-quiz-limit",
+        value: value === null ? "all" : String(value),
+        checked: limit === value,
+        onchange: () => {
+          limit = value;
+          paint();
+        }
+      }),
+      h("span", { text: label })
+    ))
+  );
+  paint();
+  const last = state2.last;
+  return h(
+    "div",
+    { class: "card rc-quiz rc-quiz-entry" },
+    h("h2", { text: "Practice a Question Bank export" }),
+    h("p", { class: "small muted", text: "Export questions from the Question Bank as a PDF, open it, select all, copy, and paste here." }),
+    area,
+    status,
+    h(
+      "div",
+      { class: "row rc-quiz-options" },
+      h("label", { class: "rc-quiz-check" }, shuffleBox, h("span", { text: "Shuffle the order" })),
+      limits
+    ),
+    h("p", { class: "small muted", text: "You're graded with the export's answer key, and each question is timed. Nothing leaves this device until you ask for an explanation." }),
+    h("div", { class: "row" }, start),
+    last ? h("p", { class: "small muted rc-quiz-last", text: `Last quiz: ${last.right} of ${last.total} right.` }) : null
+  );
+}
+function renderQuiz(state2, handlers, opts = {}) {
+  const t = opts.renderText ?? plain;
+  const q = currentQuestion(state2);
+  const p = quizProgress(state2);
+  if (!q) {
+    return h(
+      "div",
+      { class: "card rc-quiz rc-quiz-run" },
+      header("Question Bank practice", null, null, handlers.quit),
+      h("p", { class: "small muted", text: "You've reached the end of this quiz." }),
+      h("button", { class: "btn primary", title: "Enter", onclick: () => handlers.next() }, "See results")
+    );
+  }
+  const ans = currentAnswer(state2);
+  const target = questionTarget(q);
+  const kids = [
+    header("Question Bank practice", `${p.number} of ${p.total}`, state2.timed ? clock(state2.shownAt, ans, target, opts.now ?? Date.now) : null, handlers.quit),
+    bar(state2.index + (ans ? 1 : 0), p.total),
+    meta(q),
+    q.passage ? h("div", { class: "passage" }, t(q.passage)) : null,
+    h("p", { class: "stem" }, t(q.stem)),
+    choiceList(q, ans, (l) => handlers.pick(l), t)
+  ];
+  if (!ans) {
+    kids.push(h(
+      "div",
+      { class: "row between rc-quiz-hintrow" },
+      h("p", { class: "small muted", text: "Pick an answer. Keys 1 to 4 or A to D work too." }),
+      handlers.skip ? h("button", { class: "btn link small", onclick: () => handlers.skip?.() }, "Skip") : null
+    ));
+  } else {
+    const right = ans.correct;
+    const pace = ans.seconds > target ? `over the ${target} s pace` : `within the ${target} s pace`;
+    kids.push(
+      h(
+        "div",
+        { class: `banner ${right ? "good" : "danger"}`, role: "status" },
+        h("p", { class: "stem", text: right ? `Right. The answer is ${q.correct}.` : `Not quite. You picked ${ans.picked}. The answer is ${q.correct}.` }),
+        state2.timed ? h("p", { class: "small", text: `You took ${secs(ans.seconds)}, ${pace}.` }) : null
+      ),
+      h(
+        "details",
+        { class: "rc-quiz-rationale" },
+        h("summary", { text: "Official explanation" }),
+        q.rationale ? h("div", { class: "rc-quiz-rationale-text" }, t(q.rationale)) : h("p", { class: "small muted", text: "This export has no explanation for this question." })
+      ),
+      h(
+        "div",
+        { class: "row rc-quiz-actions" },
+        right ? null : h("button", { class: "btn", onclick: () => handlers.explain(q, ans.picked) }, "Explain with Rulecard"),
+        h("button", { class: "btn primary", title: "Enter", onclick: () => handlers.next() }, p.left > 0 ? `Next question (${p.left} left)` : "See results")
+      )
+    );
+  }
+  return h("div", { class: "card rc-quiz rc-quiz-run" }, ...kids);
+}
+function skillTable(s) {
+  return h(
+    "div",
+    null,
+    h("h3", { text: "By skill" }),
+    h(
+      "table",
+      { class: "rc-quiz-skills" },
+      h("thead", null, h("tr", null, h("th", { text: "Skill" }), h("th", { text: "Right" }), h("th", { text: "Accuracy" }))),
+      h("tbody", null, ...s.bySkill.map((g) => {
+        const rate = g.total ? g.right / g.total : 0;
+        const fill = h("span");
+        fill.style.width = `${Math.round(rate * 100)}%`;
+        const tone = rate < 0.5 ? "rc-quiz-weak" : rate < 0.8 ? "rc-quiz-mid" : "";
+        return h(
+          "tr",
+          null,
+          h("td", { text: g.skill }),
+          h("td", { class: "rc-quiz-num", text: `${g.right} of ${g.total}` }),
+          h("td", null, h(
+            "div",
+            { class: "rc-quiz-acc" },
+            h("div", { class: `rc-quiz-skill-bar ${tone}`.trim(), "aria-hidden": "true" }, fill),
+            h("span", { class: "small muted rc-quiz-num", text: pct2(rate) })
+          ))
+        );
+      }))
+    )
+  );
+}
+function review(q, picked, t) {
+  return h(
+    "details",
+    { class: "rc-quiz-review" },
+    h("summary", { text: "Show the question" }),
+    q.passage ? h("div", { class: "passage" }, t(q.passage)) : null,
+    h("p", { class: "stem" }, t(q.stem)),
+    choiceList(q, { picked, correct: picked === q.correct, seconds: 0 }, null, t),
+    q.rationale ? h("div", { class: "rc-quiz-rationale-text" }, h("b", { text: "Official explanation: " }), t(q.rationale)) : null
+  );
+}
+function missItem(m, handlers, t) {
+  const q = m.question;
+  return h(
+    "li",
+    { class: "rc-quiz-miss" },
+    h("p", { class: "rc-quiz-miss-text", text: clip2(q.passage ?? q.stem, 140) }),
+    h(
+      "div",
+      { class: "row rc-quiz-miss-meta" },
+      h("span", { class: "small", text: `You picked ${m.picked}. The answer is ${q.correct}.` }),
+      q.skill ? chip(q.skill) : null,
+      h("span", { class: "small muted", text: secs(m.seconds) })
+    ),
+    review(q, m.picked, t),
+    h("button", { class: "btn small", onclick: () => handlers.explain(q, m.picked) }, "Explain with Rulecard")
+  );
+}
+function renderQuizResult(summary, handlers, opts = {}) {
+  const s = summary;
+  const t = opts.renderText ?? plain;
+  const top = header("Your results", null, null, handlers.done, "Close");
+  if (!s.answered) {
+    return h(
+      "div",
+      { class: "card rc-quiz rc-quiz-result" },
+      top,
+      h(
+        "div",
+        { class: "banner warn" },
+        h("p", { class: "stem", text: "You didn't answer any questions." }),
+        h("p", { class: "small", text: "Paste the export again when you're ready to practice." })
+      ),
+      h("button", { class: "btn primary", title: "Enter", onclick: () => handlers.done() }, "Done")
+    );
+  }
+  const avg = s.avgSeconds ?? 0;
+  const misses = s.misses.length;
+  const paceLine = avg > s.target ? `On average you took ${avg - s.target} s longer than the ${s.target} s test pace.` : `On average you kept within the ${s.target} s test pace.`;
+  return h(
+    "div",
+    { class: "card rc-quiz rc-quiz-result" },
+    top,
+    h(
+      "div",
+      { class: `banner ${(s.accuracy ?? 0) >= 0.8 ? "good" : "warn"}`, role: "status" },
+      h("p", { class: "stem", text: `You got ${s.right} of ${s.total} right.` }),
+      h("p", { class: "small", text: s.unanswered ? `That's ${pct2(s.accuracy)} of the ${s.answered} you answered. ${s.unanswered} left unanswered.` : `That's ${pct2(s.accuracy)}.` })
+    ),
+    h(
+      "div",
+      { class: "rc-quiz-stats" },
+      stat(pct2(s.accuracy), "Accuracy"),
+      stat(secs(avg), `Average time (pace ${s.target} s)`),
+      stat(String(s.slow), s.slow === 1 ? "Question over pace" : "Questions over pace"),
+      stat(s.minutes < 1 ? "<1" : String(s.minutes), "Minutes answering")
+    ),
+    h("p", { class: "small muted", text: paceLine }),
+    s.bySkill.length ? skillTable(s) : null,
+    misses ? h(
+      "div",
+      null,
+      h("h3", { text: `Your misses (${misses})` }),
+      h("ol", { class: "rc-quiz-misses" }, ...s.misses.map((m) => missItem(m, handlers, t)))
+    ) : h("p", { class: "small", text: "No misses this time." }),
+    h(
+      "div",
+      { class: "row rc-quiz-actions" },
+      h("button", { class: misses ? "btn primary" : "btn", disabled: !misses, onclick: () => handlers.retry() }, "Retry my misses"),
+      h("button", { class: misses ? "btn" : "btn primary", title: "Enter", onclick: () => handlers.done() }, "Done")
+    )
+  );
+}
+
+// extension/src/addons/plan.ts
+var DAY2 = 864e5;
+var EXPLORE_SCORE = 0.45;
+var RECENCY_WEIGHT = 0.3;
+var PHASE_LABEL = {
+  steady: "Daily practice",
+  build: "Build",
+  strengthen: "Strengthen",
+  sharpen: "Sharpen",
+  final: "Final week",
+  eve: "Day before",
+  test: "Test day",
+  past: "Daily practice"
+};
+var MIX = {
+  steady: [0.6, 0.4, 0],
+  past: [0.6, 0.4, 0],
+  build: [0.6, 0.4, 0],
+  strengthen: [0.5, 0.3, 0.2],
+  sharpen: [0.4, 0.2, 0.4],
+  final: [0.4, 0, 0.6],
+  eve: [0, 0, 1],
+  test: [0, 0, 0]
+};
+function startOfDay2(ts) {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+function daysUntil(testDate, now) {
+  const m = testDate?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return Math.round((new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime() - startOfDay2(now)) / DAY2);
+}
+function phaseFor(days) {
+  if (days === null) return "steady";
+  if (days < 0) return "past";
+  if (days === 0) return "test";
+  if (days === 1) return "eve";
+  if (days <= 7) return "final";
+  if (days <= 14) return "sharpen";
+  if (days <= 30) return "strengthen";
+  return "build";
+}
+function splitGoal(total, weights) {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  if (total <= 0 || sum <= 0) return weights.map(() => 0);
+  const raw = weights.map((w) => total * w / sum);
+  const out = raw.map(Math.floor);
+  let left = total - out.reduce((a, b) => a + b, 0);
+  const order = raw.map((r, i2) => ({ i: i2, frac: r - Math.floor(r) })).sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (const { i: i2 } of order) {
+    if (left <= 0) break;
+    out[i2] = (out[i2] ?? 0) + 1;
+    left--;
+  }
+  return out;
+}
+var pct3 = (n) => `${Math.round(n * 100)}%`;
+function suggestDifficulty(mine) {
+  if (mine.length < 3) return { difficulty: "Medium", why: "" };
+  const at = (level) => {
+    const xs = mine.filter((e) => (e.difficulty ?? "").toLowerCase() === level);
+    return { n: xs.length, acc: xs.length ? xs.filter((e) => e.result === "right").length / xs.length : 0 };
+  };
+  const hard = at("hard"), medium = at("medium");
+  const overall = mine.filter((e) => e.result === "right").length / mine.length;
+  if (hard.n >= 3 && hard.acc >= 0.7) return { difficulty: "Hard", why: `You get ${pct3(hard.acc)} of Hard right here. Stay on Hard.` };
+  if (medium.n >= 3 && medium.acc >= 0.8) return { difficulty: "Hard", why: `You get ${pct3(medium.acc)} of Medium right, so step up to Hard.` };
+  if (overall < 0.5) return { difficulty: "Easy, Medium", why: `You're under 50% here, so lock in the rule on Easy and Medium first.` };
+  return { difficulty: "Medium", why: "" };
+}
+function reasonFor(attempts, misses, daysSince) {
+  if (!attempts) return "You haven't practiced this skill yet.";
+  const when = daysSince === null ? "" : daysSince <= 1 ? ", last practiced yesterday" : `, last practiced ${daysSince} days ago`;
+  return `Missed ${misses} of ${attempts}${when}.`;
+}
+function rankSkills(before, sections, today) {
+  const bySkill = /* @__PURE__ */ new Map();
+  for (const e of before) {
+    const info = skillInfo(e.skill);
+    if (!info) continue;
+    const xs = bySkill.get(info.skill) ?? [];
+    xs.push(e);
+    bySkill.set(info.skill, xs);
+  }
+  return SKILLS.map((info, index) => ({ info, index })).filter(({ info }) => sections.includes(info.section)).map(({ info, index }) => {
+    const mine = bySkill.get(info.skill) ?? [];
+    const attempts = mine.length;
+    const misses = mine.filter((e) => e.result === "missed").length;
+    const lastAt = attempts ? Math.max(...mine.map((e) => e.at)) : null;
+    const daysSince = lastAt === null ? null : Math.round((today - startOfDay2(lastAt)) / DAY2);
+    const score = attempts ? (misses + 1) / (attempts + 2) + RECENCY_WEIGHT * (Math.min(daysSince ?? 0, 14) / 14) : EXPLORE_SCORE;
+    const { difficulty, why } = suggestDifficulty(mine);
+    return { stat: { ...info, attempts, misses, lastAt, daysSince, score, difficulty, reason: reasonFor(attempts, misses, daysSince), difficultyReason: why }, index };
+  }).sort((a, b) => b.stat.score - a.stat.score || b.stat.attempts - a.stat.attempts || a.index - b.index).map(({ stat: stat2 }) => stat2);
+}
+function pickFocus(ranked, fresh) {
+  const first = ranked[0];
+  if (!first) return [];
+  const otherSection = fresh ? ranked.find((s) => s.section !== first.section) : void 0;
+  const second = otherSection ?? ranked.find((s) => s !== first && s.domain !== first.domain) ?? ranked[1];
+  return second ? [first, second] : [first];
+}
+var sectionTest = (sections) => sections.length === 2 ? "Reading and Writing, then Math" : sections[0] === "math" ? "Math" : "Reading and Writing";
+var paceText = (sections) => sections.length === 2 ? `${TARGET_SECONDS} s per Reading and Writing question, ${MATH_TARGET_SECONDS} s per Math question` : sections[0] === "math" ? `${MATH_TARGET_SECONDS} s per question` : `${TARGET_SECONDS} s per question`;
+function buildPlan(input) {
+  const { log, srs, now } = input;
+  const today = startOfDay2(now);
+  const tomorrow = today + DAY2;
+  const before = log.filter((e) => e.at < today);
+  const todays = log.filter((e) => e.at >= today && e.at < tomorrow);
+  const fresh = before.length === 0;
+  const daysToTest = daysUntil(input.testDate, now);
+  const phase = phaseFor(daysToTest);
+  const seen = [...new Set(log.map((e) => sectionOf(e)))].sort();
+  const sections = input.sections?.length ? input.sections : seen.length ? seen : ["rw", "math"];
+  const ranked = rankSkills(before, sections, today);
+  const focus = pickFocus(ranked, fresh);
+  const baseGoal = Math.max(1, Math.round(input.dailyGoal ?? 10));
+  const goalTotal = phase === "test" ? 0 : phase === "eve" ? Math.min(baseGoal, 5) : baseGoal;
+  const [w1, w2, w3] = MIX[phase];
+  const [n1 = 0, n2 = 0, n3 = 0] = splitGoal(goalTotal, [focus[0] ? w1 : 0, focus[1] ? w2 : 0, w3 || (focus.length ? 0 : w1 + w2)]);
+  const items = [];
+  const item = (p) => {
+    const full = { steps: null, skill: null, section: null, difficulty: null, ...p, complete: false };
+    full.complete = full.target !== null && full.target > 0 && full.done >= full.target;
+    return full;
+  };
+  const rules = Object.values(srs);
+  const reviewedToday = rules.filter((r) => r.lastReviewed !== null && r.lastReviewed >= today && r.lastReviewed < tomorrow);
+  const dueNow = rules.filter((r) => r.due <= now && !reviewedToday.includes(r));
+  const reviewTarget = dueNow.length + reviewedToday.length;
+  if (reviewTarget > 0 && phase !== "test") {
+    items.push(item({
+      id: "review",
+      kind: "review",
+      title: `Review ${reviewTarget} due rule${reviewTarget === 1 ? "" : "s"}`,
+      detail: "One fresh question per rule. Rules you get right move to a longer gap; misses come back tomorrow.",
+      target: reviewTarget,
+      done: reviewedToday.length
+    }));
+  }
+  const focusSkills = /* @__PURE__ */ new Set();
+  [n1, n2].forEach((n, i2) => {
+    const s = focus[i2];
+    if (!s || n <= 0) return;
+    focusSkills.add(s.skill);
+    const done = todays.filter((e) => skillInfo(e.skill)?.skill === s.skill).length;
+    items.push(item({
+      id: `focus-${i2 + 1}`,
+      kind: "focus",
+      title: `${n} ${s.skill} question${n === 1 ? "" : "s"} (${s.difficulty})`,
+      detail: fresh ? `${s.domain}. A starting sample so Rulecard can find your weak spots.` : [s.reason, s.difficultyReason].filter(Boolean).join(" "),
+      steps: qbFilterSteps(s, s.difficulty),
+      skill: s.skill,
+      section: s.section,
+      difficulty: s.difficulty,
+      target: n,
+      done
+    }));
+  });
+  if (n3 > 0) {
+    const difficulty = phase === "eve" ? "Easy, Medium" : "Medium, Hard";
+    const done = todays.filter((e) => !focusSkills.has(skillInfo(e.skill)?.skill ?? "")).length;
+    const test = sectionTest(sections);
+    items.push(item({
+      id: "mixed",
+      kind: "mixed",
+      title: phase === "eve" ? `${n3}-question warm-up (${difficulty})` : `Timed mixed set: ${n3} question${n3 === 1 ? "" : "s"}`,
+      detail: phase === "eve" ? "Easy wins only. Stop as soon as you feel warmed up." : `Mixed skills at test pace: ${paceText(sections)}. Turn on the timer or start a practice set.`,
+      steps: `In the Question Bank pick Assessment: SAT, Test: ${test}, check every domain, Difficulty: ${difficulty}. Work through them in order and skip any you've seen.`,
+      section: sections.length === 1 ? sections[0] : null,
+      difficulty,
+      target: n3,
+      done
+    }));
+  }
+  if (rules.length && (phase === "final" || phase === "eve" || phase === "test")) {
+    const n = phase === "test" ? 5 : 10;
+    items.push(item({
+      id: "flashcards",
+      kind: "flashcards",
+      title: `Flip your ${n} weakest rule cards`,
+      detail: phase === "test" ? "Read each rule once. No new questions today." : "Practice offline, then Rule flashcards. A few minutes is enough.",
+      target: null,
+      done: 0
+    }));
+  }
+  if (phase === "eve") {
+    items.push(item({ id: "rest", kind: "checklist", title: "Stop early and sleep", detail: "Cramming the night before costs more than it adds. Pack your bag and charge your device tonight.", target: null, done: 0 }));
+  }
+  if (phase === "test") {
+    items.push(
+      item({ id: "device", kind: "checklist", title: "Device charged, Bluebook up to date", detail: "Open Bluebook before you leave so any update is already done.", target: null, done: 0 }),
+      item({ id: "bag", kind: "checklist", title: "Photo ID, admission ticket, pencils", detail: "Pencils or pens are for scratch paper. Bluebook has the Desmos calculator built in.", target: null, done: 0 })
+    );
+  }
+  const goal = items.filter((i2) => i2.kind === "focus" || i2.kind === "mixed").reduce((a, i2) => a + (i2.target ?? 0), 0);
+  const countable = items.filter((i2) => i2.target !== null && i2.target > 0);
+  const d = daysToTest ?? 0;
+  const headline = phase === "test" ? "Test day. No new questions: read your weakest rules once and go." : phase === "eve" ? "Test tomorrow. A light warm-up, your weakest rules, then rest." : fresh ? "Start with a few questions from different skills so Rulecard can find your weak spots." : phase === "final" ? `${d} days left. Mostly timed mixed sets at test pace, plus quick rule reviews.` : phase === "sharpen" ? `${d} days out. Half skill work, half timed mixed sets.` : phase === "strengthen" ? `${d} days out. Keep fixing weak skills and start timing some questions.` : phase === "build" ? `${d} days out. Build the rules: work your weakest skills, no timer needed.` : phase === "past" ? "Your test date has passed. Set the next one under Export & settings." : "Clear your reviews, then work your weakest skills.";
+  return {
+    day: dayKey(now),
+    phase,
+    phaseLabel: PHASE_LABEL[phase],
+    headline,
+    daysToTest,
+    fresh,
+    goal,
+    doneToday: todays.length,
+    items,
+    complete: countable.length > 0 && countable.every((i2) => i2.complete),
+    skills: ranked
+  };
+}
+function planText(plan) {
+  const lines = [`Rulecard plan for ${plan.day} (${plan.phaseLabel})`, plan.headline, ""];
+  for (const i2 of plan.items) {
+    const box = i2.target === null ? "-" : i2.complete ? "[x]" : "[ ]";
+    const counter = i2.target === null ? "" : ` ${Math.min(i2.done, i2.target)}/${i2.target}`;
+    lines.push(`${box} ${i2.title}${counter}`);
+    if (i2.detail) lines.push(`    ${i2.detail}`);
+    if (i2.steps) lines.push(`    ${i2.steps}`);
+  }
+  return lines.join("\n");
+}
+var open3 = null;
+function renderPlan(plan, actions = {}) {
+  const isOpen = open3 ?? (plan.doneToday === 0 && !plan.complete);
+  const share = plan.goal ? Math.min(1, plan.doneToday / plan.goal) : plan.complete ? 1 : 0;
+  const actionFor2 = (i2) => {
+    if (i2.complete) return null;
+    if (i2.kind === "review" && actions.startReview) return h("button", { class: "btn small", text: "Start review", onclick: actions.startReview });
+    if (i2.kind === "flashcards" && actions.openFlashcards) return h("button", { class: "btn small", text: "Open flashcards", onclick: actions.openFlashcards });
+    if (i2.kind === "mixed" && actions.startSet && i2.target) {
+      const left = Math.max(1, i2.target - i2.done);
+      return h("button", { class: "btn small", text: `Start a set of ${left}`, onclick: () => actions.startSet?.(left) });
+    }
+    return null;
+  };
+  const row = (i2) => h(
+    "li",
+    { class: `rc-plan-item${i2.complete ? " done" : ""}${i2.target === null ? " advice" : ""}` },
+    h("span", { class: "rc-check", "aria-hidden": "true", text: i2.complete ? "\u2713" : i2.target === null ? "\u2022" : "" }),
+    h(
+      "div",
+      { class: "rc-plan-body" },
+      h(
+        "div",
+        { class: "rc-plan-line" },
+        h("span", { class: "rc-plan-title", text: i2.title }),
+        i2.target !== null ? h("span", { class: "small muted rc-num", text: `${Math.min(i2.done, i2.target)}/${i2.target}` }) : null
+      ),
+      i2.detail ? h("p", { class: "small muted", text: i2.detail }) : null,
+      i2.steps ? h("details", { class: "rc-plan-steps" }, h("summary", { class: "small", text: "Find these in the Question Bank" }), h("p", { class: "small", text: i2.steps })) : null,
+      actionFor2(i2)
+    )
+  );
+  return h(
+    "details",
+    { class: `card rc-plan${plan.complete ? " complete" : ""}`, open: isOpen ? "" : null, ontoggle: (ev) => {
+      open3 = ev.target.open;
+    } },
+    h(
+      "summary",
+      null,
+      h(
+        "span",
+        { class: "rc-plan-head" },
+        h("span", { class: "rc-plan-name", text: plan.complete ? "Today's plan: done" : "Today's plan" }),
+        chip(plan.daysToTest !== null && plan.daysToTest > 0 ? `${plan.phaseLabel} \xB7 ${plan.daysToTest}d` : plan.phaseLabel, plan.complete ? "good" : ""),
+        plan.goal ? h("span", { class: "small muted rc-num", text: `${Math.min(plan.doneToday, plan.goal)}/${plan.goal}` }) : null
+      ),
+      h("span", { class: `rc-meter${plan.complete ? " good" : " accent"}` }, h("span", { style: `width:${Math.round(share * 100)}%` }))
+    ),
+    h("p", { class: "small rc-plan-headline", text: plan.headline }),
+    h("ol", { class: "rc-plan-items" }, ...plan.items.map(row)),
+    actions.copy ? h("button", { class: "btn link small", text: "Copy plan", onclick: () => actions.copy?.(planText(plan)) }) : null
+  );
+}
+
+// extension/src/addons/redo.ts
+var REDO_KEY = "rc.addons.redo.v1";
+var MAX_REDOS_PER_ENTRY = 20;
+var isLetter = (x) => typeof x === "string" && LETTERS2.includes(x);
+function isMultipleChoice(e) {
+  if ("format" in e && e.format === "spr") return false;
+  const choices = e.choices;
+  if (!choices || typeof choices !== "object") return false;
+  return LETTERS2.every((l) => {
+    const text2 = choices[l];
+    return typeof text2 === "string" && text2.trim() !== "";
+  });
+}
+function isRedoable(e) {
+  return !!e && e.result === "missed" && typeof e.attemptId === "string" && isMultipleChoice(e) && isLetter(e.correct);
+}
+function choiceList2(e) {
+  return LETTERS2.map((letter) => ({ letter, text: e.choices?.[letter] ?? "" }));
+}
+function historyOf(store, attemptId) {
+  const list2 = Object.prototype.hasOwnProperty.call(store, attemptId) ? store[attemptId] : void 0;
+  if (!Array.isArray(list2)) return [];
+  return list2.filter((a) => !!a && typeof a === "object" && typeof a.at === "number" && typeof a.correct === "boolean" && isLetter(a.picked)).sort((a, b) => a.at - b.at);
+}
+var matches = (e, f) => (!f.ruleId || e.ruleId === f.ruleId) && (!f.skill || e.skill === f.skill);
+var byAttemptId = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+var oldestFirst = (a, b) => a.entry.at - b.entry.at || byAttemptId(a.entry.attemptId, b.entry.attemptId);
+function eligible(log, store, filter) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const entry of log) {
+    if (!isRedoable(entry) || !matches(entry, filter) || seen.has(entry.attemptId)) continue;
+    seen.add(entry.attemptId);
+    out.push({ entry, history: historyOf(store, entry.attemptId) });
+  }
+  return out;
+}
+function redoQueue(log, store, filter = {}) {
+  const fresh = [];
+  const wrong = [];
+  for (const item of eligible(log, store, filter)) {
+    const last = item.history[item.history.length - 1];
+    if (!last) fresh.push(item);
+    else if (!last.correct) wrong.push(item);
+  }
+  return [...fresh.sort(oldestFirst), ...wrong.sort(oldestFirst)];
+}
+function createRedo(log, store, now, opts = {}) {
+  const items = redoQueue(log, store, opts);
+  const limit = Math.floor(opts.limit ?? Infinity);
+  return { items: limit > 0 && limit < items.length ? items.slice(0, limit) : items, index: 0, picked: null, results: [], startedAt: now };
+}
+function currentRedo(state2) {
+  return state2.items[state2.index] ?? null;
+}
+function isRedoDone(state2) {
+  return state2.index >= state2.items.length;
+}
+function answerRedo(state2, letter, now) {
+  const item = currentRedo(state2);
+  if (!item || state2.picked || !isLetter(letter)) return { state: state2, saved: null };
+  const e = item.entry;
+  const correct = letter === e.correct;
+  const result = { attemptId: e.attemptId, ruleId: e.ruleId, ruleName: e.ruleName, picked: letter, correct, skipped: false, at: now };
+  return {
+    state: { ...state2, picked: letter, results: [...state2.results, result] },
+    saved: { attemptId: e.attemptId, attempt: { at: now, correct, picked: letter } }
+  };
+}
+function nextRedo(state2) {
+  if (isRedoDone(state2) || !state2.picked) return state2;
+  return { ...state2, index: state2.index + 1, picked: null };
+}
+function skipRedo(state2, now) {
+  const item = currentRedo(state2);
+  if (!item) return state2;
+  if (state2.picked) return nextRedo(state2);
+  const e = item.entry;
+  const result = { attemptId: e.attemptId, ruleId: e.ruleId, ruleName: e.ruleName, picked: null, correct: false, skipped: true, at: now };
+  return { ...state2, index: state2.index + 1, picked: null, results: [...state2.results, result] };
+}
+function redoSummary(state2) {
+  const answered = state2.results.filter((r) => !r.skipped);
+  const right = answered.filter((r) => r.correct).length;
+  const again = /* @__PURE__ */ new Map();
+  for (const r of answered) {
+    if (r.correct) continue;
+    const m = again.get(r.ruleId) ?? { ruleId: r.ruleId, ruleName: r.ruleName, count: 0 };
+    m.count++;
+    again.set(r.ruleId, m);
+  }
+  return {
+    total: state2.items.length,
+    answered: answered.length,
+    right,
+    wrong: answered.length - right,
+    skipped: state2.results.length - answered.length,
+    remaining: Math.max(0, state2.items.length - state2.index),
+    accuracy: answered.length ? right / answered.length : null,
+    missedAgain: [...again.values()].sort((a, b) => b.count - a.count)
+  };
+}
+function redoStats(log, store, filter = {}) {
+  let misses = 0, redone = 0, answers = 0, right = 0, fixed = 0;
+  for (const { history } of eligible(log, store, filter)) {
+    misses++;
+    if (!history.length) continue;
+    redone++;
+    answers += history.length;
+    right += history.filter((a) => a.correct).length;
+    if (history[history.length - 1]?.correct) fixed++;
+  }
+  return { misses, redone, answers, right, accuracy: answers ? right / answers : null, fixed, left: misses - fixed };
+}
+async function readRedo() {
+  const raw = await kv().get(REDO_KEY);
+  return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+}
+async function writeRedo(store) {
+  await kv().set(REDO_KEY, store);
+}
+function addRedo(store, attemptId, attempt) {
+  const list2 = [...historyOf(store, attemptId), { at: attempt.at, correct: attempt.correct, picked: attempt.picked }].sort((a, b) => a.at - b.at).slice(-MAX_REDOS_PER_ENTRY);
+  return { ...store, [attemptId]: list2 };
+}
+var saving = Promise.resolve();
+function recordRedo(attemptId, attempt) {
+  const run = saving.then(async () => {
+    const next = addRedo(await readRedo(), attemptId, attempt);
+    await writeRedo(next);
+    return next;
+  });
+  saving = run.catch(() => void 0);
+  return run;
+}
+
+// extension/src/addons/practice-ui.ts
+function flashHandlers(state2, actions, now = Date.now) {
+  return {
+    pick: () => {
+    },
+    flip: () => {
+      if (!isDone(state2)) actions.update(flip(state2));
+    },
+    grade: (g) => {
+      const r = grade(state2, g, now(), actions.getSrs?.() ?? state2.srs);
+      if (r.state === state2) return;
+      actions.saveSrs(r.srs);
+      actions.update(r.state);
+    },
+    next: () => {
+      if (isDone(state2)) actions.quit();
+      else if (!state2.flipped) actions.update(flip(state2));
+    },
+    skip: () => {
+    },
+    quit: () => actions.quit()
+  };
+}
+function redoHandlers(state2, actions, now = Date.now) {
+  return {
+    pick: (letter) => {
+      const r = answerRedo(state2, letter, now());
+      if (r.state === state2) return;
+      if (r.saved) actions.saveAnswer(r.saved.attemptId, r.saved.attempt);
+      actions.update(r.state);
+    },
+    flip: () => {
+    },
+    grade: () => {
+    },
+    next: () => {
+      if (isRedoDone(state2)) return actions.quit();
+      const n = nextRedo(state2);
+      if (n !== state2) actions.update(n);
+    },
+    skip: () => {
+      const n = skipRedo(state2, now());
+      if (n !== state2) actions.update(n);
+    },
+    quit: () => actions.quit()
+  };
+}
+var PICK_KEYS = { a: "A", b: "B", c: "C", d: "D", "1": "A", "2": "B", "3": "C", "4": "D" };
+var GRADE_KEYS = { "1": "again", "2": "hard", "3": "good" };
+function practiceKey(key, mode) {
+  const k = key.length === 1 ? key.toLowerCase() : key;
+  if (k === "Escape") return { name: "quit" };
+  if (k === "Enter") return { name: "next" };
+  if (mode === "flashcards") {
+    if (k === " ") return { name: "flip" };
+    const g = GRADE_KEYS[k];
+    return g ? { name: "grade", arg: g } : null;
+  }
+  if (k === " ") return { name: "next" };
+  if (k === "s") return { name: "skip" };
+  const letter = PICK_KEYS[k];
+  return letter ? { name: "pick", arg: letter } : null;
+}
+function pressPracticeKey(handlers, key, mode) {
+  const a = practiceKey(key, mode);
+  if (!a) return false;
+  if (a.name === "pick") handlers.pick(a.arg);
+  else if (a.name === "grade") handlers.grade(a.arg);
+  else handlers[a.name]();
+  return true;
+}
+var plain2 = (text2) => text2;
+var plural2 = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+var shortDate = (ts) => new Date(ts).toLocaleDateString(void 0, { month: "short", day: "numeric" });
+var ruleLabel = (id, name) => name ? `${id} \xB7 ${name}` : id;
+var PASSAGE_CLIP = 1200;
+function head(title, count2, quit, quitLabel = "Quit") {
+  return h(
+    "div",
+    { class: "row between rc-pr-head" },
+    h("h2", { text: title }),
+    h(
+      "div",
+      { class: "row" },
+      count2 ? h("span", { class: "small muted rc-pr-count", text: count2 }) : null,
+      h("button", { class: "btn link small", title: "Esc", onclick: () => quit() }, quitLabel)
+    )
+  );
+}
+function bar2(done, total) {
+  const n = Math.min(done, total);
+  const fill = h("span");
+  fill.style.width = `${total ? Math.round(n / total * 100) : 100}%`;
+  return h("div", { class: "rc-pr-bar", role: "progressbar", "aria-label": "Progress", "aria-valuemin": 0, "aria-valuemax": total, "aria-valuenow": n }, fill);
+}
+function renderPracticeEntry(info, actions) {
+  const due = Math.max(0, info.due || 0);
+  const misses = Math.max(0, info.misses || 0);
+  const weak = Math.max(0, info.weak || 0);
+  if (!due && !misses && !weak) return null;
+  return h(
+    "div",
+    { class: "card rc-practice-entry" },
+    h(
+      "div",
+      null,
+      h("h2", { text: "Practice offline" }),
+      h("p", { class: "small muted", text: "Uses only what is saved on this device. No connection needed." })
+    ),
+    h(
+      "div",
+      { class: "row rc-pr-actions" },
+      h("button", { class: due ? "btn primary" : "btn", disabled: !due, onclick: () => actions.flashcards(0) }, `Flip rule cards (${due} due)`),
+      h("button", { class: !due && misses ? "btn primary" : "btn", disabled: !misses, onclick: () => actions.redo() }, `Redo my misses (${misses})`)
+    ),
+    !due && weak ? h("button", { class: "btn link small", onclick: () => actions.flashcards(weak) }, `Nothing is due. Flip your ${plural2(weak, "weakest rule")} instead`) : null
+  );
+}
+function renderFlashcards(state2, actions, opts = {}) {
+  const now = opts.now ?? Date.now;
+  const handlers = flashHandlers(state2, actions, now);
+  const card = currentCard(state2);
+  const el = card ? flashCardView(state2, card, handlers, opts.renderText ?? plain2, actions.getSrs?.() ?? state2.srs, now()) : flashSummaryView(state2, handlers);
+  return { el, handlers };
+}
+function flashCardView(state2, card, hs, t, srs, now) {
+  const total = state2.cards.length;
+  const kids = [
+    head("Rule cards", `${state2.index + 1} of ${total}`, hs.quit),
+    bar2(state2.index, total),
+    h(
+      "div",
+      { class: "rc-flash-front" },
+      h(
+        "div",
+        { class: "row" },
+        h("span", { class: "rule-id", text: card.ruleId }),
+        card.reason === "due" ? chip("due", "accent") : chip("often missed", "warn"),
+        card.box !== null ? chip(`box ${card.box}/${MAX_BOX}`) : null
+      ),
+      h("p", { class: "rc-flash-name", text: card.ruleName ?? `Rule ${card.ruleId}` }),
+      cueView(card, t)
+    )
+  ];
+  if (state2.flipped) kids.push(backView(card, t), gradesView(state2, hs, srs, now));
+  else kids.push(
+    h("p", { class: "small muted", text: "Say the rule in your own words, then flip the card." }),
+    h("button", { class: "btn primary", title: "Space", onclick: () => hs.flip() }, "Flip")
+  );
+  return h("div", { class: "card rc-practice rc-flash" }, ...kids);
+}
+function cueView(card, t) {
+  const cue = card.cue;
+  if (!cue) return h("p", { class: "small muted", text: "No question on this rule is saved on this device." });
+  return h(
+    "div",
+    { class: "rc-flash-cue" },
+    h("p", { class: "small muted", text: `${cue.missed ? "Last question you missed on this rule" : "Last question on this rule"} (${shortDate(cue.at)})` }),
+    h("p", { class: "stem" }, t(cue.stem)),
+    cue.passage ? h("details", { class: "rc-flash-passage" }, h("summary", { text: "Show the passage" }), h("div", { class: "passage" }, t(cue.passage))) : null
+  );
+}
+function backView(card, t) {
+  const list2 = (items) => h("ul", { class: "steps" }, ...items.map((x) => h("li", null, t(x))));
+  const first = card.takeaways.slice(0, 3);
+  const rest = card.takeaways.slice(3);
+  return h(
+    "div",
+    { class: "rc-flash-back" },
+    h(
+      "div",
+      null,
+      h("h2", { text: "The rule" }),
+      card.statement ? h("p", { class: "rule-statement" }, t(card.statement)) : h("p", { class: "small muted", text: "No rule statement is saved on this device." })
+    ),
+    first.length ? h(
+      "div",
+      null,
+      h("h2", { text: card.takeaways.length === 1 ? "Takeaway" : "Takeaways" }),
+      list2(first),
+      rest.length ? h("details", { class: "rc-flash-more" }, h("summary", { text: `${rest.length} more` }), list2(rest)) : null
+    ) : null,
+    card.notes.length ? h(
+      "div",
+      null,
+      h("h2", { text: "Your notes" }),
+      h("ul", { class: "rc-flash-notes" }, ...card.notes.map((n) => h("li", null, n.text, h("span", { class: "small muted", text: ` \xB7 ${shortDate(n.at)}` }))))
+    ) : null
+  );
+}
+var GRADE_BUTTONS = [
+  { g: "again", label: "Again", key: "1", cls: "" },
+  { g: "hard", label: "Hard", key: "2", cls: "" },
+  { g: "good", label: "Good", key: "3", cls: "primary" }
+];
+function gradesView(state2, hs, srs, now) {
+  return h(
+    "div",
+    { class: "rc-flash-grade-wrap" },
+    h("p", { class: "small muted", text: "How well did you know it?" }),
+    h("div", { class: "rc-flash-grades" }, ...GRADE_BUTTONS.map(({ g, label, key, cls }) => {
+      const due = nextDueIf(state2, g, now, srs);
+      return h(
+        "button",
+        { class: `btn rc-flash-grade ${cls}`.trim(), title: key, onclick: () => hs.grade(g) },
+        h("span", { text: label }),
+        due !== null ? h("span", { class: "rc-flash-when", text: describeDue(due, now) }) : null
+      );
+    }))
+  );
+}
+function flashSummaryView(state2, hs) {
+  const s = deckSummary(state2);
+  const header2 = head("Rule cards", null, hs.quit, "Close");
+  const done = h("button", { class: "btn primary", title: "Enter", onclick: () => hs.quit() }, "Done");
+  if (!s.total) {
+    return h(
+      "div",
+      { class: "card rc-practice" },
+      header2,
+      h(
+        "div",
+        { class: "banner good" },
+        h("p", { class: "stem", text: "Nothing to flip right now." }),
+        h("p", { class: "small", text: "A rule shows up here when it is due for review." })
+      ),
+      done
+    );
+  }
+  return h(
+    "div",
+    { class: "card rc-practice rc-pr-summary" },
+    header2,
+    h(
+      "div",
+      { class: `banner ${s.again ? "warn" : "good"}` },
+      h("p", { class: "stem", text: `Done. You knew ${s.hard + s.good} of ${plural2(s.graded, "rule")}.` }),
+      h("p", { class: "small", text: s.again ? "Rules you marked Again come back tomorrow. The rest wait longer." : "Each rule now waits longer before it comes back." })
+    ),
+    h(
+      "div",
+      { class: "row" },
+      chip(`Again ${s.again}`, s.again ? "danger" : ""),
+      chip(`Hard ${s.hard}`, s.hard ? "warn" : ""),
+      chip(`Good ${s.good}`, s.good ? "good" : "")
+    ),
+    s.againRules.length ? h("div", null, h("h2", { text: "Back tomorrow" }), h("div", { class: "row" }, ...s.againRules.map((r) => chip(ruleLabel(r.ruleId, r.ruleName), "danger")))) : null,
+    done
+  );
+}
+function renderRedo(state2, actions, opts = {}) {
+  const handlers = redoHandlers(state2, actions, opts.now ?? Date.now);
+  const item = currentRedo(state2);
+  const el = item ? redoQuestionView(state2, item, handlers, opts.renderText ?? plain2) : redoSummaryView(state2, handlers, opts.stats ?? null);
+  return { el, handlers };
+}
+function redoQuestionView(state2, item, hs, t) {
+  const e = item.entry;
+  const total = state2.items.length;
+  const picked = state2.picked;
+  const first = e.picked !== "correct" && e.picked !== e.correct ? e.picked : null;
+  const figure = "figure" in e && typeof e.figure === "string" && e.figure.trim() ? e.figure.trim() : null;
+  const choices = h("ol", { class: "choices" }, ...choiceList2(e).map(({ letter, text: text2 }, i2) => {
+    const cls = picked ? letter === e.correct ? "correct" : letter === picked ? "picked" : "" : "selectable";
+    return h(
+      "li",
+      { class: `choice ${cls}`.trim(), title: picked ? null : `${letter} or ${i2 + 1}`, onclick: () => hs.pick(letter) },
+      h("span", { class: "letter", text: `${letter}.` }),
+      h("span", null, t(text2)),
+      picked && letter === first ? h("span", { class: "tag danger", text: "first pick" }) : null
+    );
+  }));
+  const kids = [
+    head("Redo my misses", `${state2.index + 1} of ${total}`, hs.quit),
+    bar2(state2.index, total),
+    h(
+      "div",
+      { class: "row" },
+      chip(ruleLabel(e.ruleId, e.ruleName), "accent"),
+      e.skill ? chip(e.skill) : null,
+      e.difficulty ? chip(e.difficulty) : null,
+      chip(`missed ${shortDate(e.at)}`),
+      item.history.length ? chip(`redone ${plural2(item.history.length, "time")} before`, "warn") : null
+    ),
+    e.passage ? h("div", { class: "passage" }, t(e.passage)) : null,
+    e.passage && e.passage.length >= PASSAGE_CLIP && e.passage.endsWith("\u2026") ? h("p", { class: "small muted", text: "The saved passage is cut short." }) : null,
+    figure ? h("div", { class: "passage" }, h("div", { class: "small muted", text: "The figure, in words" }), t(figure)) : null,
+    h("p", { class: "stem" }, t(e.stem)),
+    choices
+  ];
+  if (!picked) {
+    kids.push(h(
+      "div",
+      { class: "row between" },
+      h("p", { class: "small muted", text: "Pick the answer you would choose now." }),
+      h("button", { class: "btn link small", title: "S", onclick: () => hs.skip() }, "Skip")
+    ));
+  } else {
+    const right = picked === e.correct;
+    const detail = right ? first ? `The first time you picked ${first}.` : null : picked === first ? `You picked ${picked} again, same as the first time.` : first ? `You picked ${picked}. The first time you picked ${first}.` : `You picked ${picked}.`;
+    const left = total - state2.index - 1;
+    kids.push(
+      h(
+        "div",
+        { class: `banner ${right ? "good" : "danger"}`, role: "status" },
+        h("p", { class: "stem", text: right ? `Right. The answer is ${e.correct}.` : `Not yet. The answer is ${e.correct}.` }),
+        detail ? h("p", { class: "small", text: detail }) : null
+      ),
+      h(
+        "div",
+        { class: "rc-redo-why" },
+        e.whyCorrect ? h("p", null, h("b", { text: `Why ${e.correct} is right: ` }), t(e.whyCorrect)) : null,
+        e.whyPickFails ? h("p", null, h("b", { text: first ? `Why ${first} is wrong: ` : "Why your first pick is wrong: " }), t(e.whyPickFails)) : null,
+        e.takeaway ? h("p", null, h("b", { text: "Takeaway: " }), t(e.takeaway)) : null
+      ),
+      h("button", { class: "btn primary", title: "Enter", onclick: () => hs.next() }, left > 0 ? `Next question (${left} left)` : "See how you did")
+    );
+  }
+  return h("div", { class: "card rc-practice rc-redo" }, ...kids);
+}
+function redoSummaryView(state2, hs, stats) {
+  const s = redoSummary(state2);
+  const header2 = head("Redo my misses", null, hs.quit, "Close");
+  const done = h("button", { class: "btn primary", title: "Enter", onclick: () => hs.quit() }, "Done");
+  const allTime = stats && stats.redone ? h("p", { class: "small muted", text: `All time: ${plural2(stats.redone, "miss", "misses")} redone, ${Math.round((stats.accuracy ?? 0) * 100)}% of answers right, ${stats.fixed} fixed, ${stats.left} left.` }) : null;
+  if (!s.total) {
+    return h(
+      "div",
+      { class: "card rc-practice" },
+      header2,
+      h(
+        "div",
+        { class: "banner good" },
+        h("p", { class: "stem", text: "No misses to redo." }),
+        h("p", { class: "small", text: "Multiple-choice questions you miss show up here after you explain them." })
+      ),
+      allTime,
+      done
+    );
+  }
+  return h(
+    "div",
+    { class: "card rc-practice rc-pr-summary" },
+    header2,
+    h(
+      "div",
+      { class: `banner ${s.wrong ? "warn" : "good"}` },
+      h("p", { class: "stem", text: s.answered ? `Done. ${s.right} of ${s.answered} right.` : "Done. You skipped them all." }),
+      h("p", { class: "small", text: "Right answers leave your redo list. Wrong and skipped ones stay for next time." })
+    ),
+    h(
+      "div",
+      { class: "row" },
+      chip(`Right ${s.right}`, s.right ? "good" : ""),
+      chip(`Wrong ${s.wrong}`, s.wrong ? "danger" : ""),
+      s.skipped ? chip(`Skipped ${s.skipped}`) : null
+    ),
+    s.missedAgain.length ? h("div", null, h("h2", { text: "Missed again" }), h("div", { class: "row" }, ...s.missedAgain.map((r) => chip(`${ruleLabel(r.ruleId, r.ruleName)}${r.count > 1 ? ` (${r.count})` : ""}`, "danger")))) : null,
+    allTime,
+    done
+  );
+}
+
+// extension/src/addons/prefs.ts
+var DEFAULT_PREFS = {
+  timer: true,
+  cropBeforeSend: false,
+  pageCheck: true,
+  hotkeys: true,
+  reminders: false,
+  reminderHour: 19,
+  dailyGoal: 10,
+  autoSpeak: false,
+  textCapture: true,
+  strategies: true,
+  askConfidence: true,
+  testDate: null,
+  zoom: 1,
+  seenBefore: true,
+  pastePanel: true,
+  practice: true,
+  plan: true,
+  badges: true,
+  qbQuiz: true,
+  skillMap: true,
+  wordBank: true,
+  activity: true
+};
+async function readPrefs() {
+  return { ...DEFAULT_PREFS, ...await kv().get(KEYS.prefs) ?? {} };
+}
+async function writePrefs(p) {
+  await kv().set(KEYS.prefs, p);
+}
+
+// extension/src/addons/progress.ts
+var open4 = true;
+var pct4 = (x) => x === null ? "\u2013" : `${Math.round(x * 100)}%`;
+function tile(label, value, sub2, tone = "") {
+  return h("div", { class: `rc-tile ${tone}`.trim() }, h("span", { class: "rc-tile-value", text: value }), h("span", { class: "rc-tile-label", text: label }), sub2 ? h("span", { class: "rc-tile-sub", text: sub2 }) : null);
+}
+function dailyChart(daily) {
+  const W = 280, H = 64, gap = 3;
+  const bw = (W - gap * (daily.length - 1)) / daily.length;
+  const max = Math.max(1, ...daily.map((d) => d.attempts));
+  const bars = [];
+  daily.forEach((d, i2) => {
+    const x = i2 * (bw + gap);
+    const total = d.attempts / max * (H - 12);
+    const miss = d.misses / max * (H - 12);
+    const label = `${d.day}: ${d.attempts} question${d.attempts === 1 ? "" : "s"}, ${d.misses} missed`;
+    bars.push(svg("rect", { x, y: H - 12 - total, width: bw, height: Math.max(total, d.attempts ? 1 : 0), rx: 2, class: "rc-bar-right" }, svg("title", {}, label)));
+    if (miss) bars.push(svg("rect", { x, y: H - 12 - miss, width: bw, height: miss, rx: 2, class: "rc-bar-miss" }, svg("title", {}, label)));
+    if (d.attempts === 0) bars.push(svg("rect", { x, y: H - 13, width: bw, height: 1, class: "rc-bar-empty" }));
+  });
+  const first = daily[0]?.day.slice(5) ?? "", last = daily[daily.length - 1]?.day.slice(5) ?? "";
+  bars.push(svg("text", { x: 0, y: H - 1, class: "rc-axis" }, first), svg("text", { x: W, y: H - 1, "text-anchor": "end", class: "rc-axis" }, last === dayKey(Date.now()).slice(5) ? "today" : last));
+  return svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "rc-chart", role: "img", "aria-label": "Questions per day, last 14 days" }, ...bars);
+}
+function diagnosisBar(s) {
+  const parts = [
+    { key: "rule_gap", label: "rule gap", n: s.missesByDiagnosis.rule_gap, cls: "danger" },
+    { key: "careless", label: "careless", n: s.missesByDiagnosis.careless, cls: "warn" },
+    { key: "misread", label: "misread", n: s.missesByDiagnosis.misread, cls: "accent" },
+    { key: "unknown", label: "no reason given", n: s.missesByDiagnosis.unknown, cls: "" }
+  ].filter((p) => p.n > 0);
+  const total = parts.reduce((a, p) => a + p.n, 0);
+  if (!total) return null;
+  return h(
+    "section",
+    null,
+    h("h2", { text: "Why you miss" }),
+    h("div", { class: "rc-stack" }, ...parts.map((p) => h("span", { class: `rc-seg ${p.cls}`.trim(), style: `flex:${p.n}`, title: `${p.label}: ${p.n}` }))),
+    h("div", { class: "row rc-wrap small" }, ...parts.map((p) => h("span", { class: "row" }, h("span", { class: `rc-dot ${p.cls}`.trim() }), `${p.label} ${Math.round(p.n / total * 100)}%`)))
+  );
+}
+function groupList(title, items, onClick) {
+  const shown = items.filter((g) => g.misses > 0).slice(0, 5);
+  if (!shown.length) return null;
+  return h(
+    "section",
+    null,
+    h("h2", { text: title }),
+    h("ul", { class: "rc-groups" }, ...shown.map((g) => {
+      const inner2 = [
+        h("span", { class: "rc-group-label", text: g.label }),
+        h("span", { class: "rc-meter" }, h("span", { style: `width:${Math.round(g.missRate * 100)}%` })),
+        h("span", { class: "small muted rc-group-n", text: `${g.misses}/${g.attempts}` })
+      ];
+      return h("li", null, onClick ? h("button", { class: "rc-group", onclick: () => onClick(g.key), title: "Open this rule in the web app" }, ...inner2) : h("div", { class: "rc-group" }, ...inner2));
+    }))
+  );
+}
+function calibrationTable(s) {
+  const rows = ["sure", "unsure", "guess"].filter((k) => s.calibration[k].attempts > 0);
+  if (!rows.length) return null;
+  const label = { sure: "Felt sure", unsure: "Unsure", guess: "Guessed" };
+  return h(
+    "section",
+    null,
+    h("h2", { text: "Confidence vs. results" }),
+    h("ul", { class: "rc-groups" }, ...rows.map((k) => {
+      const c = s.calibration[k];
+      return h("li", null, h(
+        "div",
+        { class: "rc-group" },
+        h("span", { class: "rc-group-label", text: label[k] }),
+        h("span", { class: "rc-meter good" }, h("span", { style: `width:${Math.round((c.accuracy ?? 0) * 100)}%` })),
+        h("span", { class: "small muted rc-group-n", text: `${c.right}/${c.attempts}` })
+      ));
+    })),
+    s.confidentlyWrong ? h("p", { class: "small muted", text: `${s.confidentlyWrong} miss${s.confidentlyWrong === 1 ? "" : "es"} you felt sure about. Those are the misconceptions to fix first.` }) : null
+  );
+}
+function renderProgress(s, tips, dailyGoal, openWeb2, extras = {}) {
+  const today = s.daily[s.daily.length - 1]?.attempts ?? 0;
+  const goalPct = Math.min(1, today / Math.max(1, dailyGoal));
+  const details = h("details", { class: "card rc-progress", open: open4 ? "" : null, ontoggle: (ev) => {
+    open4 = ev.target.open;
+  } });
+  details.append(
+    h("summary", null, h("h2", { text: "Progress" }), h("span", { class: "small muted", text: s.attempts ? `${s.attempts} questions \xB7 ${pct4(s.accuracy)} right` : "no questions yet" }))
+  );
+  if (!s.attempts) {
+    details.append(h("p", { class: "muted small", text: tips[0]?.text ?? "" }));
+    return details;
+  }
+  const cd = extras.countdown;
+  if (cd) {
+    details.append(h(
+      "div",
+      { class: "rc-countdown" },
+      h("span", { class: "rc-countdown-days", text: String(cd.days) }),
+      h(
+        "span",
+        null,
+        h("span", { text: cd.days === 1 ? `day to your SAT (${cd.label})` : `days to your SAT (${cd.label})` }),
+        h("span", { class: "small muted", text: cd.perDay ? ` At this week's pace (${cd.perDay}/day) that's about ${cd.projected} more questions.` : " Start a daily habit. Even 5 a day adds up." })
+      )
+    ));
+  }
+  details.append(
+    h("div", { class: "rc-goal", title: `${today} of ${dailyGoal} today` }, h("span", { style: `width:${Math.round(goalPct * 100)}%` })),
+    h(
+      "div",
+      { class: "rc-tiles" },
+      tile("today", `${today}/${dailyGoal}`, goalPct >= 1 ? "goal met" : void 0, goalPct >= 1 ? "good" : ""),
+      tile("accuracy", pct4(s.accuracy), s.thisWeek.attempts ? `${pct4(s.thisWeek.accuracy)} this week` : void 0),
+      tile("streak", `${s.streakDays}d`, s.practicedToday ? void 0 : "practice today", s.streakDays >= 3 ? "good" : ""),
+      tile("mastered", String(s.mastery.mastered), `${s.mastery.learning} learning`)
+    ),
+    dailyChart(s.daily)
+  );
+  if (tips.length) details.append(h("ul", { class: "rc-insights" }, ...tips.slice(0, 4).map((t) => h("li", { class: t.tone }, t.text))));
+  const diag = diagnosisBar(s);
+  if (diag) details.append(diag);
+  const cal = calibrationTable(s);
+  if (cal) details.append(cal);
+  const rules = groupList("Most-missed rules", s.byRule, (key) => openWeb2(`/rules#${encodeURIComponent(key)}`));
+  if (rules) details.append(rules);
+  const skills = groupList("Weakest skills", s.bySkill);
+  if (skills) details.append(skills);
+  const diff = groupList("By difficulty", s.byDifficulty);
+  if (diff) details.append(diff);
+  if (s.pacing.timed) {
+    details.append(h("p", { class: "small muted", text: `Pacing: avg ${s.pacing.avgSeconds}s over ${s.pacing.timed} timed questions \xB7 ${s.pacing.slow} over 71s` }));
+  }
+  if (s.drills.total) details.append(h("p", { class: "small muted", text: `Test me: ${s.drills.correct}/${s.drills.total} right (${pct4(s.drills.accuracy)})` }));
+  if (extras.onShare) details.append(h("div", { class: "row" }, h("button", { class: "btn small", text: "Share progress image", onclick: extras.onShare })));
+  return details;
+}
+
+// extension/src/addons/report.ts
+var MAX_TIMED_SECONDS = 1800;
+function startOfDay3(ts) {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+function shiftDays2(ts, days) {
+  const d = new Date(ts);
+  d.setDate(d.getDate() + days);
+  return d.getTime();
+}
+var ratio = (part, total) => total ? part / total : null;
+var ruleLabel2 = (id, name) => name ? `${id} \xB7 ${name}` : id;
+function weekNumbers(log, start, end) {
+  const inWeek = log.filter((e) => e.at >= start && e.at < end);
+  const right = inWeek.filter((e) => e.result === "right").length;
+  const timed = inWeek.filter((e) => typeof e.seconds === "number" && e.seconds > 0 && e.seconds < MAX_TIMED_SECONDS);
+  const drills = log.flatMap((e) => e.drills ?? []).filter((d) => d.at >= start && d.at < end);
+  return {
+    start,
+    end,
+    questions: inWeek.length,
+    right,
+    missed: inWeek.length - right,
+    accuracy: ratio(right, inWeek.length),
+    seconds: timed.reduce((sum, e) => sum + (e.seconds ?? 0), 0),
+    timed: timed.length,
+    daysPracticed: new Set(inWeek.map((e) => dayKey(e.at))).size,
+    drills: drills.length,
+    drillsCorrect: drills.filter((d) => d.correct).length
+  };
+}
+function topMissed(entries, keyOf, labelOf, n) {
+  const map = /* @__PURE__ */ new Map();
+  for (const e of entries) {
+    const key = keyOf(e);
+    if (!key) continue;
+    const g = map.get(key) ?? { key, label: labelOf(e), misses: 0, attempts: 0, lastAt: -Infinity };
+    g.attempts++;
+    if (e.result === "missed") g.misses++;
+    if (e.at >= g.lastAt) {
+      g.lastAt = e.at;
+      g.label = labelOf(e);
+    }
+    map.set(key, g);
+  }
+  return [...map.values()].filter((g) => g.misses > 0).sort((a, b) => b.misses - a.misses || b.misses / b.attempts - a.misses / a.attempts || b.lastAt - a.lastAt).slice(0, n).map(({ key, label, misses, attempts }) => ({ key, label, misses, attempts }));
+}
+function streak2(log, now) {
+  const days = new Set(log.map((e) => dayKey(e.at)));
+  const today = startOfDay3(now);
+  const practicedToday = days.has(dayKey(today));
+  let cursor = practicedToday ? today : shiftDays2(today, -1);
+  let streakDays = 0;
+  while (days.has(dayKey(cursor))) {
+    streakDays++;
+    cursor = shiftDays2(cursor, -1);
+  }
+  return { streakDays, practicedToday };
+}
+function buildWeeklyReport(log, srs, now, opts = {}) {
+  const today = startOfDay3(now);
+  const end = shiftDays2(today, 1);
+  const weekStart = shiftDays2(today, -6);
+  const prevStart = shiftDays2(today, -13);
+  const inWeek = log.filter((e) => e.at >= weekStart && e.at < end);
+  const topN = opts.topN ?? 5;
+  const right = log.filter((e) => e.result === "right").length;
+  return {
+    generatedAt: now,
+    student: opts.student?.trim() || null,
+    thisWeek: weekNumbers(log, weekStart, end),
+    lastWeek: weekNumbers(log, prevStart, weekStart),
+    ...streak2(log, now),
+    topMissedRules: topMissed(inWeek, (e) => e.ruleId, (e) => ruleLabel2(e.ruleId, e.ruleName), topN),
+    topMissedSkills: topMissed(inWeek, (e) => e.skill, (e) => e.skill ?? "", topN),
+    mastered: Object.values(srs).filter((r) => r.box >= MASTERED_BOX).sort((a, b) => b.box - a.box || a.ruleId.localeCompare(b.ruleId, void 0, { numeric: true })).map((r) => ({ ruleId: r.ruleId, label: ruleLabel2(r.ruleId, r.ruleName) })),
+    mastery: masteryCounts(srs),
+    dueRules: dueRules(srs, now).length,
+    notes: inWeek.filter((e) => e.starred).sort((a, b) => b.at - a.at).slice(0, opts.maxNotes ?? 10).map((e) => ({ at: e.at, ruleId: e.ruleId, label: ruleLabel2(e.ruleId, e.ruleName), note: (e.note ?? "").trim(), takeaway: e.takeaway, result: e.result })),
+    allTime: { questions: log.length, accuracy: ratio(right, log.length) }
+  };
+}
+var plural3 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+function pct5(x) {
+  return x === null ? "n/a" : `${Math.round(x * 100)}%`;
+}
+function formatDuration(seconds) {
+  if (!(seconds > 0)) return "0 min";
+  if (seconds < 60) return "under 1 min";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+var shortDate2 = (ts, withYear = false) => new Date(ts).toLocaleDateString("en-US", withYear ? { month: "short", day: "numeric", year: "numeric" } : { month: "short", day: "numeric" });
+function rangeLabel(start, end) {
+  const last = end - 1;
+  const sameYear = new Date(start).getFullYear() === new Date(last).getFullYear();
+  return `${shortDate2(start, !sameYear)} to ${shortDate2(last, true)}`;
+}
+function reportTitle(r) {
+  return `Rulecard weekly report${r.student ? ` for ${r.student}` : ""}`;
+}
+function reportHeadline(r) {
+  const t = r.thisWeek;
+  const l = r.lastWeek;
+  if (!t.questions) {
+    const before = l.questions ? ` (${plural3(l.questions, "question")} last week)` : "";
+    return r.student ? `${r.student} didn't practice this week${before}.` : `No practice this week${before}.`;
+  }
+  const change = !l.questions ? ", with none last week" : t.questions > l.questions ? `, up from ${l.questions} last week` : t.questions < l.questions ? `, down from ${l.questions} last week` : ", the same as last week";
+  return r.student ? `${r.student} answered ${plural3(t.questions, "question")} this week${change}, and got ${pct5(t.accuracy)} right.` : `${plural3(t.questions, "question")} this week${change}, with ${pct5(t.accuracy)} right.`;
+}
+function timeValue(w) {
+  if (!w.timed) return "not timed (the pacing timer was off)";
+  const partial = w.timed < w.questions ? ` (timed on ${w.timed} of ${w.questions} questions)` : "";
+  return `${formatDuration(w.seconds)}${partial}`;
+}
+function weekRows(r) {
+  const t = r.thisWeek;
+  const l = r.lastWeek;
+  return [
+    ["Questions", `${t.questions} (last week: ${l.questions})`],
+    ["Accuracy", `${pct5(t.accuracy)} (last week: ${pct5(l.accuracy)})`],
+    ["Time practiced", timeValue(t)],
+    ["Days practiced", `${t.daysPracticed} of 7`],
+    ["Streak", r.streakDays ? `${plural3(r.streakDays, "day")} in a row` : "none right now"],
+    ["Review drills", t.drills ? `${t.drills} (${t.drillsCorrect} right)` : "none"]
+  ];
+}
+var missLine = (g) => `${g.label}: missed ${g.misses} of ${g.attempts}`;
+var reviewLine = (r) => `Rule review: ${r.mastery.learning} learning, ${r.mastery.reviewing} reviewing, ${r.mastery.mastered} mastered, ${r.dueRules} due now.`;
+var footer = (r) => `Made with Rulecard on ${shortDate2(r.generatedAt, true)} from the practice log on this device. All time: ${plural3(r.allTime.questions, "question")}, ${pct5(r.allTime.accuracy)} right.`;
+function toReportText(r) {
+  const out = [reportTitle(r), rangeLabel(r.thisWeek.start, r.thisWeek.end), "", reportHeadline(r), "", "This week"];
+  for (const [label, value] of weekRows(r)) out.push(`- ${label}: ${value}`);
+  out.push("", "Missed most this week");
+  if (!r.topMissedRules.length && !r.topMissedSkills.length) out.push("- No misses this week.");
+  else {
+    out.push("Rules:", ...r.topMissedRules.map((g) => `- ${missLine(g)}`));
+    out.push("Skills:", ...r.topMissedSkills.length ? r.topMissedSkills.map((g) => `- ${missLine(g)}`) : ["- No skill recorded."]);
+  }
+  out.push("", `Rules mastered (${r.mastered.length})`, ...r.mastered.length ? r.mastered.map((m) => `- ${m.label}`) : ["- None yet."], reviewLine(r));
+  out.push("", "Starred notes");
+  if (!r.notes.length) out.push("- No starred questions this week.");
+  for (const n of r.notes) out.push(`- ${shortDate2(n.at)}, ${n.label}: ${n.note || `Takeaway: ${n.takeaway}`}`);
+  out.push("", footer(r));
+  return out.join("\n");
+}
+function escapeHtml2(s) {
+  return (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+var esc2 = escapeHtml2;
+var STYLE = `
+  body{font:13px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#16161a}
+  h1{font-size:20px;margin:0 0 4px} .meta{color:#6b6b70;margin:0 0 20px} .lead{font-size:15px;margin:0 0 16px}
+  section{border:1px solid #e4e4e0;border-radius:10px;padding:12px 14px;margin:0 0 12px;break-inside:avoid}
+  h2{font-size:14px;margin:0 0 6px;color:#2f5bea} h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6b6b70;margin:10px 0 4px}
+  ul{padding-left:18px;margin:0} li{margin:2px 0} .small{font-size:12px;color:#3f3f46;margin:8px 0 0}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 0}
+  .tile{border:1px solid #e4e4e0;border-radius:8px;padding:8px 10px} .tile b{display:block;font-size:18px} .tile span{display:block;color:#6b6b70;font-size:11px}
+  .miss{color:#b45309} .note{color:#b45309} .rule{font-weight:600}
+  .hint{background:#e8eefc;color:#2f5bea;border-radius:8px;padding:8px 12px;margin:0 0 16px}
+  @media print{body{margin:0} section,.tile{border-color:#bbb} .hint{display:none}}
+`;
+var list = (items, empty) => items.length ? `<ul>${items.map((x) => `<li>${x}</li>`).join("")}</ul>` : `<p class="small">${esc2(empty)}</p>`;
+function toReportHtml(r) {
+  const t = r.thisWeek;
+  const l = r.lastWeek;
+  const tile2 = (label, value, sub2) => `<div class="tile"><span>${esc2(label)}</span><b>${esc2(value)}</b><span>${esc2(sub2)}</span></div>`;
+  const tiles = [
+    tile2("Questions", String(t.questions), `last week: ${l.questions}`),
+    tile2("Accuracy", pct5(t.accuracy), `last week: ${pct5(l.accuracy)}`),
+    tile2("Time practiced", t.timed ? formatDuration(t.seconds) : "not timed", `${t.daysPracticed} of 7 days`),
+    tile2("Streak", plural3(r.streakDays, "day"), r.practicedToday ? "practiced today" : "not yet today")
+  ].join("");
+  const details = weekRows(r).slice(2).map(([label, value]) => `${label}: ${value}`).join(" \xB7 ");
+  const missItem3 = (g) => `<span class="rule">${esc2(g.label)}</span>: <span class="miss">missed ${g.misses} of ${g.attempts}</span>`;
+  const misses = r.topMissedRules.length || r.topMissedSkills.length ? `<h3>Rules</h3>${list(r.topMissedRules.map(missItem3), "None.")}<h3>Skills</h3>${list(r.topMissedSkills.map(missItem3), "No skill recorded.")}` : `<p class="small">No misses this week.</p>`;
+  const notes = list(
+    r.notes.map((n) => `<span class="rule">${esc2(shortDate2(n.at))}, ${esc2(n.label)}</span>: ${n.note ? `<span class="note">${esc2(n.note)}</span>` : `Takeaway: ${esc2(n.takeaway)}`}`),
+    "No starred questions this week."
+  );
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc2(reportTitle(r))}</title>
+<style>${STYLE}</style></head><body>
+<p class="hint">To save as PDF: press \u2318P (Mac) or Ctrl+P, then choose "Save as PDF".</p>
+<h1>${esc2(reportTitle(r))}</h1><p class="meta">${esc2(rangeLabel(t.start, t.end))}</p>
+<p class="lead">${esc2(reportHeadline(r))}</p>
+<section><h2>This week</h2><div class="tiles">${tiles}</div><p class="small">${esc2(details)}</p></section>
+<section><h2>Missed most this week</h2>${misses}</section>
+<section><h2>Rules mastered (${r.mastered.length})</h2>${list(r.mastered.map((m) => esc2(m.label)), "None yet.")}<p class="small">${esc2(reviewLine(r))}</p></section>
+<section><h2>Starred notes</h2>${notes}</section>
+<p class="meta">${esc2(footer(r))}</p>
+</body></html>`;
+}
+function renderReportTools(getReport, act = {}) {
+  const open5 = act.open ?? openPrintable;
+  const copy = act.copy ?? ((text2) => navigator.clipboard.writeText(text2));
+  return h(
+    "div",
+    { class: "row rc-wrap rc-report-tools" },
+    h("button", {
+      class: "btn small",
+      text: "Weekly report",
+      title: "A printable summary of this week for a parent or tutor",
+      onclick: () => open5(toReportHtml(getReport()))
+    }),
+    h("button", {
+      class: "btn small",
+      text: "Copy report as text",
+      onclick: async () => {
+        try {
+          await copy(toReportText(getReport()));
+          act.notify?.("Report copied. Paste it into an email or a message.");
+        } catch {
+          act.notify?.("Couldn't copy the report. Open the weekly report and copy it from there.");
+        }
+      }
+    })
+  );
+}
+
+// extension/src/addons/seen.ts
+var SEEN_THRESHOLD = 0.85;
+var STEM_MAX2 = 500;
+var PASSAGE_MAX2 = 1200;
+var DAY_MS = 864e5;
+var clip3 = (s, n) => s ? s.length > n ? `${s.slice(0, n - 1)}\u2026` : s : "";
+var normId = (id) => (id ?? "").trim().toLowerCase();
+var numbersIn = (s) => (s.match(/\d+(?:[.,]\d+)*/g) ?? []).sort().join(" ");
+function questionText(q) {
+  const choices = LETTERS2.map((l) => q.choices?.[l] ?? "");
+  return [clip3(q.passage, PASSAGE_MAX2), clip3(q.stem, STEM_MAX2), ...choices].filter(Boolean).join("\n");
+}
+function toPast(e, matchedBy, score) {
+  return {
+    attemptId: e.attemptId,
+    at: e.at,
+    result: e.result,
+    picked: e.picked,
+    correct: e.correct,
+    ruleId: e.ruleId,
+    ruleName: e.ruleName,
+    ruleStatement: e.ruleStatement,
+    whyCorrect: e.whyCorrect,
+    takeaway: e.takeaway,
+    matchedBy,
+    score
+  };
+}
+function findPrevious(log, question, opts = {}) {
+  const skip = new Set(opts.excludeAttemptIds?.filter((x) => Boolean(x)) ?? []);
+  const pool = log.filter((e) => !skip.has(e.attemptId) && (opts.before === void 0 || e.at < opts.before));
+  const newestFirst2 = (a, b) => b.at - a.at;
+  const id = normId(question.qbId);
+  if (id) {
+    const byId = pool.filter((e) => normId(e.qbId) === id).map((e) => toPast(e, "qbId", 1));
+    if (byId.length) return byId.sort(newestFirst2);
+  }
+  const text2 = questionText(question);
+  if (!text2) return [];
+  const numbers = numbersIn(text2);
+  const threshold = opts.threshold ?? SEEN_THRESHOLD;
+  const out = [];
+  for (const e of pool) {
+    if (id && normId(e.qbId)) continue;
+    const other = questionText(e);
+    if (!other || numbersIn(other) !== numbers) continue;
+    const score = similarity(text2, other);
+    if (score >= threshold) out.push(toPast(e, "text", score));
+  }
+  return out.sort(newestFirst2);
+}
+function startOfDay4(ts) {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+function dayLabel(at, now) {
+  const days = Math.round((startOfDay4(now) - startOfDay4(at)) / DAY_MS);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  const sameYear = new Date(at).getFullYear() === new Date(now).getFullYear();
+  return new Date(at).toLocaleDateString("en-US", sameYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+}
+function whenPhrase(at, now) {
+  const label = dayLabel(at, now);
+  return label === "Today" || label === "Yesterday" ? label.toLowerCase() : `on ${label}`;
+}
+function pickedPhrase(p) {
+  return p.picked === "correct" ? "got it right" : `picked ${p.picked} (${p.result})`;
+}
+function ruleLine(p) {
+  const name = p.ruleName?.trim().replace(/[.\s]+$/, "");
+  return `Rule: ${p.ruleId}${name ? ` ${name}` : ""}.`;
+}
+function seenSentence(prev, now) {
+  const last = prev[0];
+  if (!last) return "";
+  const lead = last.matchedBy === "text" ? "Looks like you did this question" : "You did this question";
+  if (prev.length === 1) return `${lead} ${whenPhrase(last.at, now)} and ${pickedPhrase(last)}.`;
+  return `${lead} ${prev.length} times before. Last time was ${whenPhrase(last.at, now).replace(/^on /, "")}: you ${pickedPhrase(last)}.`;
+}
+function renderSeenBanner(prev, opts) {
+  const last = prev[0];
+  if (!last) return null;
+  const now = opts.now ?? Date.now();
+  return h(
+    "div",
+    { class: `banner ${last.result === "missed" ? "warn" : "good"} rc-seen`, role: "note" },
+    h(
+      "p",
+      { class: "rc-seen-text" },
+      h("span", { text: `${seenSentence(prev, now)} ` }),
+      h("span", { class: "rc-seen-rule", text: ruleLine(last) })
+    ),
+    h("button", {
+      class: "btn link small rc-seen-toggle",
+      text: opts.open ? "Hide my old card" : "Show my old card",
+      "aria-expanded": opts.open ? "true" : "false",
+      onclick: opts.onToggle
+    }),
+    opts.open ? renderOldCard(prev, now) : null
+  );
+}
+function renderOldCard(prev, now) {
+  const last = prev[0];
+  return h(
+    "div",
+    { class: "rc-seen-card" },
+    h("p", { class: "rule-statement", text: last.ruleStatement }),
+    last.whyCorrect ? h("h4", { class: "rc-seen-label", text: `Why ${last.correct} is right` }) : null,
+    last.whyCorrect ? h("p", { class: "small", text: last.whyCorrect }) : null,
+    last.takeaway ? h("h4", { class: "rc-seen-label", text: "Takeaway" }) : null,
+    last.takeaway ? h("p", { class: "small", text: last.takeaway }) : null,
+    prev.length > 1 ? h(
+      "ul",
+      { class: "rc-seen-history small muted" },
+      ...prev.map((p) => h("li", { text: `${dayLabel(p.at, now)}: ${pickedPhrase(p)}, rule ${p.ruleId}` }))
+    ) : null
+  );
+}
+function createSeenCheck(rerender) {
+  let openFor = null;
+  let cache = null;
+  function find(log, q, opts = {}) {
+    const key = [q.id, q.qbId ?? "", log.length, log[0]?.attemptId ?? "", opts.before ?? "", ...opts.excludeAttemptIds ?? []].join("|");
+    if (cache?.key !== key) cache = { key, prev: findPrevious(log, q, opts) };
+    return cache.prev;
+  }
+  return {
+    find,
+    render(log, q, opts = {}, now = Date.now()) {
+      const prev = find(log, q, opts);
+      if (!prev.length) return null;
+      return renderSeenBanner(prev, {
+        open: openFor === q.id,
+        onToggle: () => {
+          openFor = openFor === q.id ? null : q.id;
+          rerender();
+        },
+        now
+      });
+    }
+  };
+}
+
+// extension/src/addons/skillmap.ts
+var MAX_SECONDS2 = 1800;
+var MIN_TIMED = 3;
+var ORDER = new Map(SKILLS.map((s, i2) => [s.skill, i2]));
+var rank = (c) => ORDER.get(c.skill) ?? Number.MAX_SAFE_INTEGER;
+var plural4 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+var pct6 = (accuracy) => `${Math.round((accuracy ?? 0) * 100)}%`;
+var SHORT = {
+  "Central Ideas and Details": "Central ideas",
+  "Command of Evidence": "Evidence",
+  Inferences: "Inferences",
+  "Words in Context": "Words in context",
+  "Text Structure and Purpose": "Structure and purpose",
+  "Cross-Text Connections": "Cross-text",
+  "Rhetorical Synthesis": "Synthesis",
+  Transitions: "Transitions",
+  Boundaries: "Boundaries",
+  "Form, Structure, and Sense": "Form and sense",
+  "Linear equations in one variable": "Linear eq., 1 variable",
+  "Linear functions": "Linear functions",
+  "Linear equations in two variables": "Linear eq., 2 variables",
+  "Systems of two linear equations in two variables": "Linear systems",
+  "Linear inequalities in one or two variables": "Linear inequalities",
+  "Nonlinear functions": "Nonlinear functions",
+  "Nonlinear equations in one variable and systems of equations in two variables": "Nonlinear equations",
+  "Equivalent expressions": "Equivalent expressions",
+  "Ratios, rates, proportional relationships, and units": "Ratios and rates",
+  Percentages: "Percentages",
+  "One-variable data: Distributions and measures of center and spread": "One-variable data",
+  "Two-variable data: Models and scatterplots": "Two-variable data",
+  "Probability and conditional probability": "Probability",
+  "Inference from sample statistics and margin of error": "Margin of error",
+  "Evaluating statistical claims: Observational studies and experiments": "Statistical claims",
+  "Area and volume": "Area and volume",
+  "Lines, angles, and triangles": "Lines and angles",
+  "Right triangles and trigonometry": "Right triangles, trig",
+  Circles: "Circles"
+};
+function shortSkillName(skill) {
+  return SHORT[skill] ?? skill.split(":")[0].trim();
+}
+function levelFor(attempts, accuracy) {
+  if (attempts <= 0 || accuracy === null) return "none";
+  if (attempts < 3) return "new";
+  if (accuracy < 0.5) return "weak";
+  if (accuracy < 0.75) return "shaky";
+  if (accuracy < 0.9) return "solid";
+  return "strong";
+}
+function defaultSections(log) {
+  const present = new Set(log.map((e) => sectionOf(e)));
+  return present.size ? [...present] : ["rw"];
+}
+function cellFor(info, entries) {
+  const attempts = entries.length;
+  const right = entries.filter((e) => e.result === "right").length;
+  const accuracy = attempts ? right / attempts : null;
+  const times = entries.map((e) => e.seconds).filter((s) => typeof s === "number" && Number.isFinite(s) && s > 0 && s < MAX_SECONDS2);
+  const avgSeconds = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : null;
+  const targetSeconds = info.section === "math" ? MATH_TARGET_SECONDS : TARGET_SECONDS;
+  return {
+    skill: info.skill,
+    domain: info.domain,
+    section: info.section,
+    attempts,
+    right,
+    accuracy,
+    avgSeconds,
+    targetSeconds,
+    slow: avgSeconds !== null && times.length >= MIN_TIMED && avgSeconds > targetSeconds,
+    lastAt: attempts ? entries.reduce((m, e) => Math.max(m, e.at), -Infinity) : null,
+    level: levelFor(attempts, accuracy)
+  };
+}
+function skillMap(log, opts = {}) {
+  const wanted = new Set(opts.sections?.length ? opts.sections : defaultSections(log));
+  const bySkill = /* @__PURE__ */ new Map();
+  for (const e of log) {
+    const info = skillInfo(e.skill);
+    if (!info) continue;
+    const list2 = bySkill.get(info.skill);
+    if (list2) list2.push(e);
+    else bySkill.set(info.skill, [e]);
+  }
+  return SKILLS.filter((s) => wanted.has(s.section)).map((s) => cellFor(s, bySkill.get(s.skill) ?? []));
+}
+function groupByDomain(cells) {
+  const groups = [];
+  for (const c of [...cells].sort((a, b) => rank(a) - rank(b))) {
+    let g = groups.find((x) => x.section === c.section && x.domain === c.domain);
+    if (!g) {
+      g = { section: c.section, domain: c.domain, cells: [] };
+      groups.push(g);
+    }
+    g.cells.push(c);
+  }
+  return groups;
+}
+function suggestedDifficulty(cell) {
+  if (cell.level === "weak") return "Easy, Medium";
+  if (cell.level === "strong") return "Hard";
+  return "Medium";
+}
+function skillDetail(cell) {
+  const parts = [];
+  if (!cell.attempts) parts.push("You have no cards for this skill yet.");
+  else {
+    parts.push(`Right on ${cell.right} of ${cell.attempts}.`);
+    if (cell.level === "new") parts.push("A few more cards will show your level.");
+  }
+  if (cell.avgSeconds !== null) {
+    if (cell.slow) parts.push(`Average ${cell.avgSeconds} s, slower than the ${cell.targetSeconds} s test pace.`);
+    else if (cell.avgSeconds > cell.targetSeconds) parts.push(`Average ${cell.avgSeconds} s so far. Time a few more to judge your pace.`);
+    else parts.push(`Average ${cell.avgSeconds} s, within the ${cell.targetSeconds} s test pace.`);
+  }
+  parts.push(qbFilterSteps(cell, suggestedDifficulty(cell)));
+  return parts.join(" ");
+}
+function tileValue(c) {
+  if (c.level === "none") return "not yet";
+  if (c.level === "new") return "new";
+  return pct6(c.accuracy);
+}
+function tileTitle(c) {
+  if (!c.attempts) return `${c.skill}: no cards yet`;
+  const time = c.avgSeconds === null ? "" : `, average ${c.avgSeconds} s${c.slow ? `, slower than the ${c.targetSeconds} s pace` : ""}`;
+  return `${c.skill}: right on ${c.right} of ${c.attempts} (${pct6(c.accuracy)})${time}`;
+}
+var mapOpen = false;
+var selectedSkill = null;
+var LEGEND = [
+  ["none", "Not yet"],
+  ["new", "New"],
+  ["weak", "Under 50%"],
+  ["shaky", "50%+"],
+  ["solid", "75%+"],
+  ["strong", "90%+"]
+];
+function renderSkillMap(cells, handlers = {}) {
+  const practiced = cells.filter((c) => c.attempts > 0).length;
+  const tiles = [];
+  const detail = h("div", { class: "rc-sk-detail small", "aria-live": "polite" });
+  const paint = () => {
+    const cell = cells.find((c) => c.skill === selectedSkill) ?? null;
+    for (const t of tiles) {
+      const on = cell !== null && t.dataset.skill === cell.skill;
+      t.classList.toggle("rc-sk-selected", on);
+      t.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    if (cell) detail.replaceChildren(h("b", { text: cell.skill }), " ", skillDetail(cell));
+    else detail.replaceChildren(h("span", { class: "muted", text: "Pick a skill to see your numbers and how to practice it." }));
+  };
+  const tile2 = (c) => {
+    const label = tileTitle(c);
+    const b = h(
+      "button",
+      {
+        type: "button",
+        class: `rc-sk-tile rc-sk-${c.level}`,
+        title: label,
+        "aria-label": label,
+        "data-skill": c.skill,
+        onclick: () => {
+          selectedSkill = selectedSkill === c.skill ? null : c.skill;
+          paint();
+          if (selectedSkill) handlers.onSelect?.(c.skill);
+        }
+      },
+      h("span", { class: "rc-sk-name", text: shortSkillName(c.skill) }),
+      h("span", { class: "rc-sk-value", text: tileValue(c) }),
+      c.attempts ? h("span", { class: "rc-sk-count", text: plural4(c.attempts, "card") }) : null,
+      c.slow ? h("span", { class: "rc-sk-slow", text: "slow" }) : null
+    );
+    tiles.push(b);
+    return b;
+  };
+  const body = [];
+  let section = null;
+  for (const g of groupByDomain(cells)) {
+    if (g.section !== section) {
+      section = g.section;
+      const inSection = cells.filter((c) => c.section === g.section);
+      body.push(h(
+        "div",
+        { class: "rc-sk-section row between" },
+        h("h3", { text: SECTION_LABEL[g.section] }),
+        h("span", { class: "small muted", text: `${inSection.filter((c) => c.attempts > 0).length} of ${inSection.length} practiced` })
+      ));
+    }
+    body.push(h(
+      "div",
+      { class: "rc-sk-domain" },
+      h("div", { class: "rc-sk-domain-name small muted", text: g.domain }),
+      h("div", { class: "rc-sk-tiles" }, ...g.cells.map(tile2))
+    ));
+  }
+  const card = h(
+    "details",
+    {
+      class: "card rc-sk-card",
+      open: mapOpen ? "" : null,
+      ontoggle: (ev) => {
+        mapOpen = ev.target.open;
+      }
+    },
+    h("summary", null, h("h2", { text: "Skill map" }), h("span", { class: "small muted", text: `${practiced} of ${cells.length} practiced` })),
+    h(
+      "div",
+      { class: "rc-sk-legend small muted" },
+      ...LEGEND.map(([level, text2]) => h("span", { class: `rc-sk-key rc-sk-${level}`, text: text2 })),
+      h("span", { class: "rc-sk-key-slow", text: "slow: over test pace" })
+    ),
+    practiced ? null : h("p", { class: "small muted", text: "Explain a few questions and your skills fill in here." }),
+    ...body,
+    cells.length ? detail : null
+  );
+  paint();
+  return card;
+}
+
+// extension/src/addons/sets.ts
+var emptySets = () => ({ active: null, recap: null });
+function startSet(target, now) {
+  return { active: { target: Math.max(1, Math.min(100, Math.round(target))), startedAt: now, attemptIds: [] }, recap: null };
+}
+function buildRecap(entries, attemptIds, startedAt, endedAt) {
+  const ids = new Set(attemptIds);
+  const mine = entries.filter((e) => ids.has(e.attemptId));
+  const right = mine.filter((e) => e.result === "right").length;
+  const timed = mine.filter((e) => typeof e.seconds === "number" && (e.seconds ?? 0) > 0);
+  const missed = /* @__PURE__ */ new Map();
+  for (const e of mine) {
+    if (e.result !== "missed") continue;
+    const m = missed.get(e.ruleId) ?? { ruleId: e.ruleId, ruleName: e.ruleName, misses: 0 };
+    m.misses++;
+    missed.set(e.ruleId, m);
+  }
+  return {
+    count: mine.length,
+    right,
+    accuracy: mine.length ? right / mine.length : 0,
+    avgSeconds: timed.length ? Math.round(timed.reduce((a, e) => a + (e.seconds ?? 0), 0) / timed.length) : null,
+    slow: timed.filter((e) => (e.seconds ?? 0) > targetSecondsFor(e)).length,
+    minutes: Math.max(1, Math.round((endedAt - startedAt) / 6e4)),
+    missedRules: [...missed.values()].sort((a, b) => b.misses - a.misses),
+    attemptIds: mine.map((e) => e.attemptId),
+    startedAt,
+    endedAt
+  };
+}
+function addToSet(state2, attemptId, entries, now) {
+  const a = state2.active;
+  if (!a || a.attemptIds.includes(attemptId)) return state2;
+  const attemptIds = [...a.attemptIds, attemptId];
+  if (attemptIds.length >= a.target) return { active: null, recap: buildRecap(entries, attemptIds, a.startedAt, now) };
+  return { ...state2, active: { ...a, attemptIds } };
+}
+function endSet(state2, entries, now) {
+  const a = state2.active;
+  if (!a) return state2;
+  return { active: null, recap: a.attemptIds.length ? buildRecap(entries, a.attemptIds, a.startedAt, now) : null };
+}
+async function readSets() {
+  return await kv().get(KEYS.sets) ?? emptySets();
+}
+async function writeSets(s) {
+  await kv().set(KEYS.sets, s);
+}
+
+// extension/src/addons/share.ts
+function shareLines(s, cd) {
+  const lines = [
+    { big: `${s.streakDays}`, small: s.streakDays === 1 ? "day streak" : "day streak" },
+    { big: `${s.thisWeek.attempts}`, small: "questions this week" },
+    { big: s.accuracy === null ? "\u2013" : `${Math.round(s.accuracy * 100)}%`, small: "accuracy overall" },
+    { big: `${s.mastery.mastered}`, small: s.mastery.mastered === 1 ? "rule mastered" : "rules mastered" }
+  ];
+  if (cd) lines.push({ big: `${cd.days}`, small: `days to my SAT (${cd.label})` });
+  return lines;
+}
+async function renderShareImage(s, cd) {
+  const W = 1080, H = 1350;
+  const canvas = new OffscreenCanvas(W, H);
+  const g = canvas.getContext("2d");
+  if (!g) throw new Error("Canvas not available");
+  const grad = g.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, "#1e3a8a");
+  grad.addColorStop(1, "#2f5bea");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = "rgba(255,255,255,0.06)";
+  for (const [x, y2, r] of [[900, 180, 260], [120, 1180, 320], [980, 1100, 140]]) {
+    g.beginPath();
+    g.arc(x, y2, r, 0, Math.PI * 2);
+    g.fill();
+  }
+  const sans = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+  g.fillStyle = "#ffffff";
+  g.font = `700 64px ${sans}`;
+  g.fillText("My SAT Reading & Writing", 80, 170);
+  g.font = `500 40px ${sans}`;
+  g.fillStyle = "rgba(255,255,255,0.8)";
+  g.fillText("practice, one rule at a time", 80, 230);
+  const lines = shareLines(s, cd);
+  let y = 380;
+  for (const line of lines) {
+    g.fillStyle = "rgba(255,255,255,0.12)";
+    const h3 = 150;
+    roundRect(g, 80, y, W - 160, h3, 28);
+    g.fill();
+    g.fillStyle = "#ffffff";
+    g.font = `800 92px ${sans}`;
+    g.fillText(line.big, 120, y + 108);
+    const bigW = g.measureText(line.big).width;
+    g.font = `500 40px ${sans}`;
+    g.fillStyle = "rgba(255,255,255,0.88)";
+    g.fillText(line.small, 120 + bigW + 32, y + 100);
+    y += h3 + 26;
+  }
+  g.font = `600 36px ${sans}`;
+  g.fillStyle = "rgba(255,255,255,0.9)";
+  g.fillText("Rulecard \xB7 rulecard.vercel.app", 80, H - 80);
+  const blob = await canvas.convertToBlob({ type: "image/png" });
+  return await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+function roundRect(g, x, y, w, h3, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h3, r);
+  g.arcTo(x + w, y + h3, x, y + h3, r);
+  g.arcTo(x, y + h3, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+function downloadDataUrl(filename, dataUrl) {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+}
+
+// extension/src/addons/strategies.ts
+var STRATEGIES = [
+  {
+    skill: "Words in Context",
+    steps: [
+      "Cover the choices. Read the whole text and find the clue that defines the blank (a contrast, a restatement, an example).",
+      "Put your own simple word in the blank before you look.",
+      "Pick the choice that matches your word in meaning and in tone (positive, negative, neutral)."
+    ],
+    traps: ["A word that fits the topic but not the exact meaning", "A secondary meaning of a familiar word", "A word that's right but too strong or too weak"]
+  },
+  {
+    skill: "Text Structure and Purpose",
+    steps: [
+      "Label what each sentence does: claim, background, example, contrast, conclusion.",
+      "For main purpose, sum up the whole text in five words. For an underlined sentence, say how it connects to the sentences around it.",
+      "Match the verb in the choice (describe, argue, challenge, illustrate) to what the text actually does."
+    ],
+    traps: ["True of one detail but not the whole text", `A verb that's too strong ("refute" when the text only describes)`]
+  },
+  {
+    skill: "Cross-Text Connections",
+    steps: [
+      "Write each text's main claim in one line.",
+      "Find the exact point in Text 1 that Text 2 is talking about.",
+      "Predict Text 2's reaction to that point (agree, add a limit, or reject) before you read the choices."
+    ],
+    traps: ["A reaction to something Text 2 never mentions", "Calling a qualification a total disagreement"]
+  },
+  {
+    skill: "Central Ideas and Details",
+    steps: [
+      "For the main idea, ask what most of the text is about, not just the first or last line.",
+      "For a detail, go back and find the line. Don't answer from memory.",
+      "Every word of the right choice has to be backed by the text."
+    ],
+    traps: ["Too broad or too narrow", "Sounds true in real life but the text doesn't say it"]
+  },
+  {
+    skill: "Command of Evidence",
+    steps: [
+      "Underline the exact claim you need to support or weaken, every part of it.",
+      "For quotes or findings, the right one proves that specific claim, not just the topic.",
+      "For graphs and tables, read the title, axes and units first, then find the data point that makes the claim's comparison."
+    ],
+    traps: ["Accurate data that doesn't address the claim", "Supports half the claim", "Reading the wrong row, year or unit"]
+  },
+  {
+    skill: "Inferences",
+    steps: [
+      "Follow the logic step by step: premise, then premise, then what has to follow.",
+      "The blank is the next logical step. Say it in your own words first.",
+      "Choose what must be true based on the text, not what might be true."
+    ],
+    traps: ["Plausible but needs outside knowledge", "Extreme words like always, never, or proves"]
+  },
+  {
+    skill: "Boundaries",
+    steps: [
+      "Check each side of the blank: is it an independent clause (could stand alone) or not?",
+      "Two independent clauses: period, semicolon, or comma + FANBOYS. A colon or dash only after a complete clause.",
+      "Nothing goes between a subject and its verb, or a verb and its object. Extra info gets a matching pair: two commas, two dashes, or two parentheses."
+    ],
+    traps: ["Comma splice", "Colon after an incomplete clause", "Half a pair (one dash, one comma)"]
+  },
+  {
+    skill: "Form, Structure, and Sense",
+    steps: [
+      'Find the real subject: skip prepositional phrases and "which/who" interrupters, then match the verb to it.',
+      "Match the tense to the verbs around the blank and to the time the text describes.",
+      "Pronouns agree in number with what they replace. Watch its/it's, their/they're, and plural vs possessive. A modifier sits right next to the thing it describes."
+    ],
+    traps: ["Agreeing with the nearest noun instead of the subject", "Switching tense for no reason", "A dangling modifier"]
+  },
+  {
+    skill: "Transitions",
+    steps: [
+      "Cover the choices. Read the sentence before the blank and the one after it.",
+      "Name the relationship: contrast, cause and effect, more of the same, example, or time order.",
+      "Choose the transition in that category."
+    ],
+    traps: ["If two choices mean the same thing, neither is right", 'Choosing "however" just because the topic shifts slightly']
+  },
+  {
+    skill: "Rhetorical Synthesis",
+    steps: [
+      'Read the goal in the question first ("emphasize a difference", "introduce the study to a new audience").',
+      "Ignore the notes at first. Every choice is accurate to them, so accuracy isn't the test.",
+      "Pick the choice that does exactly the stated goal, and all of it."
+    ],
+    traps: ["Accurate but doesn't meet the goal", "Meets half the goal (for example, names one item when it should compare two)"]
+  }
+];
+var norm3 = (s) => s.toLowerCase().replace(/[^a-z]/g, "");
+function strategyFor(skill) {
+  if (!skill) return null;
+  const k = norm3(skill);
+  return STRATEGIES.find((s) => norm3(s.skill) === k) ?? STRATEGIES.find((s) => k.includes(norm3(s.skill)) || norm3(s.skill).includes(k)) ?? null;
+}
+
+// extension/src/addons/traps.ts
+var SEC = ["Standard English Conventions"];
+var TRAPS = [
+  {
+    id: "extreme",
+    label: "Too extreme",
+    section: "rw",
+    tip: "Words like always, never, proves and only need the text to back them all the way. If the text hedges, the answer should too.",
+    rules: [{ re: /\btoo (strong|extreme|absolute|sweeping|broad|definitive|far)\b/, w: 1.5 }, { re: /\b(overstat\w*|exaggerat\w*|goes too far|extreme)\b/, w: 1 }, { re: /\b(always|never|proves?|certainly|completely|entirely)\b/, w: 0.5 }]
+  },
+  {
+    id: "unsupported",
+    label: "Not supported by the text",
+    section: "rw",
+    tip: "Before you pick, point to the words in the text that prove it. If you can't, it's out.",
+    rules: [{ re: /\bnot (supported|stated|mentioned|discussed|addressed|indicated)\b/, w: 1.5 }, { re: /\b(no evidence|unsupported|out of scope|outside (knowledge|the text)|beyond (what|the text)|never (says|mentions|states|discusses))\b/, w: 1.5 }, { re: /\b(text|passage|author) (doesn't|does not|never) (say|mention|state|support|discuss|indicate)/, w: 1.5 }, { re: /\b(assumption|speculat\w*)\b/, w: 0.5 }]
+  },
+  {
+    id: "half_right",
+    label: "Half right",
+    tip: "Check every part of the choice. One wrong word makes the whole choice wrong.",
+    rules: [{ re: /\b(only (part|half|one part|one half) of|half[- ]right|partially (correct|true|right|accurate)|partly (correct|true|right))\b/, w: 1.5 }, { re: /\b(misses|ignores|leaves out|omits) (the )?(second|other|rest|key)\b/, w: 1 }]
+  },
+  {
+    id: "reversed",
+    label: "Says the opposite",
+    tip: "Mark which way the text leans (for or against, up or down) before you read the choices.",
+    rules: [{ re: /\b(opposite|revers\w*|backwards|the other way around|contradicts?)\b/, w: 1.5 }]
+  },
+  {
+    id: "irrelevant",
+    label: "True but beside the point",
+    section: "rw",
+    tip: "Ask whether the choice answers this exact question or goal. Accurate isn't enough.",
+    rules: [{ re: /\b(irrelevant|off[- ]topic|unrelated|beside the point|true but)\b/, w: 1.5 }, { re: /\b(doesn't|does not|fails to) (address|support|weaken|meet|accomplish|achieve|relate to|answer)\b/, w: 1 }]
+  },
+  {
+    id: "transition",
+    label: "Wrong transition",
+    section: "rw",
+    skills: ["Transitions"],
+    tip: "Name the relationship between the two sentences (contrast, cause, example, addition) before you look at the choices.",
+    rules: [{ re: /\b(transition|logical relationship|relationship between)\b/, w: 1 }, { re: /\b(contrast\w*|cause|result|example|addition|continu\w*|sequence)\b/, w: 0.5 }]
+  },
+  {
+    id: "splice",
+    label: "Comma splice or run-on",
+    section: "rw",
+    domains: SEC,
+    tip: "Two complete sentences need a period, a semicolon, or a comma plus and, but, or, so.",
+    rules: [{ re: /\b(comma splice|run[- ]on|fused sentence)\b/, w: 2 }, { re: /\bindependent clauses?\b/, w: 1 }]
+  },
+  {
+    id: "punctuation",
+    label: "Colon, dash or semicolon misuse",
+    section: "rw",
+    domains: SEC,
+    tip: "A colon or semicolon needs a complete sentence before it. Dashes and commas around extra info come in pairs.",
+    rules: [{ re: /\b(colon|semicolon|dash(es)?)\b/, w: 1 }, { re: /\b(nonessential|non-essential|nonrestrictive|interrupt\w*|pair of (commas|dashes))\b/, w: 1 }]
+  },
+  {
+    id: "agreement",
+    label: "Subject-verb agreement",
+    section: "rw",
+    domains: SEC,
+    tip: "Cross out the words between the subject and the verb, then match the verb to the subject.",
+    rules: [{ re: /\bsubject[- ]verb\b/, w: 2 }, { re: /\b(singular|plural) (verb|subject)\b/, w: 1 }, { re: /\b(singular|plural)\b/, w: 0.5 }]
+  },
+  {
+    id: "tense",
+    label: "Verb tense",
+    section: "rw",
+    domains: SEC,
+    tip: "Match the tense to the verbs around the blank and to when the action happens.",
+    rules: [{ re: /\btense\b/, w: 1.5 }, { re: /\b(past perfect|present perfect|future perfect|simple (past|present)|conditional)\b/, w: 1 }]
+  },
+  {
+    id: "pronoun",
+    label: "Pronoun",
+    section: "rw",
+    domains: SEC,
+    tip: "Find what the pronoun replaces and match it in number. Its/it's and their/they're are favorite traps.",
+    rules: [{ re: /\b(pronoun|antecedent)\b/, w: 1.5 }, { re: /\b(its|it's|their|they're|whose|who's)\b/, w: 0.5 }]
+  },
+  {
+    id: "modifier",
+    label: "Misplaced modifier",
+    section: "rw",
+    domains: SEC,
+    tip: "Whatever an opening phrase describes has to come right after the comma.",
+    rules: [{ re: /\b(dangling|misplaced) modifier\b/, w: 2 }, { re: /\b(modifier|modifies|introductory (phrase|clause))\b/, w: 1 }]
+  },
+  {
+    id: "wrong_quantity",
+    label: "Answered a different quantity",
+    section: "math",
+    tip: "Circle what the question asks for. After you solve, check that's what you're reporting.",
+    rules: [{ re: /\b(solved for|value of [a-z] (rather|instead)|asks for|asked for|requested|instead of the (value|expression|quantity))\b/, w: 1.5 }, { re: /\b(rather than|not the (value|quantity|expression))\b/, w: 0.5 }]
+  },
+  {
+    id: "wrong_setup",
+    label: "Set up the wrong equation",
+    section: "math",
+    tip: "Translate the words one phrase at a time, then plug a choice back in to check your setup.",
+    rules: [{ re: /\b(wrong|incorrect) (equation|expression|model|setup|set-up)\b/, w: 1.5 }, { re: /\b(set ?up|sets up|misinterpret\w*|confus\w* (the )?(slope|intercept|rate))\b/, w: 1 }]
+  },
+  {
+    id: "units_percent",
+    label: "Units or percent base",
+    section: "math",
+    tip: "Write units next to every number, and say what the percent is a percent of.",
+    rules: [{ re: /\b(units?|conver(t|ted|sion)|per (hour|minute|second|day|year))\b/, w: 1 }, { re: /\bpercent(age)? (of|increase|decrease|change)\b|\b(original|new) (value|price|amount)\b/, w: 1 }]
+  },
+  {
+    id: "calc_slip",
+    label: "Calculation slip",
+    section: "math",
+    tip: "Write each step down, and check mental arithmetic in Desmos.",
+    rules: [{ re: /\b(arithmetic|calculation|computation|miscalculat\w*|sign error|negative sign|distribut\w*|rounding|added instead|subtracted instead|multiplied instead|divided instead)\b/, w: 1.5 }]
+  }
+];
+var EXTRA = {
+  misread: { label: "Misread the question", tip: "Say what the question asks in your own words before you read the choices." },
+  other: { label: "Other", tip: "Re-read the rule and write one line in your own words on why your pick failed." }
+};
+function trapInfo(id) {
+  const def = TRAPS.find((t) => t.id === id);
+  return def ? { label: def.label, tip: def.tip } : EXTRA[id] ?? EXTRA.other;
+}
+function classifyMiss(e) {
+  const section = sectionOf(e);
+  const domain = e.domain ?? domainOfSkill(e.skill);
+  const text2 = (e.whyPickFails ?? "").toLowerCase();
+  const ruleText = `${e.ruleName ?? ""} ${e.ruleStatement ?? ""}`.toLowerCase();
+  let best = null;
+  for (const t of TRAPS) {
+    if (t.section && t.section !== section) continue;
+    if (t.domains && domain && !t.domains.includes(domain)) continue;
+    let score = 0;
+    const matched = [];
+    for (const r of t.rules) {
+      const m = text2.match(r.re);
+      if (m) {
+        score += r.w;
+        matched.push(m[0]);
+        continue;
+      }
+      const m2 = ruleText.match(r.re);
+      if (m2) {
+        score += r.w / 2;
+        matched.push(m2[0]);
+      }
+    }
+    if (t.skills && e.skill && t.skills.includes(e.skill)) score += 0.5;
+    if (score >= 1 && (!best || score > best.score)) best = { id: t.id, label: t.label, score, matched };
+  }
+  if (best) return best;
+  if (e.diagnosis === "misread") return { id: "misread", label: EXTRA.misread.label, score: 1, matched: [] };
+  if (section === "math" && e.diagnosis === "careless") return { id: "calc_slip", label: trapInfo("calc_slip").label, score: 1, matched: [] };
+  return { id: "other", label: EXTRA.other.label, score: 0, matched: [] };
+}
+var ORDER2 = [...TRAPS.map((t) => t.id), "misread", "other"];
+function trapReport(entries) {
+  const misses = entries.filter((e) => e.result === "missed");
+  const map = /* @__PURE__ */ new Map();
+  for (const e of misses) {
+    const hit = classifyMiss(e);
+    const c = map.get(hit.id) ?? { id: hit.id, ...trapInfo(hit.id), count: 0, share: 0, attemptIds: [] };
+    c.count++;
+    c.attemptIds.push(e.attemptId);
+    map.set(hit.id, c);
+  }
+  const counts = [...map.values()].map((c) => ({ ...c, share: misses.length ? c.count / misses.length : 0 })).sort((a, b) => b.count - a.count || ORDER2.indexOf(a.id) - ORDER2.indexOf(b.id));
+  return { total: misses.length, counts, top: counts.find((c) => c.id !== "other") ?? null };
+}
+function renderTraps(r) {
+  if (r.total < 3) return null;
+  const shown = r.counts.filter((c) => c.id !== "other").slice(0, 4);
+  if (!shown.length) return null;
+  return h(
+    "section",
+    { class: "card rc-traps" },
+    h("h2", { text: "Traps you fall for" }),
+    h("ul", { class: "rc-groups" }, ...shown.map((c) => h("li", null, h(
+      "div",
+      { class: "rc-group", title: c.tip },
+      h("span", { class: "rc-group-label", text: c.label }),
+      h("span", { class: "rc-meter" }, h("span", { style: `width:${Math.round(c.share * 100)}%` })),
+      h("span", { class: "small muted rc-group-n", text: String(c.count) })
+    )))),
+    r.top ? h("p", { class: "small rc-trap-tip" }, h("b", { text: `${r.top.label}: ` }), r.top.tip) : null
+  );
+}
+
+// extension/src/addons/timer.ts
+var emptyTimer = () => ({ startedAt: null, laps: [] });
+function lap2(state2, now) {
+  const seconds = state2.startedAt !== null ? Math.round((now - state2.startedAt) / 1e3) : null;
+  const valid = seconds !== null && seconds > 0 && seconds <= 1800 ? seconds : null;
+  return { state: { startedAt: now, laps: valid !== null ? [...state2.laps, valid].slice(-200) : state2.laps }, seconds: valid };
+}
+function formatClock(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, "0")}`;
+}
+function sessionStats(state2, target = TARGET_SECONDS) {
+  const n = state2.laps.length;
+  return {
+    count: n,
+    avg: n ? Math.round(state2.laps.reduce((a, b) => a + b, 0) / n) : null,
+    overTarget: state2.laps.filter((s) => s > target).length
+  };
+}
+async function readTimer() {
+  return await kv().get(KEYS.timer) ?? emptyTimer();
+}
+async function writeTimer(state2) {
+  await kv().set(KEYS.timer, state2);
+}
+var ticker = null;
+function renderTimer(state2, actions, target = TARGET_SECONDS) {
+  const clock2 = h("span", { class: "rc-clock", text: "0:00" });
+  const s = sessionStats(state2, target);
+  const tick = () => {
+    if (state2.startedAt === null) {
+      clock2.textContent = "--:--";
+      return;
+    }
+    const secs2 = (Date.now() - state2.startedAt) / 1e3;
+    clock2.textContent = formatClock(secs2);
+    clock2.classList.toggle("over", secs2 > target);
+  };
+  tick();
+  if (ticker) clearInterval(ticker);
+  ticker = setInterval(() => clock2.isConnected ? tick() : ticker && clearInterval(ticker), 1e3);
+  return h(
+    "div",
+    { class: "rc-timer row between small", title: `Time on this question. Target pace is ${target}s (${target > TARGET_SECONDS ? "44 Math questions in 70 minutes" : "54 questions in 64 minutes"}).` },
+    h("span", { class: "row" }, h("span", { class: "muted", text: state2.startedAt !== null ? "This question" : "Timer starts at your next capture" }), state2.startedAt !== null ? clock2 : null),
+    h(
+      "span",
+      { class: "row" },
+      s.count ? h("span", { class: "muted", text: `${s.count} done \xB7 avg ${formatClock(s.avg ?? 0)}${s.overTarget ? ` \xB7 ${s.overTarget} slow` : ""}` }) : null,
+      h("button", { class: "btn link small", text: "Reset", onclick: actions.reset })
+    )
+  );
+}
+
+// extension/src/addons/vocab.ts
+var WIC = "Words in Context";
+var BLANK = /_{4,}/;
+var FALLBACK_CHARS = 200;
+var CARD_BLANK = "_____";
+var BOUNDARY = /[.!?]+["'”’)\]]*(?=\s)/g;
+var ABBREV = /(?:^|[^A-Za-z])(?:Mr|Mrs|Ms|Dr|Prof|St|Jr|Sr|Mt|vs|[A-Za-z])\.$/;
+var squash3 = (s) => s.replace(/\s+/g, " ").trim();
+var clip4 = (s, n) => s.length > n ? `${s.slice(0, n - 1).trimEnd()}\u2026` : s;
+var escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var wordPattern = (word) => new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(word)}(?![\\p{L}\\p{N}])`, "giu");
+var csvCell2 = (s) => `"${s.replace(/"/g, '""')}"`;
+function sentenceAt(text2, from, to) {
+  let start = 0;
+  let end = text2.length;
+  const re = new RegExp(BOUNDARY.source, "g");
+  let m;
+  while (m = re.exec(text2)) {
+    if (m[0] === "." && ABBREV.test(text2.slice(Math.max(0, m.index - 8), m.index + 1))) continue;
+    const stop = m.index + m[0].length;
+    if (stop <= from) start = stop;
+    else if (m.index >= to) {
+      end = stop;
+      break;
+    }
+  }
+  return squash3(text2.slice(start, end));
+}
+function firstSentence(text2) {
+  const t = squash3(text2 ?? "");
+  return t ? sentenceAt(t, 0, 0) || null : null;
+}
+function sentenceFor(passage, word) {
+  const text2 = squash3(passage ?? "");
+  if (!text2) return null;
+  const m = BLANK.exec(text2);
+  if (!m) return clip4(text2, FALLBACK_CHARS);
+  return sentenceAt(text2, m.index, m.index + m[0].length).replace(BLANK, () => word);
+}
+function wordOf(e) {
+  if (normalizeSkill(e.skill) !== WIC || !hasChoiceList(e) || !LETTERS2.includes(e.correct)) return null;
+  const word = e.choices[e.correct].trim();
+  if (!word) return null;
+  const missed = e.result === "missed";
+  const letter = missed && e.picked !== "correct" && LETTERS2.includes(e.picked) ? e.picked : null;
+  const pickedWord = letter ? e.choices[letter].trim() : "";
+  return {
+    word,
+    meaning: firstSentence(e.whyCorrect),
+    sentence: sentenceFor(e.passage, word),
+    picked: pickedWord && pickedWord.toLowerCase() !== word.toLowerCase() ? pickedWord : null,
+    result: missed ? "missed" : "right",
+    qbId: e.qbId ?? null,
+    at: e.at
+  };
+}
+function collectWords(log) {
+  const byWord = /* @__PURE__ */ new Map();
+  const ids = /* @__PURE__ */ new Set();
+  for (const e of [...log].sort((a, b) => b.at - a.at)) {
+    if (ids.has(e.attemptId)) continue;
+    const w = wordOf(e);
+    if (!w) continue;
+    ids.add(e.attemptId);
+    const key = w.word.toLowerCase();
+    const hit = byWord.get(key);
+    if (!hit) {
+      byWord.set(key, {
+        word: w.word,
+        meaning: w.meaning,
+        sentence: w.sentence,
+        picked: w.picked,
+        result: w.result,
+        seen: 1,
+        lastAt: w.at,
+        attemptIds: [e.attemptId],
+        qbId: w.qbId,
+        picks: w.picked ? [w.picked] : []
+      });
+      continue;
+    }
+    hit.seen++;
+    hit.attemptIds.push(e.attemptId);
+    if (w.result === "missed") hit.result = "missed";
+    if (w.picked) {
+      hit.picks.push(w.picked);
+      hit.picked ??= w.picked;
+    }
+    hit.meaning ??= w.meaning;
+    hit.sentence ??= w.sentence;
+    hit.qbId ??= w.qbId;
+  }
+  return [...byWord.values()];
+}
+function confusables(words) {
+  const pairs = /* @__PURE__ */ new Map();
+  for (const w of words) {
+    const picks = w.picks?.length ? w.picks : w.picked ? [w.picked] : [];
+    for (const p of picks) {
+      const key = `${p.toLowerCase()}\0${w.word.toLowerCase()}`;
+      const hit = pairs.get(key);
+      if (hit) hit.count++;
+      else pairs.set(key, { picked: p, word: w.word, count: 1, lastAt: w.lastAt });
+    }
+  }
+  return [...pairs.values()].sort((a, b) => b.count - a.count || b.lastAt - a.lastAt).map(({ picked, word, count: count2 }) => ({ picked, word, count: count2 }));
+}
+function filterWords(words, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return words.slice();
+  return words.filter((w) => [w.word, w.meaning, w.sentence].some((s) => !!s && s.toLowerCase().includes(q)));
+}
+function blankOut(sentence, word) {
+  return word.trim() ? sentence.replace(wordPattern(word.trim()), CARD_BLANK) : sentence;
+}
+function wordsToAnkiCsv(words) {
+  const rows = ["#separator:comma", "#html:false", "#columns:Front,Back,Tags", "#tags column:3"];
+  for (const w of words) {
+    const word = w.word.trim();
+    const front = w.sentence && word && wordPattern(word).test(w.sentence) ? blankOut(w.sentence, word) : word;
+    const back = w.meaning ? `${word} : ${w.meaning}` : word;
+    const tags = ["rulecard", "words_in_context", w.result === "missed" ? "missed" : ""].filter(Boolean).join(" ");
+    rows.push([front, back, tags].map(csvCell2).join(","));
+  }
+  return rows.join("\n") + "\n";
+}
+var bankOpen = false;
+var bankQuery = "";
+var PAGE = 30;
+function withWord(sentence, word) {
+  if (!word.trim()) return [sentence];
+  const re = wordPattern(word.trim());
+  const out = [];
+  let last = 0;
+  let m;
+  while (m = re.exec(sentence)) {
+    if (m.index > last) out.push(sentence.slice(last, m.index));
+    out.push(h("b", { text: m[0] }));
+    last = m.index + m[0].length;
+  }
+  if (last < sentence.length) out.push(sentence.slice(last));
+  return out;
+}
+function wordRow(w) {
+  return h(
+    "li",
+    { class: `rc-vocab-item${w.result === "missed" ? " rc-vocab-missed" : ""}` },
+    h(
+      "div",
+      { class: "rc-vocab-head" },
+      h("b", { class: "rc-vocab-word", text: w.word }),
+      w.result === "missed" ? chip("Missed", "warn") : null,
+      w.picked ? h("span", { class: "small muted", text: `you picked ${w.picked}` }) : null,
+      w.seen > 1 ? h("span", { class: "small muted", text: `seen ${w.seen} times` }) : null
+    ),
+    w.meaning ? h("div", { class: "small rc-vocab-meaning", text: w.meaning }) : null,
+    w.sentence ? h("div", { class: "small muted rc-vocab-sentence" }, ...withWord(w.sentence, w.word)) : null
+  );
+}
+var mixText = (c) => `"${c.picked}" instead of "${c.word}"${c.count > 1 ? ` (${c.count} times)` : ""}`;
+function renderWordBank(words, handlers) {
+  const missed = words.filter((w) => w.result === "missed").length;
+  const count2 = `${words.length} ${words.length === 1 ? "word" : "words"}${missed ? `, ${missed} missed` : ""}`;
+  const card = h(
+    "details",
+    {
+      class: "card rc-vocab-card",
+      open: bankOpen ? "" : null,
+      ontoggle: (ev) => {
+        bankOpen = ev.target.open;
+      }
+    },
+    h("summary", null, h("h2", { text: "Word bank" }), h("span", { class: "small muted", text: count2 }))
+  );
+  if (!words.length) {
+    const wic = SKILLS.find((s) => s.skill === WIC);
+    card.append(h("p", { class: "small rc-vocab-empty", text: "No Words in Context cards yet. Explain one and its word, meaning and sentence land here, ready to review or send to Anki." }));
+    if (wic) card.append(h("p", { class: "small muted", text: qbFilterSteps(wic) }));
+    return card;
+  }
+  let limit = PAGE;
+  const status = h("p", { class: "small muted rc-vocab-status", "aria-live": "polite" });
+  const list2 = h("ul", { class: "rc-vocab-list" });
+  const more = h("button", { type: "button", class: "btn small rc-vocab-more", onclick: () => {
+    limit += PAGE;
+    paint();
+  } });
+  const paint = () => {
+    const hits = filterWords(words, bankQuery);
+    const q = bankQuery.trim();
+    list2.replaceChildren(...hits.slice(0, limit).map(wordRow));
+    status.textContent = !q ? "" : hits.length ? `${hits.length} of ${words.length} match.` : `No words match "${q}".`;
+    status.hidden = !q;
+    more.textContent = `Show more (${Math.max(0, hits.length - limit)})`;
+    more.hidden = hits.length <= limit;
+  };
+  const search = h("input", {
+    type: "search",
+    // An id lets the side panel keep focus and the text across a re-render (a toast, say).
+    id: "rc-vocab-search",
+    class: "input rc-vocab-search",
+    placeholder: "Search words, meanings, sentences",
+    "aria-label": "Search your words",
+    value: bankQuery,
+    oninput: (ev) => {
+      bankQuery = ev.target.value;
+      limit = PAGE;
+      paint();
+    }
+  });
+  const mix2 = confusables(words).slice(0, 5);
+  card.append(search, status, list2, more);
+  if (mix2.length) card.append(h("p", { class: "small rc-vocab-mixups" }, h("b", { text: "Mix-ups: " }), `${mix2.map(mixText).join("; ")}.`));
+  card.append(h(
+    "div",
+    { class: "row rc-vocab-actions" },
+    h("button", {
+      type: "button",
+      class: "btn small",
+      text: "Export to Anki (.csv)",
+      title: "In Anki, use File > Import and pick this file.",
+      onclick: () => handlers.download(`rulecard-words-${stamp()}.csv`, wordsToAnkiCsv(words), "text/csv")
+    })
+  ));
+  paint();
+  return card;
+}
+
+// extension/src/addons/calendar.ts
+var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+var LEVEL_HINTS = [
+  "No practice",
+  "Under half your daily goal, or only reviews",
+  "Half your daily goal or more",
+  "Daily goal met",
+  "Twice your daily goal or more"
+];
+var plural5 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+var noon = (y, m, d) => new Date(y, m, d, 12).getTime();
+var goalOf = (g) => typeof g === "number" && Number.isFinite(g) && g > 0 ? Math.max(1, Math.round(g)) : 10;
+var weeksOf = (w) => typeof w === "number" && Number.isFinite(w) && w >= 1 ? Math.floor(w) : 16;
+var weekStartOf = (s) => typeof s === "number" && Number.isFinite(s) ? (Math.trunc(s) % 7 + 7) % 7 : 0;
+var monthOf = (key) => MONTHS[Number(key.slice(5, 7)) - 1] ?? "";
+function shiftDay(key, days) {
+  const [y = 1970, m = 1, d = 1] = key.split("-").map(Number);
+  return dayKey(noon(y, m - 1, d + days));
+}
+function activityLevel(questions, reviews2, dailyGoal) {
+  const goal = goalOf(dailyGoal);
+  if (questions >= 2 * goal) return 4;
+  if (questions >= goal) return 3;
+  if (questions > 0 && questions * 2 >= goal) return 2;
+  return questions > 0 || reviews2 > 0 ? 1 : 0;
+}
+function countByDay(log) {
+  const map = /* @__PURE__ */ new Map();
+  const bump = (at, field) => {
+    if (typeof at !== "number" || !Number.isFinite(at)) return;
+    const key = dayKey(at);
+    const c = map.get(key) ?? { questions: 0, reviews: 0 };
+    c[field]++;
+    map.set(key, c);
+  };
+  for (const e of log) {
+    bump(e.at, "questions");
+    for (const d of Array.isArray(e.drills) ? e.drills : []) bump(d.at, "reviews");
+  }
+  return map;
+}
+function activityModel(log, opts) {
+  const dailyGoal = goalOf(opts.dailyGoal);
+  const weekCount = weeksOf(opts.weeks);
+  const weekStart = weekStartOf(opts.weekStart);
+  const counts = countByDay(log);
+  const now = new Date(opts.now);
+  const today = dayKey(opts.now);
+  const first = now.getDate() - (now.getDay() - weekStart + 7) % 7 - (weekCount - 1) * 7;
+  const weeks = [];
+  for (let c = 0; c < weekCount; c++) {
+    const column = [];
+    for (let r = 0; r < 7; r++) {
+      const date = noon(now.getFullYear(), now.getMonth(), first + c * 7 + r);
+      const key = dayKey(date);
+      const future = key > today;
+      const hit = future ? void 0 : counts.get(key);
+      const questions = hit?.questions ?? 0;
+      const reviews2 = hit?.reviews ?? 0;
+      column.push({ key, date, questions, reviews: reviews2, level: activityLevel(questions, reviews2, dailyGoal), future });
+    }
+    weeks.push(column);
+  }
+  const totals = { questions: 0, reviews: 0, activeDays: 0 };
+  let goalDays = 0;
+  let busiest = null;
+  const sums = [0, 0, 0, 0, 0, 0, 0];
+  const seen = [0, 0, 0, 0, 0, 0, 0];
+  for (const d of weeks.flat()) {
+    if (d.future) continue;
+    totals.questions += d.questions;
+    totals.reviews += d.reviews;
+    if (d.level > 0) totals.activeDays++;
+    if (d.questions >= dailyGoal) goalDays++;
+    if (d.questions > 0 && (!busiest || d.questions >= busiest.questions)) busiest = { key: d.key, questions: d.questions };
+    const wd = new Date(d.date).getDay();
+    sums[wd] = (sums[wd] ?? 0) + d.questions;
+    seen[wd] = (seen[wd] ?? 0) + 1;
+  }
+  const avg = sums.map((s, i2) => seen[i2] ? s / seen[i2] : 0);
+  const top = Math.max(...avg);
+  const leaders = avg.flatMap((a, i2) => a === top ? [i2] : []);
+  const best = totals.questions > 0 && leaders.length === 1 ? WEEKDAYS[leaders[0]] ?? null : null;
+  let currentStreak = 0;
+  for (let k = counts.has(today) ? today : shiftDay(today, -1); counts.has(k); k = shiftDay(k, -1)) currentStreak++;
+  const stamps = log.flatMap((e) => [{ at: e.at }, ...Array.isArray(e.drills) ? e.drills : []]).filter((s) => Number.isFinite(s.at));
+  const monthLabels = [];
+  weeks.forEach((column, c) => {
+    const firstOfMonth = column.find((d) => !d.future && d.key.endsWith("-01"));
+    if (firstOfMonth) monthLabels.push({ column: c, label: monthOf(firstOfMonth.key) });
+  });
+  const lead = weeks[0]?.[0];
+  if (lead && (monthLabels[0]?.column ?? Infinity) >= 2) monthLabels.unshift({ column: 0, label: monthOf(lead.key) });
+  return {
+    weeks,
+    monthLabels,
+    totals,
+    currentStreak,
+    longestStreak: Math.max(longestStreak(stamps), currentStreak),
+    busiest,
+    weekday: { avg, best },
+    goalDays,
+    today,
+    dailyGoal,
+    weekStart
+  };
+}
+var span = (m) => m.weeks.length === 1 ? "the last week" : `the last ${m.weeks.length} weeks`;
+function activityInsight(model) {
+  const n = model.totals.activeDays;
+  if (!n) return `No practice in ${span(model)} yet.`;
+  const best = model.weekday.best && n >= 3 ? ` You practice most on ${model.weekday.best}s.` : "";
+  return `${plural5(n, "active day")} in ${span(model)}.${best}`;
+}
+function streakLine(model) {
+  if (!model.longestStreak) return "";
+  return `Current streak ${plural5(model.currentStreak, "day")}. Longest ${model.longestStreak}.`;
+}
+var monthDay = (key) => `${monthOf(key)} ${Number(key.slice(8, 10))}`;
+function totalsLine(model) {
+  const { questions, reviews: reviews2, activeDays } = model.totals;
+  if (!activeDays) return "";
+  const what = [questions ? plural5(questions, "question") : "", reviews2 ? plural5(reviews2, "review") : ""].filter(Boolean).join(" and ");
+  const out = [`${what}.`];
+  if (questions) out.push(model.goalDays ? `You hit your goal of ${model.dailyGoal} on ${plural5(model.goalDays, "day")}.` : `You haven't hit your goal of ${model.dailyGoal} yet.`);
+  if (model.busiest) out.push(`Busiest day: ${monthDay(model.busiest.key)} (${model.busiest.questions}).`);
+  return out.join(" ");
+}
+function dayLabel2(day) {
+  const d = new Date(day.date);
+  const what = [day.questions ? plural5(day.questions, "question") : "", day.reviews ? plural5(day.reviews, "review") : ""].filter(Boolean).join(", ");
+  return `${WEEKDAYS[d.getDay()]?.slice(0, 3)}, ${MONTHS[d.getMonth()]} ${d.getDate()}: ${what || "no practice"}`;
+}
+var calOpen = false;
+function renderCalendar(model) {
+  const insight = activityInsight(model);
+  const streak3 = streakLine(model);
+  const totals = totalsLine(model);
+  const labelAt = new Map(model.monthLabels.map((l) => [l.column, l.label]));
+  const cell = (day) => h("span", {
+    class: `rc-cal-cell rc-cal-l${day.level}${day.future ? " rc-cal-future" : ""}${day.key === model.today ? " rc-cal-today" : ""}`,
+    title: day.future ? null : dayLabel2(day)
+  });
+  const weekdayLabel = (row) => {
+    const wd = (model.weekStart + row) % 7;
+    return h("span", { text: wd === 1 || wd === 3 || wd === 5 ? WEEKDAYS[wd]?.slice(0, 3) : "" });
+  };
+  return h(
+    "details",
+    {
+      class: "card rc-cal",
+      open: calOpen ? "" : null,
+      ontoggle: (ev) => {
+        calOpen = ev.target.open;
+      }
+    },
+    h("summary", null, h("h2", { text: "Activity" }), h("span", { class: "small muted", text: plural5(model.totals.activeDays, "active day") })),
+    h(
+      "div",
+      { class: "rc-cal-scroll" },
+      h(
+        "div",
+        { class: "rc-cal-chart" },
+        h("div", { class: "rc-cal-months", "aria-hidden": "true" }, ...model.weeks.map((_, c) => h("span", { text: labelAt.get(c) ?? "" }))),
+        h("div", { class: "rc-cal-wdays", "aria-hidden": "true" }, ...Array.from({ length: 7 }, (_, r) => weekdayLabel(r))),
+        h("div", { class: "rc-cal-grid", role: "img", "aria-label": insight }, ...model.weeks.flatMap((column) => column.map(cell))),
+        h(
+          "div",
+          { class: "rc-cal-legend", "aria-hidden": "true" },
+          h("span", { text: "Less" }),
+          ...LEVEL_HINTS.map((hint, level) => h("span", { class: `rc-cal-cell rc-cal-l${level}`, title: hint })),
+          h("span", { text: "More" })
+        )
+      )
+    ),
+    h("p", { class: "small rc-cal-insight", text: insight }),
+    streak3 ? h("p", { class: "small muted rc-cal-streak", text: streak3 }) : null,
+    totals ? h("p", { class: "small muted rc-cal-totals", text: totals }) : null
+  );
+}
+
+// extension/src/addons/errorlog.ts
+var ERROR_LOG_COLUMNS = [
+  "Date",
+  "Question ID",
+  "Section",
+  "Domain",
+  "Skill",
+  "Difficulty",
+  "Your answer",
+  "Correct answer",
+  "Result",
+  "Rule",
+  "Why your pick fails",
+  "Why the answer is right",
+  "Diagnosis",
+  "How sure",
+  "Seconds",
+  "Over pace",
+  "Review box",
+  "Starred",
+  "Note"
+];
+var DIAGNOSIS_WORDS = {
+  misread: "Misread",
+  rule_gap: "Didn't know the rule",
+  careless: "Careless slip",
+  got_it_right: "Got it right",
+  unknown: "Unknown"
+};
+var SURE_WORDS = { sure: "Sure", unsure: "Unsure", guess: "Guessed" };
+var MAX_SECONDS3 = 1800;
+var choiceText = (e, letter) => {
+  const text2 = plainMath(e.choices?.[letter] ?? "").trim();
+  return text2 ? `${letter}: ${text2}` : letter;
+};
+function answerCells(e) {
+  const gridIn = isGridIn(e) || !hasChoiceList(e) && (e.accepted !== void 0 || e.typed !== void 0);
+  if (!gridIn) {
+    const correct = choiceText(e, e.correct);
+    return { yours: e.picked === "correct" ? correct : choiceText(e, e.picked), correct };
+  }
+  const accepted = (e.accepted ?? []).map((a) => a.trim()).filter(Boolean);
+  const typed = e.typed?.trim() ?? "";
+  const yours = typed || (e.picked === "correct" && e.result === "right" ? accepted[0] ?? "" : "");
+  return { yours, correct: accepted.join(" or ") };
+}
+function rowFor(e, srs) {
+  const { yours, correct } = answerCells(e);
+  const missed = e.result === "missed";
+  const secs2 = typeof e.seconds === "number" && Number.isFinite(e.seconds) && e.seconds > 0 ? e.seconds : null;
+  const box = srs?.[e.ruleId]?.box;
+  return [
+    dayKey(e.at),
+    e.qbId ?? "",
+    SECTION_LABEL[sectionOf(e)],
+    e.domain ?? "",
+    e.skill ?? "",
+    e.difficulty ?? "",
+    yours,
+    correct,
+    missed ? "Missed" : "Right",
+    e.ruleName ? `${e.ruleId} \xB7 ${e.ruleName}` : e.ruleId,
+    missed ? plainMath(e.whyPickFails ?? "") : "",
+    plainMath(e.whyCorrect ?? ""),
+    DIAGNOSIS_WORDS[e.diagnosis] ?? "Unknown",
+    e.selfConfidence ? SURE_WORDS[e.selfConfidence] ?? "" : "",
+    secs2 === null ? "" : String(Math.round(secs2)),
+    secs2 === null || secs2 >= MAX_SECONDS3 ? "" : secs2 > targetSecondsFor(e) ? "Yes" : "No",
+    typeof box === "number" ? `${box} of ${MAX_BOX}` : "",
+    e.starred ? "Yes" : "",
+    e.note ?? ""
+  ];
+}
+function errorLogRows(log, opts) {
+  const entries = filterScope([...log], opts.scope).sort((a, b) => a.at - b.at);
+  return [[...ERROR_LOG_COLUMNS], ...entries.map((e) => rowFor(e, opts.srs))];
+}
+var FORMULA_START = /^[=+\-@\t\r]/;
+var PLAIN_NEGATIVE = /^-(?:\d+(?:\.\d+)?|\.\d+)$/;
+function guardCell(cell) {
+  return FORMULA_START.test(cell) && !PLAIN_NEGATIVE.test(cell) ? `'${cell}` : cell;
+}
+var BOM = "\uFEFF";
+function toErrorLogCsv(rows) {
+  const line = (row) => row.map((cell) => `"${guardCell(String(cell ?? "")).replace(/"/g, '""')}"`).join(",");
+  return BOM + rows.map((row) => `${line(row)}\r
+`).join("");
+}
+function toErrorLogTsv(rows) {
+  return rows.map((row) => row.map((cell) => guardCell(String(cell ?? "").replace(/[\t\r\n]+/g, " "))).join("	")).join("\n");
+}
+function errorLogFilename(scope, now) {
+  return `rulecard-error-log-${scope}-${dayKey(now)}.csv`;
+}
+
+// extension/src/addons/wordquiz.ts
+var WORDQUIZ_KEY = "rc.addons.wordquiz.v1";
+var BLANK2 = "______";
+var MIN_WORDS = 4;
+var DEFAULT_WORDS = 10;
+var QUIZ_SIZES = [5, 10];
+var squash4 = (s) => s.replace(/\s+/g, " ").trim();
+var escapeRe2 = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var isText = (x) => typeof x === "string";
+var wordKey = (word) => squash4(isText(word) ? word : "").toLowerCase();
+function wordPattern2(word) {
+  const parts = squash4(isText(word) ? word : "").split(" ").filter(Boolean).map(escapeRe2);
+  return parts.length ? new RegExp(`(?<![\\p{L}\\p{N}])${parts.join("\\s+")}(?![\\p{L}\\p{N}])`, "giu") : null;
+}
+var contains3 = (text2, word) => {
+  const re = wordPattern2(word);
+  return !!text2 && !!re && re.test(text2);
+};
+var QUOTE_PAIRS = { '"': '"', "\u201C": "\u201D", "'": "'", "\u2018": "\u2019" };
+var LOOSE_QUOTED = new RegExp(`(^|[\\s(\\[])(["\u201C'\u2018]) ?${BLANK2} ?(["\u201D'\u2019])(?=$|[\\s.,;:!?)\\]])`, "g");
+function blankWord(text2, word) {
+  const t = squash4(isText(text2) ? text2 : "");
+  const re = wordPattern2(word);
+  if (!re) return t;
+  return t.replace(re, BLANK2).replace(LOOSE_QUOTED, (m, pre, open5, close2) => QUOTE_PAIRS[open5] === close2 ? `${pre}${open5}${BLANK2}${close2}` : m);
+}
+function markWord(text2, word) {
+  const re = wordPattern2(word);
+  if (!isText(text2) || !text2) return [];
+  if (!re) return [{ text: text2, hit: false }];
+  const out = [];
+  let last = 0;
+  for (const m of text2.matchAll(re)) {
+    const at = m.index ?? 0;
+    if (at > last) out.push({ text: text2.slice(last, at), hit: false });
+    out.push({ text: m[0], hit: true });
+    last = at + m[0].length;
+  }
+  if (last < text2.length) out.push({ text: text2.slice(last), hit: false });
+  return out;
+}
+var LEAD_IN = new RegExp(
+  "^(?:(?:choice|option|answer)\\s+)?\\(?[A-D]\\)?\\s+is\\s+(?:the\\s+)?(?:best|correct|right|most\\s+logical(?:\\s+and\\s+precise)?)(?:\\s+(?:answer|choice|option))?(?:\\s+(?:because|since|as))?\\s*[,:;.\\-\u2013\u2014]?(?:\\s+|$)|^the\\s+(?:best|correct|right)\\s+(?:answer|choice)\\s+is\\s+(?:choice\\s+)?\\(?[A-D]\\)?(?:\\s+(?:because|since|as))?\\s*[,:;.\\-\u2013\u2014]?(?:\\s+|$)",
+  "i"
+);
+function cleanMeaning(meaning) {
+  const t = squash4(isText(meaning) ? meaning : "");
+  if (!t) return null;
+  const rest = t.replace(LEAD_IN, "");
+  if (rest === t) return t;
+  if (!/[\p{L}\p{N}]/u.test(rest)) return null;
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
+}
+function leaks(prompt, word) {
+  const w = wordKey(word);
+  if (w.includes(" ") || w.length < 5) return false;
+  const stem = w.slice(0, Math.max(4, Math.ceil(w.length * 0.7)));
+  return (prompt.toLowerCase().match(new RegExp("\\p{L}+", "gu")) ?? []).some((t) => t.startsWith(stem));
+}
+var sentenceOf = (w) => {
+  const s = squash4(isText(w.sentence) ? w.sentence : "");
+  return s && contains3(s, w.word) ? s : null;
+};
+function sentencePrompt(w) {
+  const s = sentenceOf(w);
+  if (!s) return null;
+  const p = blankWord(s, w.word);
+  return leaks(p, w.word) ? null : p;
+}
+function meaningPrompt(w) {
+  const m = cleanMeaning(w.meaning);
+  if (!m) return null;
+  const p = blankWord(m, w.word);
+  const words = p.split(BLANK2).join(" ").match(/[\p{L}\p{N}]+/gu) ?? [];
+  return words.length >= 2 && !leaks(p, w.word) ? p : null;
+}
+function wordQuestionKinds(w) {
+  if (!w || !wordKey(w.word)) return [];
+  const out = [];
+  if (sentencePrompt(w) !== null) out.push("blank");
+  if (meaningPrompt(w) !== null) out.push("meaning");
+  return out;
+}
+function hashText(s) {
+  let x = 2166136261;
+  for (let i2 = 0; i2 < s.length; i2++) x = Math.imul(x ^ s.charCodeAt(i2), 16777619);
+  return x >>> 0;
+}
+var mix = (seed, salt) => (seed ^ Math.imul(salt >>> 0, 2654435761)) >>> 0;
+var tieKey = (seed, text2) => mulberry32(mix(seed, hashText(text2)))();
+var toSeed = (seed, fallback) => (Number.isFinite(seed) ? seed : Number.isFinite(fallback) ? fallback : 0) >>> 0;
+var sizeOf = (n) => typeof n === "number" && Number.isFinite(n) && n >= 1 ? Math.floor(n) : DEFAULT_WORDS;
+var cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+function distinctWords(words) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const w of Array.isArray(words) ? words : []) {
+    const k = w ? wordKey(w.word) : "";
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(w);
+  }
+  return out;
+}
+function wordQuizAvailability(words) {
+  const bank = distinctWords(words);
+  if (bank.length < MIN_WORDS) {
+    const need = MIN_WORDS - bank.length;
+    const what = `Words in Context ${need === 1 ? "card" : "cards"}`;
+    return { available: 0, reason: `Add ${need}${bank.length ? " more" : ""} ${what} to unlock the word quiz.` };
+  }
+  const available = bank.filter((w) => wordQuestionKinds(w).length > 0).length;
+  return available ? { available, reason: null } : { available: 0, reason: "Your words need a sentence or a meaning before you can be quizzed on them." };
+}
+function wordQuizSizes(available) {
+  const max = Number.isFinite(available) ? Math.max(0, Math.floor(available)) : 0;
+  return [...new Set(QUIZ_SIZES.map((n) => Math.min(n, max)))].filter((n) => n > 0);
+}
+var isObj2 = (x) => typeof x === "object" && x !== null && !Array.isArray(x);
+var isNum3 = (x) => typeof x === "number" && Number.isFinite(x);
+function cleanEntry(x) {
+  if (!isObj2(x) || !isNum3(x.right) || !isNum3(x.wrong) || !isNum3(x.lastAt) || x.right < 0 || x.wrong < 0) return null;
+  return { right: Math.floor(x.right), wrong: Math.floor(x.wrong), lastAt: x.lastAt };
+}
+var entryOf = (record, key) => isObj2(record) && Object.prototype.hasOwnProperty.call(record, key) ? cleanEntry(record[key]) : null;
+function pickWords(words, record, opts) {
+  const seed = toSeed(opts.seed, 0);
+  const rows = distinctWords(words).filter((w) => wordQuestionKinds(w).length > 0).map((w) => {
+    const key = wordKey(w.word);
+    const r = entryOf(record, key);
+    return {
+      w,
+      missed: w.result === "missed" ? 1 : 0,
+      bad: r ? Math.max(0, r.wrong - r.right) : 0,
+      last: r ? r.lastAt : Number.NEGATIVE_INFINITY,
+      tie: tieKey(seed, key)
+    };
+  });
+  rows.sort((a, b) => b.missed - a.missed || b.bad - a.bad || cmp(a.last, b.last) || cmp(a.tie, b.tie));
+  return rows.slice(0, sizeOf(opts.n)).map((r) => r.w);
+}
+var ENDINGS = [
+  ["tion", "sion"],
+  ["ness"],
+  ["ment"],
+  ["able", "ible"],
+  ["less"],
+  ["ous"],
+  ["ive"],
+  ["ing"],
+  ["ful"],
+  ["ity"],
+  ["ize", "ise"],
+  ["ate"],
+  ["ent", "ant"],
+  ["est"],
+  ["ly"],
+  ["ed"],
+  ["al"],
+  ["ic"],
+  ["er"]
+];
+function ending(word) {
+  const last = wordKey(word).split(" ").pop() ?? "";
+  return ENDINGS.findIndex((group2) => group2.some((sfx) => last.length >= sfx.length + 2 && last.endsWith(sfx)));
+}
+function shapeScore(answer, other) {
+  const a = wordKey(answer);
+  const b = wordKey(other);
+  const e = ending(a);
+  return (a.split(" ").length === b.split(" ").length ? 2 : 0) + (e >= 0 && e === ending(b) ? 2 : 0) + (Math.abs(a.length - b.length) <= 2 ? 1 : 0);
+}
+var related = (a, b) => contains3(a.meaning, b.word) || contains3(b.meaning, a.word);
+function ownPicks(w) {
+  const tally = /* @__PURE__ */ new Map();
+  const add = (p, weight) => {
+    if (!isText(p) || !wordKey(p)) return;
+    const hit = tally.get(wordKey(p));
+    if (hit) hit.count += weight;
+    else tally.set(wordKey(p), { text: squash4(p), count: weight, first: tally.size });
+  };
+  for (const p of Array.isArray(w.picks) ? w.picks : []) add(p, 1);
+  add(w.picked, 0);
+  return [...tally.values()].sort((a, b) => b.count - a.count || a.first - b.first).map((t) => t.text);
+}
+function pickDistractors(item, words, seed, count2 = 3) {
+  const taken = /* @__PURE__ */ new Set([wordKey(item.word)]);
+  const out = [];
+  const add = (text2) => {
+    const k = wordKey(text2);
+    if (out.length >= count2 || !k || taken.has(k)) return;
+    taken.add(k);
+    out.push(squash4(text2));
+  };
+  for (const p of ownPicks(item)) add(p);
+  if (out.length >= count2) return out;
+  const s = toSeed(seed, 0);
+  distinctWords(words).filter((w) => !taken.has(wordKey(w.word))).map((w) => ({ text: w.word, score: shapeScore(item.word, w.word) - (related(item, w) ? 10 : 0), tie: tieKey(s, wordKey(w.word)) })).sort((a, b) => b.score - a.score || cmp(a.tie, b.tie)).forEach((o) => add(o.text));
+  return out;
+}
+var isUpper = (ch2) => ch2 !== ch2.toLowerCase();
+var isLower = (ch2) => ch2 !== ch2.toUpperCase();
+function matchCase(option, answer) {
+  const a = answer.charAt(0);
+  const o = option.charAt(0);
+  if (isUpper(a) && isLower(o)) return o.toUpperCase() + option.slice(1);
+  const rest = option.slice(1);
+  if (isLower(a) && isUpper(o) && rest && rest === rest.toLowerCase()) return o.toLowerCase() + rest;
+  return option;
+}
+function assignKinds(items, seed) {
+  const phase = seed % 3;
+  let meanings = 0;
+  return items.map((w, i2) => {
+    const kinds = wordQuestionKinds(w);
+    const kind = kinds.length === 1 ? kinds[0] : (meanings + 1) * 3 <= i2 + phase ? "meaning" : "blank";
+    if (kind === "meaning") meanings++;
+    return kind;
+  });
+}
+function buildQuestion(item, kind, bank, seed) {
+  const word = squash4(item.word);
+  const prompt = kind === "blank" ? sentencePrompt(item) : meaningPrompt(item);
+  if (!prompt) return null;
+  const salt = hashText(wordKey(word));
+  const wrong = pickDistractors(item, bank, mix(seed, salt));
+  if (wrong.length < 3) return null;
+  const options = shuffled([word, ...wrong.slice(0, 3)], mix(seed, salt + 1));
+  const at = options.indexOf(word);
+  const shown = options.map((o, i2) => i2 === at ? o : matchCase(o, word));
+  return {
+    word,
+    kind,
+    prompt,
+    choices: { A: shown[0], B: shown[1], C: shown[2], D: shown[3] },
+    correct: LETTERS2[at],
+    sentence: sentenceOf(item),
+    meaning: cleanMeaning(item.meaning)
+  };
+}
+function createWordQuiz(words, record, opts) {
+  const now = opts.now;
+  const seed = toSeed(opts.seed, now);
+  const bank = distinctWords(words);
+  const chosen = bank.length >= MIN_WORDS ? pickWords(bank, record, { seed, n: opts.n }) : [];
+  const ask = shuffled(chosen, seed);
+  const kinds = assignKinds(ask, seed);
+  const questions = ask.map((w, i2) => buildQuestion(w, kinds[i2], bank, seed)).filter((q) => q !== null);
+  return {
+    id: `wq-${Math.round(now).toString(36)}-${seed.toString(36)}`,
+    questions,
+    index: 0,
+    answers: {},
+    startedAt: now,
+    finishedAt: questions.length ? null : now
+  };
+}
+var isWordQuizFinished = (s) => s.finishedAt !== null;
+function onScreen2(s) {
+  if (isWordQuizFinished(s)) return null;
+  return s.index >= 0 && s.index < s.questions.length ? s.index : null;
+}
+function currentWord(s) {
+  const i2 = onScreen2(s);
+  return i2 === null ? null : s.questions[i2] ?? null;
+}
+function currentWordAnswer(s) {
+  const i2 = onScreen2(s);
+  return i2 === null ? null : s.answers[i2] ?? null;
+}
+function wordQuizProgress(s) {
+  const total = s.questions.length;
+  return {
+    number: Math.min(s.index + 1, total),
+    total,
+    answered: s.questions.filter((_, i2) => s.answers[i2]).length,
+    left: Math.max(0, total - s.index - 1)
+  };
+}
+function answerWord(s, letter, now) {
+  const i2 = onScreen2(s);
+  if (i2 === null || s.answers[i2] || !LETTERS2.includes(letter)) return s;
+  const q = s.questions[i2];
+  return { ...s, answers: { ...s.answers, [i2]: { picked: letter, correct: letter === q.correct, at: now } } };
+}
+function nextWord(s, now) {
+  const i2 = onScreen2(s);
+  if (i2 === null || !s.answers[i2]) return s;
+  return i2 >= s.questions.length - 1 ? { ...s, index: s.questions.length, finishedAt: now } : { ...s, index: i2 + 1 };
+}
+function finishWordQuiz(s, now) {
+  return isWordQuizFinished(s) ? s : { ...s, finishedAt: now };
+}
+function wordQuizSummary(s) {
+  let answered = 0;
+  let right = 0;
+  const misses = [];
+  s.questions.forEach((q, i2) => {
+    const a = s.answers[i2];
+    if (!a) return;
+    answered++;
+    if (a.correct) right++;
+    else misses.push({ word: q.word, picked: q.choices[a.picked], meaning: q.meaning, sentence: q.sentence });
+  });
+  return { total: s.questions.length, answered, right, wrong: answered - right, accuracy: answered ? right / answered : null, misses };
+}
+var KEY_LETTERS2 = { a: "A", b: "B", c: "C", d: "D", "1": "A", "2": "B", "3": "C", "4": "D" };
+function wordQuizKey(key) {
+  if (key === "Enter" || key === " ") return "next";
+  return isText(key) && key.length === 1 ? KEY_LETTERS2[key.toLowerCase()] ?? null : null;
+}
+function cleanWordRecord(raw) {
+  const out = {};
+  if (!isObj2(raw)) return out;
+  for (const [k, v] of Object.entries(raw)) {
+    const key = wordKey(k);
+    const e = cleanEntry(v);
+    if (!key || key === "__proto__" || !e) continue;
+    const prev = out[key];
+    out[key] = prev ? { right: prev.right + e.right, wrong: prev.wrong + e.wrong, lastAt: Math.max(prev.lastAt, e.lastAt) } : e;
+  }
+  return out;
+}
+function applyWordResults(record, state2, now) {
+  const out = cleanWordRecord(record);
+  state2.questions.forEach((q, i2) => {
+    const a = state2.answers[i2];
+    const key = wordKey(q.word);
+    if (!a || !key || key === "__proto__") return;
+    const at = isNum3(a.at) ? a.at : now;
+    const prev = out[key];
+    if (prev && prev.lastAt >= at) return;
+    out[key] = {
+      right: (prev?.right ?? 0) + (a.correct ? 1 : 0),
+      wrong: (prev?.wrong ?? 0) + (a.correct ? 0 : 1),
+      lastAt: isNum3(now) ? Math.max(now, at) : at
+    };
+  });
+  return out;
+}
+var tail2 = Promise.resolve();
+function queued2(fn) {
+  const run = tail2.then(fn, fn);
+  tail2 = run.catch(() => void 0);
+  return run;
+}
+var rawRead2 = async () => cleanWordRecord(await kv().get(WORDQUIZ_KEY));
+async function rawWrite2(record) {
+  const clean2 = cleanWordRecord(record);
+  await kv().set(WORDQUIZ_KEY, clean2);
+  return clean2;
+}
+var readWordRecord = () => queued2(rawRead2);
+var writeWordRecord = (record) => queued2(() => rawWrite2(record));
+var saveWordResults = (state2, now) => queued2(async () => {
+  const record = await rawRead2();
+  return state2.questions.some((_, i2) => state2.answers[i2]) ? rawWrite2(applyWordResults(record, state2, now)) : record;
+});
+
+// extension/src/addons/wordquiz-ui.ts
+var plural6 = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+var pct7 = (x) => `${Math.round((x ?? 0) * 100)}%`;
+var TITLE = "Quiz me on my words";
+var withWord2 = (text2, word) => markWord(text2, word).map((p) => p.hit ? h("b", { text: p.text }) : p.text);
+function promptNodes(prompt) {
+  const out = [];
+  prompt.split(BLANK2).forEach((part, i2) => {
+    if (i2 > 0) out.push(h("span", { class: "rc-wq-blank", role: "img", "aria-label": "blank", text: BLANK2 }));
+    if (part) out.push(part);
+  });
+  return out;
+}
+function head2(title, count2, extra, close2) {
+  return h(
+    "div",
+    { class: "row between rc-wq-head" },
+    h("h2", { text: title }),
+    h(
+      "div",
+      { class: "row rc-wq-head-right" },
+      count2 ? h("span", { class: "small muted rc-wq-count", text: count2 }) : null,
+      extra,
+      close2 ? h("button", { type: "button", class: "btn link small", title: "Esc", onclick: () => close2() }, "Quit") : null
+    )
+  );
+}
+function bar3(done, total) {
+  const n = Math.max(0, Math.min(done, total));
+  const fill = h("span");
+  fill.style.width = `${total ? Math.round(n / total * 100) : 100}%`;
+  return h("div", { class: "rc-wq-bar", role: "progressbar", "aria-label": "Progress", "aria-valuemin": 0, "aria-valuemax": total, "aria-valuenow": n }, fill);
+}
+function choiceList3(q, ans, pick) {
+  return h("ol", { class: "choices rc-wq-choices" }, ...LETTERS2.map((letter, i2) => {
+    const live = !ans;
+    const choose = () => {
+      if (live) pick(letter);
+    };
+    const state2 = ans ? letter === q.correct ? "correct" : letter === ans.picked ? "picked" : "" : "selectable";
+    return h(
+      "li",
+      {
+        class: `choice ${state2}`.trim(),
+        role: live ? "button" : null,
+        tabindex: live ? 0 : null,
+        title: live ? `${letter} or ${i2 + 1}` : null,
+        onclick: live ? choose : null,
+        onkeydown: live ? (ev) => {
+          if (ev.key !== "Enter" && ev.key !== " ") return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          choose();
+        } : null
+      },
+      h("span", { class: "letter", text: `${letter}.` }),
+      h("span", { class: "rc-wq-word", text: q.choices[letter] }),
+      ans && letter === ans.picked ? h("span", { class: "rc-wq-tag", text: "your pick" }) : null
+    );
+  }));
+}
+function renderWordQuizEntry(info, handlers) {
+  const sizes = info.reason ? [] : wordQuizSizes(info.available);
+  const title = h("b", { class: "rc-wq-entry-title", text: TITLE });
+  if (!sizes.length) {
+    return h(
+      "div",
+      { class: "rc-wq-entry rc-wq-locked" },
+      h(
+        "div",
+        { class: "rc-wq-entry-text" },
+        title,
+        h("span", { class: "small muted", text: info.reason ?? "Explain more Words in Context cards to unlock the word quiz." })
+      )
+    );
+  }
+  return h(
+    "div",
+    { class: "rc-wq-entry" },
+    h(
+      "div",
+      { class: "rc-wq-entry-text" },
+      title,
+      h("span", { class: "small muted", text: "Pick the word for each sentence or meaning. Your past wrong picks show up as choices." })
+    ),
+    h(
+      "div",
+      { class: "row rc-wq-sizes", role: "group", "aria-label": "Quiz length" },
+      ...sizes.map((n, i2) => h("button", {
+        type: "button",
+        class: i2 === 0 ? "btn small primary" : "btn small",
+        title: `Start a quiz on ${plural6(n, "word")}`,
+        onclick: () => handlers.start(n)
+      }, plural6(n, "word")))
+    )
+  );
+}
+function feedback(q, ans) {
+  const said = ans.correct ? ["Right. The word is ", h("b", { text: q.word }), "."] : ["Not quite. You picked ", h("b", { text: q.choices[ans.picked] }), ". The word is ", h("b", { text: q.word }), "."];
+  return h(
+    "div",
+    { class: "rc-wq-feedback" },
+    h("div", { class: `banner ${ans.correct ? "good" : "danger"}`, role: "status" }, h("p", { class: "stem" }, ...said)),
+    q.sentence ? h("p", { class: "rc-wq-sentence" }, ...withWord2(q.sentence, q.word)) : null,
+    q.meaning ? h("p", { class: "small rc-wq-meaning" }, ...withWord2(q.meaning, q.word)) : null
+  );
+}
+function renderWordQuiz(state2, handlers) {
+  const q = currentWord(state2);
+  const p = wordQuizProgress(state2);
+  if (!q) {
+    return h(
+      "div",
+      { class: "card rc-wq rc-wq-run" },
+      head2("Word quiz", null, null, handlers.quit),
+      h("p", { class: "small muted", text: "You've reached the end of this quiz." }),
+      h(
+        "div",
+        { class: "row rc-wq-actions" },
+        h("button", { type: "button", class: "btn primary", title: "Enter", onclick: () => handlers.next() }, "See results")
+      )
+    );
+  }
+  const ans = currentWordAnswer(state2);
+  const kids = [
+    head2("Word quiz", `${p.number} of ${p.total}`, null, handlers.quit),
+    bar3(state2.index + (ans ? 1 : 0), p.total),
+    h("p", { class: "rc-wq-label", text: q.kind === "blank" ? "Which word fits?" : "Which word means this?" }),
+    h("p", { class: `stem rc-wq-prompt rc-wq-kind-${q.kind}` }, ...promptNodes(q.prompt)),
+    choiceList3(q, ans, (l) => handlers.pick(l))
+  ];
+  if (!ans) {
+    kids.push(h("p", { class: "small muted rc-wq-hint", text: "Pick a word. Keys 1 to 4 or A to D work too." }));
+  } else {
+    kids.push(
+      feedback(q, ans),
+      h(
+        "div",
+        { class: "row rc-wq-actions" },
+        h("button", { type: "button", class: "btn primary", title: "Enter", onclick: () => handlers.next() }, p.left > 0 ? "Next" : "See results")
+      )
+    );
+  }
+  return h("div", { class: "card rc-wq rc-wq-run" }, ...kids);
+}
+function missItem2(m) {
+  return h(
+    "li",
+    { class: "rc-wq-miss" },
+    h(
+      "div",
+      { class: "rc-wq-miss-head" },
+      h("b", { class: "rc-wq-miss-word", text: m.word }),
+      h("span", { class: "small muted", text: `you picked ${m.picked}` })
+    ),
+    m.meaning ? h("p", { class: "small rc-wq-meaning" }, ...withWord2(m.meaning, m.word)) : null,
+    m.sentence ? h("p", { class: "small muted rc-wq-sentence" }, ...withWord2(m.sentence, m.word)) : null
+  );
+}
+function renderWordQuizResult(summary, handlers) {
+  const s = summary;
+  const misses = s.misses.length;
+  const tone = s.accuracy === null ? "" : s.accuracy >= 0.8 ? "good" : s.accuracy >= 0.5 ? "warn" : "danger";
+  const top = head2("Word quiz results", null, s.answered ? chip(pct7(s.accuracy), tone) : null, null);
+  const actions = h(
+    "div",
+    { class: "row rc-wq-actions" },
+    h("button", { type: "button", class: misses ? "btn primary" : "btn", onclick: () => handlers.again() }, "Again"),
+    h("button", { type: "button", class: misses ? "btn" : "btn primary", title: "Enter", onclick: () => handlers.done() }, "Done")
+  );
+  if (!s.answered) {
+    return h(
+      "div",
+      { class: "card rc-wq rc-wq-result" },
+      top,
+      h(
+        "div",
+        { class: "banner warn", role: "status" },
+        h("p", { class: "stem", text: "You didn't answer any words." }),
+        h("p", { class: "small", text: "Start again whenever you're ready." })
+      ),
+      actions
+    );
+  }
+  const left = s.total - s.answered;
+  return h(
+    "div",
+    { class: "card rc-wq rc-wq-result" },
+    top,
+    h(
+      "div",
+      { class: `banner ${(s.accuracy ?? 0) >= 0.8 ? "good" : "warn"}`, role: "status" },
+      h("p", { class: "stem", text: `You got ${s.right} of ${s.answered} right.` }),
+      h("p", { class: "small", text: left ? `That's ${pct7(s.accuracy)}. You stopped with ${plural6(left, "word")} left.` : `That's ${pct7(s.accuracy)}.` })
+    ),
+    misses ? h(
+      "div",
+      null,
+      h("h3", { text: `Words to review (${misses})` }),
+      h("ul", { class: "rc-wq-misses" }, ...s.misses.map(missItem2))
+    ) : h("p", { class: "small", text: left ? "No misses in the words you answered." : "You got every word right." }),
+    actions
+  );
+}
+
+// extension/src/addons/index.ts
+var freshReview = () => ({ open: false, forced: null, rule: null, drill: null, picked: null, result: null, loading: false, error: null, skipped: [], done: 0, correct: 0 });
+var GRID_IN_SKIP = "This one needs a typed answer. Use Test me on the card.";
+var CONFIDENCE = [
+  { key: "sure", label: "Sure", hint: "I knew it" },
+  { key: "unsure", label: "Unsure", hint: "50/50" },
+  { key: "guess", label: "Guessed", hint: "no idea" }
+];
+function createAddons(ctx, host) {
+  const s = {
+    prefs: { ...DEFAULT_PREFS },
+    log: [],
+    srs: {},
+    timer: emptyTimer(),
+    sets: emptySets(),
+    summary: null,
+    review: freshReview(),
+    page: null,
+    pageWarning: null,
+    captureAnyway: false,
+    checkWarnings: [],
+    cropping: null,
+    lastSent: null,
+    confidence: null,
+    journal: defaultFilter(),
+    showHelp: false,
+    showSettings: false,
+    strategyOpen: false,
+    lastSeconds: null,
+    toast: null,
+    practice: null,
+    redoStore: {},
+    /** achievements.ts: badge id -> when it was earned. */
+    badges: {},
+    /** The next extract came from a right-click selection or a paste, not from the active tab. */
+    fromElsewhere: false,
+    /** qbquiz.ts: the Question Bank export quiz on screen (or its results). null when there is none. */
+    quiz: null,
+    /** Finished quizzes, newest first (qbquiz.ts keeps 20). */
+    quizHistory: [],
+    /** The quiz is set aside (a slim strip on top) while Rulecard explains one of its misses. */
+    quizPaused: false,
+    quizBusy: false,
+    /** Seconds the student spent on the quiz question being explained. afterExtract logs it instead of a timer lap. */
+    quizSeconds: null,
+    /** The paste box of "Practice a Question Bank export". Kept in memory only. */
+    quizEntry: { open: false, text: "", parsed: null },
+    /** wordquiz.ts: "Quiz me on my words" on screen (or its results). Memory only. */
+    wordQuiz: null,
+    wordQuizN: 10
+  };
+  let practiceView = null;
+  const recompute = () => {
+    s.summary = summarize(s.log, s.srs);
+  };
+  const toast = (msg) => {
+    s.toast = msg;
+    ctx.rerender();
+    setTimeout(() => {
+      if (s.toast === msg) {
+        s.toast = null;
+        ctx.rerender();
+      }
+    }, 2200);
+  };
+  const badgeInput = () => ({ log: s.log, srs: s.srs, recaps: s.sets.recap ? [s.sets.recap] : [], dailyGoal: s.prefs.dailyGoal });
+  const checkBadges = async () => {
+    const { badges, fresh } = await syncBadges(badgeInput());
+    s.badges = badges;
+    return s.prefs.badges && fresh.length ? badgeToast(fresh) : "";
+  };
+  const applyZoom = () => {
+    if (typeof document !== "undefined" && document.body) document.body.style.zoom = String(s.prefs.zoom || 1);
+  };
+  let unhook = null;
+  const ready = (async () => {
+    [s.prefs, s.log, s.srs, s.timer, s.sets, s.redoStore] = await Promise.all([readPrefs(), readLog(), readSrs(), readTimer(), readSets(), readRedo()]);
+    if (!Object.keys(s.srs).length && s.log.length) {
+      s.srs = rebuildFromLog(s.log);
+      await writeSrs(s.srs);
+    }
+    const quizStore = await readQuizStore();
+    s.quiz = quizStore.active ? resumeQuiz(quizStore.active, Date.now()) : null;
+    s.quizHistory = quizStore.history;
+    recompute();
+    s.badges = (await syncBadges(badgeInput())).badges;
+    applyZoom();
+    if (s.prefs.hotkeys) unhook = installHotkeys(hotkeyActions);
+    ctx.rerender();
+  })();
+  const captureHost = {
+    processImage: async (image) => {
+      s.fromElsewhere = true;
+      s.lastSent = null;
+      try {
+        await host.processImage(image);
+      } catch (error) {
+        s.fromElsewhere = false;
+        throw error;
+      }
+    },
+    rerender: () => ctx.rerender(),
+    describe: (error) => ctx.describe(error)
+  };
+  const selection = createSelectionCapture(captureHost);
+  const paste = createPastePanel(captureHost);
+  const seen = createSeenCheck(() => ctx.rerender());
+  void ready.then(async () => {
+    for (let i2 = 0; i2 < 30 && !ctx.settings?.token; i2++) await new Promise((r) => setTimeout(r, 100));
+    await selection.start();
+  });
+  function hotkeyActions() {
+    if (s.wordQuiz) return { raw: pressWordQuizKey, help: toggleHelp };
+    if (s.quiz && !s.quizPaused) return { raw: pressQuizKey, help: toggleHelp };
+    if (s.practice && practiceView) {
+      const v = practiceView;
+      return { raw: (key) => pressPracticeKey(v.handlers, key, v.mode), help: toggleHelp };
+    }
+    const r = s.review;
+    if (r.open && r.drill && !r.result) {
+      return { pick: (l) => void answerReview(l), help: toggleHelp };
+    }
+    if (r.open && r.result) return { review: () => void nextReview(), help: toggleHelp };
+    return {
+      pick: (l) => host.pick?.(l),
+      pickCorrect: () => host.pick?.("correct"),
+      explain: () => host.explain?.(),
+      capture: () => host.capture?.(),
+      testMe: () => host.testMe?.(),
+      focusChat: () => host.focusChat?.(),
+      review: () => void startReview(),
+      copyCard: () => void copyCurrentCard(),
+      help: toggleHelp
+    };
+  }
+  function toggleHelp() {
+    s.showHelp = !s.showHelp;
+    ctx.rerender();
+  }
+  async function beforeCapture(tab) {
+    s.pageWarning = null;
+    s.checkWarnings = [];
+    s.page = null;
+    s.fromElsewhere = false;
+    const wantsPage = s.prefs.pageCheck || s.prefs.textCapture;
+    if (!wantsPage || tab.id === void 0 || !isQuestionBankUrl(tab.url)) return true;
+    const read = await readQuestionBankPage(tab.id);
+    if (read) s.page = { ...read, at: Date.now(), tabId: tab.id };
+    if (s.captureAnyway) {
+      s.captureAnyway = false;
+      return true;
+    }
+    const p = read?.parsed;
+    if (s.prefs.pageCheck && p?.qbId && !p.answerRevealed && hasChoices(p.choices) && !isMathTaxonomy(p.domain, p.skill)) {
+      s.pageWarning = `The answer to ${p.qbId} isn't showing yet. Reveal it on the page, then capture. That way the card uses the official answer and you don't spend a capture.`;
+      ctx.rerender();
+      return false;
+    }
+    return true;
+  }
+  async function tryTextCapture(tab) {
+    if (!s.prefs.textCapture || tab.id === void 0 || !isQuestionBankUrl(tab.url)) return null;
+    let read = s.page && s.page.tabId === tab.id && Date.now() - s.page.at < 15e3 ? s.page : null;
+    if (!read) read = await readQuestionBankPage(tab.id);
+    if (!read || isMathTaxonomy(read.parsed.domain, read.parsed.skill) || !canTextCapture(read.parsed, read.media)) return null;
+    try {
+      const image = await renderQuestionImage(read.parsed);
+      s.lastSent = { kind: "text", image };
+      return image;
+    } catch {
+      return null;
+    }
+  }
+  async function transformImage(image) {
+    s.lastSent = { kind: "screenshot", image };
+    if (!s.prefs.cropBeforeSend) return image;
+    return new Promise((resolve) => {
+      s.cropping = { image, resolve };
+      ctx.rerender();
+    });
+  }
+  async function afterExtract(question) {
+    const elsewhere = s.fromElsewhere;
+    s.fromElsewhere = false;
+    const quizSeconds = s.quizSeconds;
+    s.quizSeconds = null;
+    if (s.prefs.timer) {
+      if (quizSeconds !== null) {
+        s.lastSeconds = quizSeconds;
+      } else {
+        const res = lap2(s.timer, Date.now());
+        s.timer = res.state;
+        s.lastSeconds = res.seconds;
+        await writeTimer(s.timer);
+      }
+    }
+    s.confidence = null;
+    s.checkWarnings = [];
+    const isMath = question.section === "math" || question.format === "spr" || isMathTaxonomy(question.domain, question.skill);
+    if (s.prefs.pageCheck && s.lastSent?.kind !== "text" && !elsewhere && !isMath) {
+      let page = s.page && Date.now() - s.page.at < 6e4 ? s.page.parsed : null;
+      if (!page) {
+        try {
+          const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          if (tab?.id !== void 0 && isQuestionBankUrl(tab.url)) page = (await readQuestionBankPage(tab.id))?.parsed ?? null;
+        } catch {
+        }
+      }
+      if (page) s.checkWarnings = crossCheck(question, page).warnings;
+    }
+    s.page = null;
+    ctx.rerender();
+  }
+  async function afterExplain(data, picked, typed = null) {
+    try {
+      await afterExplainInner(data, picked, typed);
+    } catch (error) {
+      console.warn("Rulecard: couldn't save this card on the device", error);
+      toast("Couldn't save this card on this device");
+    }
+  }
+  async function afterExplainInner(data, picked, typed) {
+    const entry = entryFromExplain(data, picked, { seconds: s.prefs.timer ? s.lastSeconds : null, selfConfidence: s.confidence, typed });
+    s.checkWarnings = [];
+    s.log = await recordAttempt(entry);
+    s.srs = applyAttempt(s.srs, entry, entry.at);
+    await writeSrs(s.srs);
+    let setDone = false;
+    if (s.sets.active) {
+      s.sets = addToSet(s.sets, entry.attemptId, s.log, Date.now());
+      await writeSets(s.sets);
+      setDone = Boolean(s.sets.recap && !s.sets.active);
+    }
+    recompute();
+    const earned = await checkBadges();
+    if (setDone || earned) toast([setDone ? "Set complete" : "", earned].filter(Boolean).join(". "));
+    if (s.prefs.autoSpeak) speak(`${data.rule?.name ?? ""}. ${data.card.rule_statement}`);
+    ctx.rerender();
+  }
+  async function afterDrillCheck(attemptId, correct) {
+    try {
+      await recordDrill(attemptId, correct, false);
+      s.log = await readLog();
+    } catch (error) {
+      console.warn("Rulecard: couldn't save the drill result", error);
+      return;
+    }
+    recompute();
+    ctx.rerender();
+  }
+  const due = () => dueRules(s.srs, Date.now());
+  const queueLeft = () => due().filter((d) => !s.review.skipped.includes(d.ruleId));
+  async function startReview(ruleId) {
+    if (ruleId && !s.srs[ruleId]) {
+      const latest = s.log.find((e) => e.ruleId === ruleId);
+      if (latest) {
+        s.srs = applyAttempt(s.srs, latest, latest.at);
+        await writeSrs(s.srs);
+      }
+    }
+    s.review = { ...freshReview(), open: true, forced: ruleId ?? null };
+    s.practice = null;
+    await nextReview();
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  async function nextReview() {
+    const r = s.review;
+    const forced = r.forced ? s.srs[r.forced] ?? null : null;
+    r.forced = null;
+    const rule = forced ?? queueLeft()[0] ?? null;
+    Object.assign(r, { rule, drill: null, picked: null, result: null, error: null, loading: Boolean(rule) });
+    ctx.rerender();
+    if (!rule) return;
+    try {
+      const d = await ctx.request(ctx.settings, "/api/drill", { body: { attemptId: rule.attemptId } });
+      if (d.format === "spr" || !hasChoices(d.question.choices)) r.error = GRID_IN_SKIP;
+      else r.drill = d;
+    } catch (error) {
+      r.error = ctx.describe(error);
+    } finally {
+      r.loading = false;
+      ctx.rerender();
+    }
+  }
+  async function answerReview(letter) {
+    const r = s.review;
+    if (!r.drill || r.result || r.picked || !r.rule) return;
+    r.picked = letter;
+    ctx.rerender();
+    try {
+      r.result = await ctx.request(ctx.settings, "/api/drill/check", { body: { drillId: r.drill.drillId, picked: letter } });
+      r.done++;
+      if (r.result.correct) r.correct++;
+      s.srs = applyReview(s.srs, r.rule.ruleId, r.result.correct, Date.now());
+      await writeSrs(s.srs);
+      await recordDrill(r.rule.attemptId, r.result.correct, true);
+      s.log = await readLog();
+      recompute();
+      const earned = await checkBadges();
+      if (earned) toast(earned);
+    } catch (error) {
+      r.error = ctx.describe(error);
+      r.picked = null;
+    }
+    ctx.rerender();
+  }
+  function renderReview() {
+    const r = s.review;
+    const dueList = due();
+    if (!r.open) {
+      if (!Object.keys(s.srs).length) return null;
+      const next = nextDue(s.srs, Date.now());
+      return h(
+        "div",
+        { class: "card rc-review-cta" },
+        h(
+          "div",
+          { class: "row between" },
+          h("div", null, h("h2", { text: "Review" }), h("p", { class: "small", text: dueList.length ? `${dueList.length} rule${dueList.length === 1 ? "" : "s"} due` : next ? `Nothing due. Next review ${describeDue(next.due, Date.now())}.` : "Nothing due." })),
+          dueList.length ? h("button", { class: "btn primary", onclick: () => void startReview(), title: "R" }, `Review ${dueList.length}`) : null
+        ),
+        dueList.length ? h("div", { class: "row rc-wrap" }, ...dueList.slice(0, 6).map((d) => chip(d.ruleName ? `${d.ruleId} \xB7 ${d.ruleName}` : d.ruleId, d.lapses > 1 ? "danger" : "accent"))) : null
+      );
+    }
+    const header2 = h(
+      "div",
+      { class: "row between" },
+      h("h2", { text: `Review${r.done ? ` \xB7 ${r.correct}/${r.done}` : ""}` }),
+      h("button", { class: "btn link small", text: "Done", onclick: () => {
+        s.review = freshReview();
+        ctx.rerender();
+      } })
+    );
+    if (!r.rule) {
+      return h("div", { class: "card" }, header2, h("div", { class: "banner good" }, h("p", { class: "stem", text: r.done ? `Done. ${r.correct} of ${r.done} right.` : "Nothing due right now." }), h("p", { class: "small muted", text: "Missed rules come back tomorrow. Ones you get right come back after longer and longer gaps." })));
+    }
+    const children = [header2, h("div", { class: "row" }, chip(r.rule.ruleName ? `${r.rule.ruleId} \xB7 ${r.rule.ruleName}` : r.rule.ruleId, "accent"), chip(`box ${r.rule.box}/6`))];
+    if (r.loading) children.push(h("p", { class: "muted small row" }, spinner(), "Writing a fresh question on this rule..."));
+    if (r.drill) {
+      const d = r.drill;
+      children.push(
+        d.question.passage ? h("div", { class: "passage", text: d.question.passage }) : null,
+        h("p", { class: "stem", text: d.question.stem }),
+        h(
+          "ol",
+          { class: "choices" },
+          ...LETTERS2.map((letter) => {
+            const isPick = r.picked === letter;
+            const isCorrect = r.result?.correctLetter === letter;
+            const cls = r.result ? isCorrect ? "correct" : isPick ? "picked" : "" : isPick ? "selected" : "selectable";
+            return h("li", { class: `choice ${cls}`.trim(), onclick: () => void answerReview(letter) }, h("span", { class: "letter", text: `${letter}.` }), h("span", { text: d.question.choices?.[letter] ?? "" }));
+          })
+        )
+      );
+    }
+    if (r.result) {
+      children.push(
+        h(
+          "div",
+          { class: `banner ${r.result.correct ? "good" : "danger"}` },
+          h("p", { class: "stem", text: r.result.correct ? "Right. This rule's next review is pushed further out." : `Not quite. The answer is ${r.result.correctLetter ?? r.result.correctAnswer ?? "not available"}. This rule comes back tomorrow.` }),
+          h("p", { text: r.result.correct ? r.result.whyCorrect : r.result.fix ?? r.result.whyCorrect })
+        ),
+        h("button", { class: "btn primary", onclick: () => void nextReview(), title: "R" }, queueLeft().length ? `Next rule (${queueLeft().length} left)` : "Finish")
+      );
+    }
+    if (r.error) {
+      const gridIn = r.error === GRID_IN_SKIP;
+      children.push(h("div", { class: `banner ${gridIn ? "warn" : "danger"}`, role: "alert", text: r.error }), h("button", { class: "btn", text: "Skip this rule", onclick: () => {
+        if (r.rule) {
+          r.skipped.push(r.rule.ruleId);
+          if (!gridIn) {
+            s.srs = applyReview(s.srs, r.rule.ruleId, false, Date.now());
+            void writeSrs(s.srs);
+          }
+        }
+        void nextReview();
+      } }));
+    }
+    return h("div", { class: "card rc-review" }, ...children);
+  }
+  function openPractice(p) {
+    s.review = freshReview();
+    s.practice = p;
+    ctx.rerender();
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function quitPractice() {
+    s.practice = null;
+    practiceView = null;
+    recompute();
+    ctx.rerender();
+  }
+  function renderPractice() {
+    const p = s.practice;
+    if (!p) {
+      practiceView = null;
+      if (!s.prefs.practice || s.review.open) return null;
+      const counts = deckCounts(s.log, s.srs, Date.now());
+      return renderPracticeEntry({ due: counts.due, weak: counts.weak, misses: redoQueue(s.log, s.redoStore).length }, {
+        flashcards: (extra) => openPractice({ mode: "flashcards", deck: createDeck(s.log, s.srs, Date.now(), { extra }) }),
+        redo: () => openPractice({ mode: "redo", redo: createRedo(s.log, s.redoStore, Date.now()) })
+      });
+    }
+    const view = p.mode === "flashcards" ? renderFlashcards(p.deck, {
+      update: (deck) => {
+        s.practice = { mode: "flashcards", deck };
+        ctx.rerender();
+      },
+      saveSrs: (srs) => {
+        s.srs = srs;
+        void writeSrs(srs);
+        recompute();
+        void checkBadges().then((m) => {
+          if (m) toast(m);
+        });
+      },
+      getSrs: () => s.srs,
+      quit: quitPractice
+    }) : renderRedo(p.redo, {
+      update: (redo) => {
+        s.practice = { mode: "redo", redo };
+        ctx.rerender();
+      },
+      saveAnswer: (attemptId, attempt) => void recordRedo(attemptId, attempt).then((store) => {
+        s.redoStore = store;
+        if (!s.practice) ctx.rerender();
+      }),
+      quit: quitPractice
+    }, { stats: redoStats(s.log, s.redoStore) });
+    practiceView = { mode: p.mode, handlers: view.handlers };
+    return view.el;
+  }
+  const scrollTop = () => {
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  function setQuiz(next) {
+    const prev = s.quiz;
+    s.quiz = next;
+    if (!next) s.quizPaused = false;
+    void saveActive(next).catch((error) => console.warn("Rulecard: couldn't save the quiz", error));
+    if (next && isFinished(next) && !(prev && prev.id === next.id && isFinished(prev))) {
+      void recordResult(next).then((store) => {
+        s.quizHistory = store.history;
+      });
+    }
+    ctx.rerender();
+  }
+  function startQuiz(opts) {
+    const parsed = s.quizEntry.parsed;
+    if (!parsed?.questions.length) return;
+    s.review = freshReview();
+    s.practice = null;
+    s.quizEntry.open = false;
+    setQuiz(createQuiz(parsed.questions, { now: Date.now(), shuffle: opts.shuffle, limit: opts.limit }));
+    scrollTop();
+  }
+  function quitQuiz() {
+    const st = s.quiz;
+    if (!st) return;
+    if (isFinished(st)) return setQuiz(null);
+    setQuiz(quizProgress(st).answered ? finishQuiz(st, Date.now()) : null);
+  }
+  function nextInQuiz() {
+    const st = s.quiz;
+    if (!st || isFinished(st)) return;
+    setQuiz(currentQuestion(st) ? nextQuiz(st, Date.now()) : finishQuiz(st, Date.now()));
+  }
+  function setWordQuiz(next) {
+    const prev = s.wordQuiz;
+    s.wordQuiz = next;
+    if (next && isWordQuizFinished(next) && !(prev && prev.id === next.id && isWordQuizFinished(prev))) {
+      void saveWordResults(next, Date.now()).catch((error) => console.warn("Rulecard: couldn't save word quiz results", error));
+    }
+    ctx.rerender();
+  }
+  async function startWordQuiz(n) {
+    s.wordQuizN = n;
+    const record = await readWordRecord().catch(() => ({}));
+    setWordQuiz(createWordQuiz(collectWords(s.log), record, { now: Date.now(), n }));
+    window.scrollTo({ top: 0 });
+  }
+  function quitWordQuiz() {
+    const st = s.wordQuiz;
+    if (st && !isWordQuizFinished(st) && wordQuizProgress(st).answered) setWordQuiz(finishWordQuiz(st, Date.now()));
+    else setWordQuiz(null);
+  }
+  function pressWordQuizKey(key) {
+    const st = s.wordQuiz;
+    if (!st) return false;
+    if (key === "Escape") {
+      quitWordQuiz();
+      return true;
+    }
+    const k = wordQuizKey(key);
+    if (!k) return false;
+    if (isWordQuizFinished(st)) {
+      if (key !== "Enter") return false;
+      setWordQuiz(null);
+      return true;
+    }
+    const answered = !currentWord(st) || currentWordAnswer(st) !== null;
+    if (k === "next") {
+      if (!answered) return false;
+      setWordQuiz(nextWord(st, Date.now()));
+      return true;
+    }
+    if (answered) return false;
+    setWordQuiz(answerWord(st, k, Date.now()));
+    return true;
+  }
+  function renderWordQuizSlot() {
+    const st = s.wordQuiz;
+    if (!st) return null;
+    if (isWordQuizFinished(st)) {
+      return renderWordQuizResult(wordQuizSummary(st), { again: () => void startWordQuiz(s.wordQuizN), done: () => setWordQuiz(null) });
+    }
+    return renderWordQuiz(st, {
+      pick: (l) => {
+        if (!currentWordAnswer(st)) setWordQuiz(answerWord(st, l, Date.now()));
+      },
+      next: () => setWordQuiz(nextWord(st, Date.now())),
+      quit: quitWordQuiz
+    });
+  }
+  function renderWordBankCard() {
+    const words = collectWords(s.log);
+    const card = renderWordBank(words, { download: downloadText });
+    if (words.length && !s.wordQuiz) card.append(renderWordQuizEntry(wordQuizAvailability(words), { start: (n) => void startWordQuiz(n) }));
+    return card;
+  }
+  function pressQuizKey(key) {
+    const st = s.quiz;
+    if (!st) return false;
+    if (key === "Escape") {
+      quitQuiz();
+      return true;
+    }
+    const k = quizKey(key);
+    if (!k) return false;
+    if (isFinished(st)) {
+      if (key !== "Enter") return false;
+      setQuiz(null);
+      return true;
+    }
+    const answered = !currentQuestion(st) || currentAnswer(st) !== null;
+    if (k === "next") {
+      if (!answered) return false;
+      nextInQuiz();
+      return true;
+    }
+    if (answered) return false;
+    setQuiz(answerQuiz(st, k, Date.now()));
+    return true;
+  }
+  async function explainQuizMiss(q, picked) {
+    const st = s.quiz;
+    if (!st || s.quizBusy) return;
+    const qi = st.questions.findIndex((x) => x === q || q.qbId !== null && x.qbId === q.qbId);
+    s.quizBusy = true;
+    s.quizPaused = true;
+    ctx.rerender();
+    try {
+      const image = await renderQuestionImage(toParsedQB(q));
+      s.quizSeconds = qi >= 0 ? st.answers[qi]?.seconds ?? null : null;
+      await captureHost.processImage(image);
+      host.pick?.(picked);
+      host.explain?.();
+    } catch (error) {
+      s.quizSeconds = null;
+      s.quizPaused = false;
+      toast(ctx.describe(error));
+    } finally {
+      s.quizBusy = false;
+      ctx.rerender();
+    }
+  }
+  function renderQuizSlot() {
+    const st = s.quiz;
+    if (!st) return null;
+    const done = isFinished(st);
+    if (s.quizPaused) {
+      const p = quizProgress(st);
+      return h(
+        "div",
+        { class: "rc-setbar active rc-quiz-strip row between small" },
+        h(
+          "span",
+          null,
+          h("b", { text: "Question Bank practice" }),
+          h("span", { class: "muted", text: s.quizBusy ? " \xB7 getting the question ready..." : done ? " \xB7 results saved" : ` \xB7 paused at ${p.number} of ${p.total}` })
+        ),
+        h("button", {
+          class: "btn small",
+          disabled: s.quizBusy,
+          onclick: () => {
+            s.quizPaused = false;
+            setQuiz(done ? st : resumeQuiz(st, Date.now()));
+            scrollTop();
+          }
+        }, done ? "Back to results" : "Back to quiz")
+      );
+    }
+    const explain2 = (q, picked) => void explainQuizMiss(q, picked);
+    if (done) {
+      return renderQuizResult(quizSummary(st), {
+        retry: () => {
+          if (s.quiz) setQuiz(retryMisses(s.quiz, Date.now()));
+          scrollTop();
+        },
+        done: () => setQuiz(null),
+        explain: explain2
+      });
+    }
+    return renderQuiz(st, {
+      pick: (l) => {
+        if (s.quiz) setQuiz(answerQuiz(s.quiz, l, Date.now()));
+      },
+      next: nextInQuiz,
+      skip: () => {
+        if (s.quiz) setQuiz(skipQuiz(s.quiz, Date.now()));
+      },
+      quit: quitQuiz,
+      explain: explain2
+    });
+  }
+  function renderQuizEntryCard() {
+    if (!s.prefs.qbQuiz || s.quiz) return null;
+    const e = s.quizEntry;
+    const last = s.quizHistory[0] ?? null;
+    const entry = renderQuizEntry({ text: e.text, preview: e.parsed ? previewOf(e.parsed) : null, last }, {
+      input: (text2) => {
+        e.text = text2;
+        e.parsed = text2.trim() ? parseExport(text2) : null;
+        return e.parsed ? previewOf(e.parsed) : null;
+      },
+      start: startQuiz
+    });
+    return h(
+      "details",
+      { class: "card rc-quiz-box", open: e.open ? "" : null, ontoggle: (ev) => {
+        e.open = ev.target.open;
+      } },
+      h(
+        "summary",
+        null,
+        h("h2", { text: "Practice a Question Bank export" }),
+        h("span", { class: "small muted", text: last ? `last: ${last.right} of ${last.total}` : "offline quiz" })
+      ),
+      entry
+    );
+  }
+  async function beginSet(target) {
+    s.sets = startSet(target, Date.now());
+    await writeSets(s.sets);
+    if (s.prefs.timer) {
+      s.timer = { ...emptyTimer(), startedAt: Date.now() };
+      await writeTimer(s.timer);
+    }
+    ctx.rerender();
+  }
+  async function finishSet() {
+    s.sets = endSet(s.sets, s.log, Date.now());
+    await writeSets(s.sets);
+    ctx.rerender();
+  }
+  async function dismissRecap() {
+    s.sets = { ...s.sets, recap: null };
+    await writeSets(s.sets);
+    ctx.rerender();
+  }
+  function renderPlanCard() {
+    if (!s.prefs.plan || s.review.open) return null;
+    const plan = buildPlan({ log: s.log, srs: s.srs, now: Date.now(), dailyGoal: s.prefs.dailyGoal, testDate: s.prefs.testDate });
+    return renderPlan(plan, {
+      startReview: () => void startReview(),
+      openFlashcards: s.prefs.practice ? () => openPractice({ mode: "flashcards", deck: createDeck(s.log, s.srs, Date.now()) }) : void 0,
+      startSet: s.sets.active ? void 0 : (n) => void beginSet(n),
+      copy: (text2) => void navigator.clipboard.writeText(text2).then(() => toast("Plan copied"), () => toast("Couldn't copy"))
+    });
+  }
+  function renderSetStrip() {
+    const a = s.sets.active;
+    if (!a) {
+      if (s.sets.recap) return null;
+      return h(
+        "div",
+        { class: "rc-setbar row between small" },
+        h("span", { class: "muted", text: "Practice set" }),
+        h("span", { class: "row" }, ...[5, 10, 20].map((n) => h("button", { class: "btn small", text: `${n}`, title: `Start a ${n}-question set`, onclick: () => void beginSet(n) })))
+      );
+    }
+    const ids = new Set(a.attemptIds);
+    const mine = s.log.filter((e) => ids.has(e.attemptId));
+    const missed = mine.filter((e) => e.result === "missed").length;
+    const pctDone = Math.round(a.attemptIds.length / a.target * 100);
+    return h(
+      "div",
+      { class: "rc-setbar active" },
+      h(
+        "div",
+        { class: "row between small" },
+        h("span", null, h("b", { text: `Set ${a.attemptIds.length}/${a.target}` }), h("span", { class: "muted", text: ` \xB7 ${missed} missed \xB7 ${formatClock((Date.now() - a.startedAt) / 1e3)} elapsed` })),
+        h("button", { class: "btn link small", text: "End set", onclick: () => void finishSet() })
+      ),
+      h("div", { class: "rc-goal" }, h("span", { style: `width:${pctDone}%` }))
+    );
+  }
+  function renderRecap() {
+    const r = s.sets.recap;
+    if (!r) return null;
+    const ids = new Set(r.attemptIds);
+    const entries = s.log.filter((e) => ids.has(e.attemptId));
+    const target = entries.length ? entries.reduce((a, e) => a + targetSecondsFor(e), 0) / entries.length : TARGET_SECONDS;
+    const tone = r.accuracy >= 0.8 ? "good" : r.accuracy >= 0.6 ? "accent" : "warn";
+    return h(
+      "div",
+      { class: `card rc-recap ${tone}` },
+      h("div", { class: "row between" }, h("h2", { text: "Set complete" }), h("button", { class: "btn link small", text: "Dismiss", onclick: () => void dismissRecap() })),
+      h(
+        "div",
+        { class: "rc-tiles" },
+        h("div", { class: "rc-tile" }, h("span", { class: "rc-tile-value", text: `${r.right}/${r.count}` }), h("span", { class: "rc-tile-label", text: "right" })),
+        h("div", { class: "rc-tile" }, h("span", { class: "rc-tile-value", text: `${Math.round(r.accuracy * 100)}%` }), h("span", { class: "rc-tile-label", text: "accuracy" })),
+        h("div", { class: `rc-tile ${r.avgSeconds !== null && r.avgSeconds > target ? "" : "good"}`.trim() }, h("span", { class: "rc-tile-value", text: r.avgSeconds === null ? "\u2013" : `${r.avgSeconds}s` }), h("span", { class: "rc-tile-label", text: "avg pace" })),
+        h("div", { class: "rc-tile" }, h("span", { class: "rc-tile-value", text: `${r.minutes}m` }), h("span", { class: "rc-tile-label", text: "total" }))
+      ),
+      r.missedRules.length ? h("div", null, h("p", { class: "small", text: "Rules to fix:" }), h("div", { class: "row rc-wrap" }, ...r.missedRules.map((m) => chip(`${m.ruleName ? `${m.ruleId} \xB7 ${m.ruleName}` : m.ruleId}${m.misses > 1 ? ` \xD7${m.misses}` : ""}`, "danger")))) : h("p", { class: "small", text: "No misses. Clean set." }),
+      h(
+        "div",
+        { class: "row rc-wrap" },
+        r.missedRules.length ? h("button", { class: "btn primary small", text: "Review these rules", onclick: () => void startReview(r.missedRules[0].ruleId) }) : null,
+        h("button", { class: "btn small", text: "Print this set", onclick: () => entries.length && openPrintable(toPrintableHtml(entries, `Rulecard set \xB7 ${new Date(r.endedAt).toLocaleDateString()}`)) }),
+        h("button", { class: "btn small", text: "Another set", onclick: () => void beginSet(r.count || 10) })
+      )
+    );
+  }
+  function renderQuestionExtras(q) {
+    const out = [];
+    if (s.prefs.seenBefore) out.push(seen.render(s.log, q, { excludeAttemptIds: [host.getExplained()?.attemptId] }));
+    const st = s.prefs.strategies ? strategyFor(q.skill) : null;
+    if (!st) return out;
+    out.push(h(
+      "details",
+      { class: "rc-strategy", open: s.strategyOpen ? "" : null, ontoggle: (ev) => {
+        s.strategyOpen = ev.target.open;
+      } },
+      h("summary", { class: "small", text: `How to attack ${st.skill}` }),
+      h("ol", { class: "steps small" }, ...st.steps.map((t) => h("li", { text: t }))),
+      h("p", { class: "small muted" }, h("b", { text: "Traps: " }), st.traps.join(" \xB7 "))
+    ));
+    return out;
+  }
+  function renderPickExtras() {
+    if (!s.prefs.askConfidence) return [];
+    return [h(
+      "div",
+      { class: "rc-confidence row rc-wrap", role: "radiogroup", "aria-label": "How sure were you?" },
+      h("span", { class: "small muted", text: "How sure were you?" }),
+      ...CONFIDENCE.map((c) => h("button", {
+        class: `btn small ${s.confidence === c.key ? "on" : ""}`.trim(),
+        role: "radio",
+        "aria-checked": String(s.confidence === c.key),
+        title: c.hint,
+        text: c.label,
+        onclick: () => {
+          s.confidence = s.confidence === c.key ? null : c.key;
+          ctx.rerender();
+        }
+      }))
+    )];
+  }
+  const currentEntry = () => {
+    const ex = host.getExplained();
+    return ex ? s.log.find((e) => e.attemptId === ex.attemptId) ?? null : null;
+  };
+  async function copyCurrentCard() {
+    const e = currentEntry();
+    if (!e) return;
+    try {
+      await navigator.clipboard.writeText(cardAsText(e));
+      toast("Rule card copied");
+    } catch {
+      toast("Couldn't copy");
+    }
+  }
+  function speak(text2) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text2);
+    u.rate = 1.02;
+    speechSynthesis.speak(u);
+  }
+  let noteTimer = null;
+  let noteDraft = null;
+  function renderCardTools() {
+    const e = currentEntry();
+    if (!e) return null;
+    const note = h("textarea", { id: `rc-note-${e.attemptId}`, class: "input rc-note", rows: "2", placeholder: "Your own note on this mistake (saved on this device, goes into exports)" });
+    note.value = noteDraft?.attemptId === e.attemptId ? noteDraft.value : e.note;
+    note.addEventListener("input", () => {
+      noteDraft = { attemptId: e.attemptId, value: note.value };
+      if (noteTimer) clearTimeout(noteTimer);
+      noteTimer = setTimeout(async () => {
+        const value = note.value;
+        await updateEntry(e.attemptId, { note: value }).catch(() => null);
+        e.note = value;
+        if (noteDraft?.attemptId === e.attemptId && noteDraft.value === value) noteDraft = null;
+      }, 400);
+    });
+    const dueInfo = s.srs[e.ruleId];
+    return h(
+      "div",
+      { class: "card rc-tools" },
+      h(
+        "div",
+        { class: "row rc-wrap" },
+        h("button", { class: "btn small", onclick: () => void copyCurrentCard(), title: "Y" }, "Copy card"),
+        h("button", { class: "btn small", onclick: () => speak(`${e.ruleName ?? ""}. ${e.ruleStatement}. Takeaway: ${e.takeaway}`) }, "Read aloud"),
+        h("button", {
+          class: `btn small ${e.starred ? "on" : ""}`.trim(),
+          "aria-pressed": String(e.starred),
+          onclick: async () => {
+            await updateEntry(e.attemptId, { starred: !e.starred });
+            e.starred = !e.starred;
+            ctx.rerender();
+          }
+        }, e.starred ? "\u2605 Starred" : "\u2606 Star"),
+        e.seconds !== null ? chip(`${e.seconds}s`, e.seconds > targetSecondsFor(e) ? "warn" : "good") : null,
+        e.selfConfidence === "sure" && e.result === "missed" ? chip("sure but wrong", "danger") : null,
+        dueInfo ? chip(`review ${describeDue(dueInfo.due, Date.now())}`) : null
+      ),
+      note
+    );
+  }
+  function openImage(dataUrl) {
+    void fetch(dataUrl).then((r) => r.blob()).then((b) => {
+      const url = URL.createObjectURL(b);
+      void chrome.tabs.create({ url });
+      setTimeout(() => URL.revokeObjectURL(url), 6e4);
+    });
+  }
+  function renderCaptureExtras() {
+    const out = [];
+    if (s.cropping) {
+      const c = s.cropping;
+      out.push(renderCropper(c.image, (img) => {
+        s.cropping = null;
+        c.resolve(img);
+        ctx.rerender();
+      }));
+    }
+    out.push(selection.render());
+    if (s.prefs.pastePanel) out.push(paste.render());
+    out.push(renderSetStrip());
+    if (s.prefs.timer) out.push(renderTimer(s.timer, { reset: async () => {
+      s.timer = emptyTimer();
+      await writeTimer(s.timer);
+      ctx.rerender();
+    } }, targetSecondsFor(host.getQuestion())));
+    if (s.lastSent?.kind === "text" && host.getQuestion())
+      out.push(h("p", { class: "small muted row" }, chip("read from page text", "good"), "No screenshot needed. ", h("button", { class: "btn link small", text: "See what was sent", onclick: () => s.lastSent && openImage(s.lastSent.image) })));
+    if (s.pageWarning)
+      out.push(h(
+        "div",
+        { class: "banner warn", role: "alert" },
+        h("p", { text: s.pageWarning }),
+        h("button", { class: "btn small", style: "margin-top:6px", text: "Capture anyway", onclick: () => {
+          s.captureAnyway = true;
+          s.pageWarning = null;
+          host.capture?.();
+        } })
+      ));
+    for (const w of s.checkWarnings) out.push(h("div", { class: "banner warn", role: "alert", text: w }));
+    return out;
+  }
+  async function doExport(kind, scope) {
+    const entries = filterScope(s.log, scope);
+    if (!entries.length && kind !== "backup") {
+      toast("Nothing to export yet");
+      return;
+    }
+    if (kind === "anki") downloadText(`rulecard-anki-${scope}-${stamp()}.csv`, toAnkiCsv(entries), "text/csv");
+    if (kind === "md") downloadText(`rulecard-notes-${scope}-${stamp()}.md`, toMarkdown(entries), "text/markdown");
+    if (kind === "print") openPrintable(toPrintableHtml(entries));
+    if (kind === "backup") downloadText(`rulecard-backup-${stamp()}.json`, toBackup(s.log), "application/json");
+  }
+  async function doImport(file) {
+    try {
+      const added = await importEntries(parseBackup(await file.text()));
+      s.log = await readLog();
+      s.srs = rebuildFromLog(s.log);
+      await writeSrs(s.srs);
+      recompute();
+      s.badges = (await syncBadges(badgeInput())).badges;
+      toast(`Imported ${added} question${added === 1 ? "" : "s"}`);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Import failed");
+    }
+  }
+  async function share() {
+    if (!s.summary) return;
+    try {
+      const img = await renderShareImage(s.summary, countdown(s.prefs.testDate, s.summary));
+      downloadDataUrl(`rulecard-progress-${stamp()}.png`, img);
+      toast("Progress image saved");
+    } catch {
+      toast("Couldn't make the image");
+    }
+  }
+  async function setPref(key, value) {
+    if (key === "reminders" && value === true) {
+      const granted = await chrome.permissions.request({ permissions: ["notifications"] }).catch(() => false);
+      if (!granted) {
+        toast("Reminders need notification permission");
+        return;
+      }
+    }
+    s.prefs = { ...s.prefs, [key]: value };
+    await writePrefs(s.prefs);
+    if (key === "hotkeys") {
+      unhook?.();
+      unhook = value ? installHotkeys(hotkeyActions) : null;
+    }
+    if (key === "zoom") applyZoom();
+    ctx.rerender();
+  }
+  function renderSettings() {
+    const toggle = (key, label, hint) => h(
+      "label",
+      { class: "rc-toggle" },
+      h("input", { type: "checkbox", checked: Boolean(s.prefs[key]), onchange: (ev) => void setPref(key, ev.target.checked) }),
+      h("span", null, h("span", { text: label }), h("span", { class: "muted small", text: hint }))
+    );
+    const exportScope = h(
+      "select",
+      { id: "rc-export-scope", class: "input rc-select" },
+      h("option", { value: "missed", text: "Missed questions" }),
+      h("option", { value: "starred", text: "Starred" }),
+      h("option", { value: "all", text: "Everything" })
+    );
+    const scope = () => document.getElementById("rc-export-scope")?.value ?? "missed";
+    const fileInput = h("input", { type: "file", accept: "application/json,.json", hidden: "", onchange: (ev) => {
+      const f = ev.target.files?.[0];
+      if (f) void doImport(f);
+    } });
+    const goal = h("input", { class: "input rc-num", type: "number", min: "1", max: "100", value: String(s.prefs.dailyGoal), onchange: (ev) => void setPref("dailyGoal", Math.max(1, Math.min(100, Number(ev.target.value) || 10))) });
+    const hour = h("input", { class: "input rc-num", type: "number", min: "0", max: "23", value: String(s.prefs.reminderHour), onchange: (ev) => void setPref("reminderHour", Math.max(0, Math.min(23, Number(ev.target.value) || 19))) });
+    const testDate = h("input", { class: "input rc-date", type: "date", value: s.prefs.testDate ?? "", onchange: (ev) => void setPref("testDate", ev.target.value || null) });
+    const zoom = h(
+      "select",
+      { class: "input rc-select", onchange: (ev) => void setPref("zoom", Number(ev.target.value) || 1) },
+      ...[[0.9, "Small"], [1, "Normal"], [1.1, "Large"], [1.25, "Extra large"]].map(([v, l]) => h("option", { value: String(v), text: String(l) }))
+    );
+    zoom.value = String(s.prefs.zoom || 1);
+    return h(
+      "details",
+      { class: "card rc-settings", open: s.showSettings ? "" : null, ontoggle: (ev) => {
+        s.showSettings = ev.target.open;
+      } },
+      h("summary", null, h("h2", { text: "Export & settings" })),
+      h(
+        "section",
+        null,
+        h("h2", { text: "Export" }),
+        h("div", { class: "row rc-wrap" }, exportScope),
+        h(
+          "div",
+          { class: "row rc-wrap" },
+          h("button", { class: "btn small", text: "Anki deck (.csv)", onclick: () => void doExport("anki", scope()) }),
+          h("button", { class: "btn small", text: "Notes (.md)", onclick: () => void doExport("md", scope()) }),
+          h("button", { class: "btn small", text: "Print / PDF", onclick: () => void doExport("print", scope()) }),
+          h("button", { class: "btn small", text: "Progress image", onclick: () => void share() })
+        ),
+        h(
+          "div",
+          { class: "row rc-wrap" },
+          h("button", { class: "btn small", text: "Error log (.csv)", title: "The mistake spreadsheet tutors ask for. Opens in Excel or Numbers.", onclick: () => downloadText(errorLogFilename(scope(), Date.now()), toErrorLogCsv(errorLogRows(s.log, { scope: scope(), srs: s.srs })), "text/csv") }),
+          h("button", { class: "btn small", text: "Copy for Google Sheets", onclick: () => void navigator.clipboard.writeText(toErrorLogTsv(errorLogRows(s.log, { scope: scope(), srs: s.srs }))).then(() => toast("Error log copied. Paste it into cell A1."), () => toast("Couldn't copy")) })
+        ),
+        renderReportTools(() => buildWeeklyReport(s.log, s.srs, Date.now()), { notify: toast })
+      ),
+      h(
+        "section",
+        null,
+        h("h2", { text: "Capture" }),
+        toggle("textCapture", "Read the page text", "On the Question Bank, send a clean copy of the question instead of a screenshot. No icon click needed."),
+        toggle("pageCheck", "Check the page first", "Catches a hidden answer before you spend a capture, and flags misreads."),
+        toggle("cropBeforeSend", "Crop screenshots", "Box just the question before sending (screenshots only)."),
+        toggle("pastePanel", "Paste box", "Shows Paste a question under Capture, for text or a screenshot from any site.")
+      ),
+      h(
+        "section",
+        null,
+        h("h2", { text: "Practice" }),
+        toggle("askConfidence", "Ask how sure I was", "Tracks overconfidence. Misses you were sure about are misconceptions."),
+        toggle("strategies", "Show attack strategies", "A short method for each question type."),
+        toggle("seenBefore", "Flag repeats", "Says when a question is already in your log, with your old card."),
+        toggle("practice", "Offline practice", "Rule flashcards and redo my misses. No connection needed."),
+        toggle("qbQuiz", "Question Bank export quiz", "Paste an exported Question Bank PDF and practice it here, graded with the official answer key."),
+        toggle("timer", "Pacing timer", `Times each question between captures. Target ${TARGET_SECONDS}s for Reading and Writing, ${MATH_TARGET_SECONDS}s for Math.`),
+        toggle("hotkeys", "Keyboard shortcuts", "Press ? in the panel to see them."),
+        toggle("autoSpeak", "Read the rule aloud", "Speaks each new rule card."),
+        h("label", { class: "rc-toggle" }, h("span", { text: "Daily goal" }), goal, h("span", { class: "muted small", text: "questions" })),
+        h("label", { class: "rc-toggle" }, h("span", { text: "My SAT date" }), testDate),
+        toggle("reminders", "Daily reminder", "A notification if you haven't practiced by the hour below."),
+        s.prefs.reminders ? h("label", { class: "rc-toggle" }, h("span", { text: "Remind at" }), hour, h("span", { class: "muted small", text: ":00 (24h)" })) : null,
+        h("label", { class: "rc-toggle" }, h("span", { text: "Text size" }), zoom)
+      ),
+      h(
+        "section",
+        null,
+        h("h2", { text: "Coach" }),
+        toggle("plan", "Today's plan", "A daily checklist: due reviews, your weakest skills with Question Bank filters, timed sets as the test gets close."),
+        toggle("skillMap", "Skill map", "All 29 SAT skills colored by how you do, with the Question Bank filters for each."),
+        toggle("wordBank", "Word bank", "The Words in Context words from your cards, with your mix-ups, a word quiz and an Anki export."),
+        toggle("activity", "Activity calendar", "A 16-week heatmap of your practice against your daily goal, with streaks."),
+        toggle("badges", "Badges", "Milestones for streaks, mastered rules and steady habits.")
+      ),
+      h(
+        "section",
+        null,
+        h("h2", { text: "Your data (on this device)" }),
+        h("p", { class: "muted small", text: `${s.log.length} questions saved locally for stats, review and export. Your account history on the web app is separate.` }),
+        h(
+          "div",
+          { class: "row rc-wrap" },
+          h("button", { class: "btn small", text: "Back up", onclick: () => void doExport("backup", "all") }),
+          h("button", { class: "btn small", text: "Restore", onclick: () => fileInput.click() }),
+          h("button", { class: "btn small danger", text: "Erase local data", onclick: async () => {
+            if (!confirm("Erase the local stats, review schedule, notes and quiz history? Your account history is not affected.")) return;
+            await clearLog();
+            s.log = [];
+            s.srs = {};
+            await writeSrs(s.srs);
+            s.redoStore = {};
+            await writeRedo(s.redoStore);
+            s.sets = emptySets();
+            await writeSets(s.sets);
+            s.badges = {};
+            await writeBadges(s.badges);
+            s.quiz = null;
+            s.quizPaused = false;
+            s.quizHistory = [];
+            await writeQuizStore({ active: null, history: [] });
+            s.wordQuiz = null;
+            await writeWordRecord({});
+            recompute();
+            ctx.rerender();
+          } }),
+          fileInput
+        )
+      )
+    );
+  }
+  function renderHelp() {
+    if (!s.showHelp) return null;
+    return h(
+      "div",
+      { class: "rc-overlay", onclick: toggleHelp },
+      h(
+        "div",
+        { class: "card rc-help", onclick: (ev) => ev.stopPropagation() },
+        h("div", { class: "row between" }, h("h2", { text: "Keyboard shortcuts" }), h("button", { class: "btn link small", text: "Close", onclick: toggleHelp })),
+        h("dl", null, ...HOTKEY_HELP.flatMap(([k, v]) => [h("dt", null, h("kbd", { text: k })), h("dd", { text: v })])),
+        h("p", { class: "muted small", text: "Alt+Shift+R captures the tab from anywhere in Chrome. On any site, select a question, right-click and choose Explain this question with Rulecard." })
+      )
+    );
+  }
+  function renderBottom() {
+    const cd = s.summary ? countdown(s.prefs.testDate, s.summary) : null;
+    return [
+      s.summary ? renderProgress(s.summary, insights(s.summary, due().length), s.prefs.dailyGoal, (path2) => void ctx.openWeb(path2), { countdown: cd, onShare: () => void share() }) : null,
+      s.prefs.activity && s.log.length ? renderCalendar(activityModel(s.log, { now: Date.now(), dailyGoal: s.prefs.dailyGoal })) : null,
+      renderQuizEntryCard(),
+      s.prefs.skillMap ? renderSkillMap(skillMap(s.log)) : null,
+      s.prefs.wordBank ? renderWordBankCard() : null,
+      renderTraps(trapReport(s.log)),
+      s.prefs.badges ? renderBadges(badgeProgress(badgeInput(), s.badges)) : null,
+      s.log.length ? renderJournal(s.log, s.journal, {
+        change: (f) => {
+          s.journal = f;
+          ctx.rerender();
+        },
+        openWeb: (path2) => void ctx.openWeb(path2),
+        toggleStar: async (e) => {
+          await updateEntry(e.attemptId, { starred: !e.starred });
+          s.log = await readLog();
+          ctx.rerender();
+        },
+        reviewRule: (ruleId) => void startReview(ruleId)
+      }, ctx.rerender) : null,
+      renderSettings(),
+      renderHelp(),
+      s.toast ? h("div", { class: "rc-toast", role: "status", text: s.toast }) : null
+    ];
+  }
+  return {
+    ready,
+    state: s,
+    // hooks
+    beforeCapture,
+    tryTextCapture,
+    transformImage,
+    afterExtract,
+    afterExplain,
+    afterDrillCheck,
+    startReview,
+    // render slots
+    renderAboveCapture: () => s.wordQuiz ? [renderWordQuizSlot()] : s.practice ? [renderPractice()] : s.quiz ? [renderQuizSlot()] : [renderRecap(), renderPlanCard(), renderReview(), renderPractice()],
+    renderInCapture: renderCaptureExtras,
+    renderQuestionExtras,
+    renderPickExtras,
+    renderAfterRuleCard: () => [renderCardTools()],
+    renderBottom,
+    /** While a review is open, the host can hide the capture/question flow if it wants a focused screen. */
+    isReviewing: () => s.review.open,
+    /** True while the cropper is waiting on the user (capture() is still "in flight"). */
+    isCropping: () => Boolean(s.cropping),
+    /** True while a flashcard deck, a redo session or a Question Bank export quiz is on screen. */
+    isPracticing: () => Boolean(s.practice) || Boolean(s.wordQuiz) || Boolean(s.quiz) && !s.quizPaused,
+    destroy: () => {
+      unhook?.();
+      selection.stop();
+    }
+  };
+}
+
 // extension/src/sidepanel.ts
 var state = {
   view: "loading",
@@ -14785,7 +22005,7 @@ var DIAGNOSIS = {
   got_it_right: { label: "you got it", tone: "good" },
   unknown: { label: "no reasoning given", tone: "" }
 };
-function h(tag, props = null, ...children) {
+function h2(tag, props = null, ...children) {
   const el = document.createElement(tag);
   if (props) {
     for (const [key, value] of Object.entries(props)) {
@@ -14803,17 +22023,17 @@ function h(tag, props = null, ...children) {
   }
   return el;
 }
-var chip = (text2, tone = "") => h("span", { class: `chip ${tone}`.trim(), text: text2 });
+var chip2 = (text2, tone = "") => h2("span", { class: `chip ${tone}`.trim(), text: text2 });
 function mathEl(tag, text2, props = null) {
-  const el = h(tag, props);
+  const el = h2(tag, props);
   el.innerHTML = renderMathHtml(text2);
   return el;
 }
 var isMathQuestion = (q) => q?.section === "math";
-var isGridIn = (q) => q?.format === "spr";
-var spinner = () => h("span", { class: "spinner", "aria-label": "working" });
+var isGridIn2 = (q) => q?.format === "spr";
+var spinner2 = () => h2("span", { class: "spinner", "aria-label": "working" });
 function link(href, text2, cls = "") {
-  return h("a", { href, target: "_blank", rel: "noreferrer", class: cls, text: text2 });
+  return h2("a", { href, target: "_blank", rel: "noreferrer", class: cls, text: text2 });
 }
 var app = () => document.getElementById("app");
 function render3() {
@@ -14822,7 +22042,7 @@ function render3() {
   const inputs = {};
   for (const el of app().querySelectorAll("input[id], textarea[id]")) inputs[el.id] = el.value;
   const root = app();
-  root.replaceChildren(...state.view === "connect" ? renderConnect() : state.view === "main" ? renderMain() : [h("p", { class: "muted", text: "Loading..." })]);
+  root.replaceChildren(...state.view === "connect" ? renderConnect() : state.view === "main" ? renderMain() : [h2("p", { class: "muted", text: "Loading..." })]);
   for (const [id, value] of Object.entries(inputs)) {
     const el = document.getElementById(id);
     if (el && el.type !== "checkbox" && !el.value) el.value = value;
@@ -14843,8 +22063,8 @@ function renderConnect() {
   const submitOnEnter = (event) => {
     if (event.key === "Enter") void connect();
   };
-  const email = h("input", { id: "email", class: "input", type: "email", placeholder: "you@example.com", autocomplete: "email", value: state.settings.email ?? "", onkeydown: submitOnEnter });
-  const password = h("input", {
+  const email = h2("input", { id: "email", class: "input", type: "email", placeholder: "you@example.com", autocomplete: "email", value: state.settings.email ?? "", onkeydown: submitOnEnter });
+  const password = h2("input", {
     id: "password",
     class: "input",
     type: "password",
@@ -14852,8 +22072,8 @@ function renderConnect() {
     autocomplete: signup ? "new-password" : "current-password",
     onkeydown: submitOnEnter
   });
-  const server = h("input", { id: "server", class: "input", type: "url", placeholder: DEFAULT_SERVER, value: state.settings.server === DEFAULT_SERVER ? "" : state.settings.server, autocomplete: "url" });
-  const tab = (mode, label) => h("button", {
+  const server = h2("input", { id: "server", class: "input", type: "url", placeholder: DEFAULT_SERVER, value: state.settings.server === DEFAULT_SERVER ? "" : state.settings.server, autocomplete: "url" });
+  const tab = (mode, label) => h2("button", {
     class: `tab${state.authMode === mode ? " active" : ""}`,
     role: "tab",
     "aria-selected": String(state.authMode === mode),
@@ -14865,23 +22085,23 @@ function renderConnect() {
     }
   });
   return [
-    h(
+    h2(
       "div",
       { class: "card" },
-      h("h1", { text: "Rulecard" }),
-      h("p", { class: "muted small", text: "Capture a Reading and Writing or Math question from the Question Bank and learn the one rule it tested. Your history is saved to your account, on the web app too." }),
-      h("div", { class: "tabs", role: "tablist" }, tab("signin", "Sign in"), tab("signup", "Create account")),
-      h("label", { class: "field" }, "Email", email),
-      h("label", { class: "field" }, "Password", password),
-      state.connectError ? h("div", { class: "banner danger", role: "alert", text: state.connectError }) : null,
-      h(
+      h2("h1", { text: "Rulecard" }),
+      h2("p", { class: "muted small", text: "Capture a Reading and Writing or Math question from the Question Bank and learn the one rule it tested. Your history is saved to your account, on the web app too." }),
+      h2("div", { class: "tabs", role: "tablist" }, tab("signin", "Sign in"), tab("signup", "Create account")),
+      h2("label", { class: "field" }, "Email", email),
+      h2("label", { class: "field" }, "Password", password),
+      state.connectError ? h2("div", { class: "banner danger", role: "alert", text: state.connectError }) : null,
+      h2(
         "button",
         { class: "btn primary big", disabled: state.connecting, onclick: () => void connect() },
-        state.connecting ? spinner() : null,
+        state.connecting ? spinner2() : null,
         signup ? "Create account" : "Sign in"
       ),
-      h("details", { class: "small muted" }, h("summary", { text: "Use a different server" }), h("label", { class: "field" }, "Server address (leave empty for the default)", server)),
-      h("p", { class: "muted small" }, link(`${DEFAULT_SERVER}/privacy`, "Privacy"))
+      h2("details", { class: "small muted" }, h2("summary", { text: "Use a different server" }), h2("label", { class: "field" }, "Server address (leave empty for the default)", server)),
+      h2("p", { class: "muted small" }, link(`${DEFAULT_SERVER}/privacy`, "Privacy"))
     )
   ];
 }
@@ -14956,16 +22176,18 @@ async function signOut() {
   render3();
 }
 function renderMain() {
-  const nodes = [renderHeader(), renderCapture()];
+  const nodes = [renderHeader(), ...addons.renderAboveCapture(), renderCapture()];
   if (state.question) nodes.push(renderQuestion(state.question));
   else nodes.push(renderHowTo());
   if (!state.question && state.recent?.length) nodes.push(renderRecent(state.recent));
   if (state.explained) {
     nodes.push(renderRuleCard(state.explained.card, state.explained.picked, state.explained.ruleName));
+    nodes.push(...addons.renderAfterRuleCard());
     nodes.push(renderChat());
   }
+  nodes.push(...addons.renderBottom());
   nodes.push(renderFooter());
-  return nodes;
+  return nodes.filter((n) => Boolean(n));
 }
 function renderHeader() {
   const health = state.health;
@@ -14983,37 +22205,37 @@ function renderHeader() {
       title = "No AI key on the server yet (add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel)";
     }
   }
-  return h(
+  return h2(
     "div",
     { class: "row between" },
-    h("div", { class: "row" }, h("h1", { text: "Rulecard" }), h("span", { class: `dot ${dot}`.trim(), title })),
-    h(
+    h2("div", { class: "row" }, h2("h1", { text: "Rulecard" }), h2("span", { class: `dot ${dot}`.trim(), title })),
+    h2(
       "div",
       { class: "row small" },
       webButton("/history", "History"),
       webButton("/rules", "Rules"),
-      h("button", { class: "btn link small", title: state.settings.email ?? "", onclick: () => void signOut(), text: "Sign out" })
+      h2("button", { class: "btn link small", title: state.settings.email ?? "", onclick: () => void signOut(), text: "Sign out" })
     )
   );
 }
 function webButton(path2, text2) {
-  return h("button", { class: "btn link small", text: text2, onclick: () => void openWeb(path2) });
+  return h2("button", { class: "btn link small", text: text2, onclick: () => void openWeb(path2) });
 }
 function renderRecent(items) {
-  return h(
+  return h2(
     "div",
     { class: "card" },
-    h("div", { class: "row between" }, h("h2", { text: "Recent" }), webButton("/history", "All history")),
+    h2("div", { class: "row between" }, h2("h2", { text: "Recent" }), webButton("/history", "All history")),
     ...items.map(
-      (item) => h(
+      (item) => h2(
         "button",
         { class: "recent", onclick: () => void openWeb(`/history/${item.id}`) },
-        h(
+        h2(
           "span",
           { class: "row" },
-          chip(item.result === "right" ? "right" : item.result === "missed" ? "missed" : "reviewed", item.result === "right" ? "good" : item.result === "missed" ? "danger" : ""),
-          item.section ? chip(item.section === "math" ? "Math" : "R&W") : null,
-          h("span", { class: "small muted", text: item.ruleName ?? item.skill ?? "" })
+          chip2(item.result === "right" ? "right" : item.result === "missed" ? "missed" : "reviewed", item.result === "right" ? "good" : item.result === "missed" ? "danger" : ""),
+          item.section ? chip2(item.section === "math" ? "Math" : "R&W") : null,
+          h2("span", { class: "small muted", text: item.ruleName ?? item.skill ?? "" })
         ),
         mathEl("span", item.stem, { class: "recent-stem" })
       )
@@ -15021,71 +22243,72 @@ function renderRecent(items) {
   );
 }
 function renderCapture() {
-  const hint = state.shortcut ? ["or press ", h("kbd", { text: state.shortcut })] : ["(set a shortcut at chrome://extensions/shortcuts)"];
+  const hint = state.shortcut ? ["or press ", h2("kbd", { text: state.shortcut })] : ["(set a shortcut at chrome://extensions/shortcuts)"];
   const children = [
-    h("button", { class: "btn primary big", disabled: state.capturing, onclick: () => void capture() }, state.capturing ? spinner() : null, state.capturing ? "Reading the question..." : state.question ? "Capture again" : "Capture this tab"),
-    h("p", { class: "muted small" }, "On the Question Bank tab, click the Rulecard toolbar icon once (that is Chrome's permission to read the tab), reveal the answer, then click Capture ", ...hint, ".")
+    h2("button", { class: "btn primary big", disabled: state.capturing, onclick: () => void capture() }, state.capturing ? spinner2() : null, state.capturing ? addons.isCropping() ? "Crop below, then send" : "Reading the question..." : state.question ? "Capture again" : "Capture this tab"),
+    h2("p", { class: "muted small" }, "On the Question Bank tab, click the Rulecard toolbar icon once (that is Chrome's permission to read the tab), reveal the answer, then click Capture ", ...hint, ".")
   ];
   if (state.health && !state.health.ai.live && !state.health.ai.stub && state.health.ai.configured.length === 0) {
-    children.push(h("div", { class: "banner warn" }, "The server has no AI key yet, so capture will fail until you add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel. ", link(`${state.settings.server}/health`, "Status page")));
+    children.push(h2("div", { class: "banner warn" }, "The server has no AI key yet, so capture will fail until you add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel. ", link(`${state.settings.server}/health`, "Status page")));
   }
-  if (state.captureError) children.push(h("div", { class: "banner danger", role: "alert", text: state.captureError }));
+  children.push(...addons.renderInCapture());
+  if (state.captureError) children.push(h2("div", { class: "banner danger", role: "alert", text: state.captureError }));
   if (state.needsAllSites) {
-    children.push(h("button", { class: "btn", onclick: () => void allowAllSites() }, "Allow capturing on all sites (no icon click needed)"));
+    children.push(h2("button", { class: "btn", onclick: () => void allowAllSites() }, "Allow capturing on all sites (no icon click needed)"));
   }
-  return h("div", { class: "card" }, ...children);
+  return h2("div", { class: "card" }, ...children);
 }
 function renderHowTo() {
-  return h(
+  return h2(
     "div",
     { class: "card" },
-    h("h2", { text: "How it works" }),
-    h(
+    h2("h2", { text: "How it works" }),
+    h2(
       "ol",
       { class: "steps small" },
-      h("li", { text: "Work a Reading and Writing or Math question in the SAT Suite Question Bank and reveal the answer." }),
-      h("li", { text: "Press Capture. One picture of that tab is read; nothing is recorded." }),
-      h("li", { text: "Tell me what you picked or typed (and why). You get the one rule it tested, why your answer breaks it, and for Math the steps and a Desmos shortcut." }),
-      h("li", { text: "Ask follow-ups, or press Test me for a fresh question on the same rule." })
+      h2("li", { text: "Work a Reading and Writing or Math question in the SAT Suite Question Bank and reveal the answer." }),
+      h2("li", { text: "Press Capture. One picture of that tab is read; nothing is recorded." }),
+      h2("li", { text: "Tell me what you picked or typed (and why). You get the one rule it tested, why your answer breaks it, and for Math the steps and a Desmos shortcut." }),
+      h2("li", { text: "Ask follow-ups, or press Test me for a fresh question on the same rule." })
     )
   );
 }
 function renderQuestion(q) {
   const showAnswer = Boolean(state.explained);
   const picked = state.explained?.picked ?? null;
-  const chips = h(
+  const chips = h2(
     "div",
     { class: "row" },
-    chip(isMathQuestion(q) ? "Math" : "Reading and Writing"),
-    isGridIn(q) ? chip("grid-in", "accent") : null,
-    q.qbId ? chip(`ID ${q.qbId}`) : null,
-    q.domain ? chip(q.domain, "accent") : null,
-    q.skill ? chip(q.skill, "accent") : null,
-    q.difficulty ? chip(q.difficulty) : null,
-    q.answerSource === "model" ? chip("answer solved by the model", "warn") : null
+    chip2(isMathQuestion(q) ? "Math" : "Reading and Writing"),
+    isGridIn2(q) ? chip2("grid-in", "accent") : null,
+    q.qbId ? chip2(`ID ${q.qbId}`) : null,
+    q.domain ? chip2(q.domain, "accent") : null,
+    q.skill ? chip2(q.skill, "accent") : null,
+    q.difficulty ? chip2(q.difficulty) : null,
+    q.answerSource === "model" ? chip2("answer solved by the model", "warn") : null
   );
   const children = [
     chips,
     q.passage ? mathEl("div", q.passage, { class: "passage" }) : null,
-    q.figure ? h("div", { class: "figure" }, h("div", { class: "figure-label", text: "Figure (as read)" }), mathEl("div", q.figure)) : null,
+    q.figure ? h2("div", { class: "figure" }, h2("div", { class: "figure-label", text: "Figure (as read)" }), mathEl("div", q.figure)) : null,
     mathEl("p", q.stem, { class: "stem" })
   ];
-  if (!isGridIn(q) && q.choices) {
+  if (!isGridIn2(q) && q.choices) {
     const choices = q.choices;
     children.push(
-      h(
+      h2(
         "ol",
         { class: "choices" },
         ...LETTERS.map((letter) => {
           const isPick = picked === letter;
           const isCorrect = showAnswer && q.correct === letter;
           const cls = `choice ${isCorrect ? "correct" : isPick ? "picked" : ""}`.trim();
-          return h(
+          return h2(
             "li",
             { class: cls },
-            h("span", { class: "letter", text: `${letter}.` }),
+            h2("span", { class: "letter", text: `${letter}.` }),
             mathEl("span", choices[letter]),
-            isCorrect ? h("span", { class: "tag good", text: "correct" }) : isPick ? h("span", { class: "tag danger", text: "your pick" }) : null
+            isCorrect ? h2("span", { class: "tag good", text: "correct" }) : isPick ? h2("span", { class: "tag danger", text: "your pick" }) : null
           );
         })
       )
@@ -15094,16 +22317,17 @@ function renderQuestion(q) {
     const ex = state.explained;
     const accepted = q.answers?.length ? q.answers.join(", ") : ex.card.correct_answer;
     children.push(
-      h(
+      h2(
         "div",
         { class: "spr-result" },
-        ex.response ? h("div", { class: `choice ${ex.isCorrect === true ? "correct" : ex.isCorrect === false ? "picked" : ""}`.trim() }, h("span", { class: "letter", text: "You" }), h("span", { text: ex.response }), ex.isCorrect === true ? h("span", { class: "tag good", text: "correct" }) : ex.isCorrect === false ? h("span", { class: "tag danger", text: "not accepted" }) : null) : null,
-        accepted ? h("div", { class: "choice correct" }, h("span", { class: "letter", text: "Key" }), h("span", { text: `Accepted: ${accepted}` })) : null
+        ex.response ? h2("div", { class: `choice ${ex.isCorrect === true ? "correct" : ex.isCorrect === false ? "picked" : ""}`.trim() }, h2("span", { class: "letter", text: "You" }), h2("span", { text: ex.response }), ex.isCorrect === true ? h2("span", { class: "tag good", text: "correct" }) : ex.isCorrect === false ? h2("span", { class: "tag danger", text: "not accepted" }) : null) : null,
+        accepted ? h2("div", { class: "choice correct" }, h2("span", { class: "letter", text: "Key" }), h2("span", { text: `Accepted: ${accepted}` })) : null
       )
     );
   }
+  children.push(...addons.renderQuestionExtras(normalizeQuestion(q)));
   if (!state.explained) children.push(renderPickPanel(q));
-  return h("div", { class: "card" }, ...children);
+  return h2("div", { class: "card" }, ...children);
 }
 function sprCheck() {
   if (!state.sprInput.trim()) return { ok: false, error: null };
@@ -15111,9 +22335,9 @@ function sprCheck() {
   return entry.ok ? { ok: true, error: null } : { ok: false, error: entry.error };
 }
 function renderPickPanel(q) {
-  const gridIn = isGridIn(q);
+  const gridIn = isGridIn2(q);
   const needsAnswer = gridIn ? !q.answers?.length : !q.correct;
-  const rightButton = h("button", {
+  const rightButton = h2("button", {
     class: `pick wide ${state.picked === "correct" ? "on" : ""}`.trim(),
     text: "I got it right, but explain",
     onclick: () => {
@@ -15121,18 +22345,18 @@ function renderPickPanel(q) {
       render3();
     }
   });
-  const children = [h("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
+  const children = [h2("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
   if (needsAnswer) {
     children.push(
-      h(
+      h2(
         "div",
         { class: "banner warn" },
-        h("p", { text: "The correct answer is not in what I read." }),
-        h("p", { class: "muted small", text: "Reveal the answer on the Question Bank tab and capture again, or let me solve it (less reliable)." }),
-        h(
+        h2("p", { text: "The correct answer is not in what I read." }),
+        h2("p", { class: "muted small", text: "Reveal the answer on the Question Bank tab and capture again, or let me solve it (less reliable)." }),
+        h2(
           "label",
           { class: "row small", style: "margin-top:6px" },
-          h("input", {
+          h2("input", {
             type: "checkbox",
             checked: state.allowSolve,
             onchange: (event) => {
@@ -15149,7 +22373,7 @@ function renderPickPanel(q) {
   if (gridIn) {
     const check = sprCheck();
     sprOk = state.picked !== "spr" || check.ok;
-    const input = h("input", {
+    const input = h2("input", {
       id: "spr-input",
       class: "input",
       maxlength: 6,
@@ -15166,16 +22390,16 @@ function renderPickPanel(q) {
         if (event.key === "Enter") void explain();
       }
     });
-    children.push(h("div", { class: "picks" }, h("div", { style: "flex:1;min-width:140px" }, input), rightButton));
-    if (state.picked === "spr" && check.error) children.push(h("p", { class: "small", style: "color:var(--danger)", role: "alert", text: check.error }));
-    else children.push(h("p", { class: "muted small", text: "Enter it the way you would on the test: a fraction or a decimal, up to 5 characters (6 if negative)." }));
+    children.push(h2("div", { class: "picks" }, h2("div", { style: "flex:1;min-width:140px" }, input), rightButton));
+    if (state.picked === "spr" && check.error) children.push(h2("p", { class: "small", style: "color:var(--danger)", role: "alert", text: check.error }));
+    else children.push(h2("p", { class: "muted small", text: "Enter it the way you would on the test: a fraction or a decimal, up to 5 characters (6 if negative)." }));
   } else {
     children.push(
-      h(
+      h2(
         "div",
         { class: "picks" },
         ...LETTERS.map(
-          (letter) => h("button", {
+          (letter) => h2("button", {
             class: `pick ${state.picked === letter ? "on" : ""}`.trim(),
             text: letter,
             onclick: () => {
@@ -15188,7 +22412,7 @@ function renderPickPanel(q) {
       )
     );
   }
-  const reasoning = h("input", {
+  const reasoning = h2("input", {
     id: "reasoning",
     class: "input",
     placeholder: "What was your thinking? (optional, one line)",
@@ -15196,93 +22420,94 @@ function renderPickPanel(q) {
       if (event.key === "Enter") void explain();
     }
   });
+  children.push(...addons.renderPickExtras());
   children.push(reasoning);
   children.push(
-    h(
+    h2(
       "div",
       { class: "row" },
-      h(
+      h2(
         "button",
         { id: "explain-button", class: "btn primary", disabled: !state.picked || !sprOk || state.explaining || needsAnswer && !state.allowSolve, onclick: () => void explain() },
-        state.explaining ? spinner() : null,
+        state.explaining ? spinner2() : null,
         "Explain"
       ),
-      state.explaining ? h("span", { class: "muted small", text: isMathQuestion(q) ? "Working it out..." : "Writing your rule card..." }) : null
+      state.explaining ? h2("span", { class: "muted small", text: isMathQuestion(q) ? "Working it out..." : "Writing your rule card..." }) : null
     )
   );
-  if (state.explainError) children.push(h("div", { class: "banner danger", role: "alert", text: state.explainError }));
-  return h("div", { style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px" }, ...children);
+  if (state.explainError) children.push(h2("div", { class: "banner danger", role: "alert", text: state.explainError }));
+  return h2("div", { style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px" }, ...children);
 }
 function renderRuleCard(card, picked, ruleName) {
   const diag = DIAGNOSIS[card.diagnosis] ?? DIAGNOSIS.unknown;
   const math2 = isMathQuestion(state.question);
-  const section = (title, body) => h("section", null, h("h2", { text: title }), mathEl("p", body));
+  const section = (title, body) => h2("section", null, h2("h2", { text: title }), mathEl("p", body));
   const answerLabel = card.correct_letter ?? card.correct_answer ?? "the answer";
   const pickedLabel = picked === "spr" ? state.explained?.response ?? "your answer" : picked;
   const rulePath = `/rules${math2 ? "?section=math" : ""}#${card.rule_id}`;
   const children = [
-    h(
+    h2(
       "div",
       { class: "row" },
-      chip(math2 && card.diagnosis === "careless" ? "computation slip" : math2 && card.diagnosis === "misread" ? "misread the question" : diag.label, diag.tone),
-      chip(`confidence ${Math.round(card.confidence * 100)}%`),
-      card.solved_by_model ? chip("answer worked out by the model, double check it", "warn") : null,
-      card.suggested_rule ? chip(`suggested new rule: ${card.suggested_rule}`) : null
+      chip2(math2 && card.diagnosis === "careless" ? "computation slip" : math2 && card.diagnosis === "misread" ? "misread the question" : diag.label, diag.tone),
+      chip2(`confidence ${Math.round(card.confidence * 100)}%`),
+      card.solved_by_model ? chip2("answer worked out by the model, double check it", "warn") : null,
+      card.suggested_rule ? chip2(`suggested new rule: ${card.suggested_rule}`) : null
     ),
-    h(
+    h2(
       "div",
       { class: "banner accent" },
-      h(
+      h2(
         "div",
         { class: "rule-id" },
         "Rule ",
-        h("button", { class: "btn link rule-link", text: `${card.rule_id}${ruleName ? ` \xB7 ${ruleName}` : ""}`, onclick: () => void openWeb(rulePath) })
+        h2("button", { class: "btn link rule-link", text: `${card.rule_id}${ruleName ? ` \xB7 ${ruleName}` : ""}`, onclick: () => void openWeb(rulePath) })
       ),
       mathEl("p", card.rule_statement, { class: "rule-statement" })
     ),
     section(`Why ${answerLabel} is right`, card.why_correct),
     card.why_pick_fails && picked !== "correct" ? section(`Why ${pickedLabel} fails`, card.why_pick_fails) : null,
-    card.steps?.length ? h("section", null, h("h2", { text: "Steps" }), h("ol", { class: "steps" }, ...card.steps.map((step) => mathEl("li", step)))) : null,
-    card.shortcut ? h("div", { class: "shortcut" }, h("h2", { text: "Shortcut" }), mathEl("p", card.shortcut)) : null,
-    card.eliminations.length && !isGridIn(state.question) ? h(
+    card.steps?.length ? h2("section", null, h2("h2", { text: "Steps" }), h2("ol", { class: "steps" }, ...card.steps.map((step) => mathEl("li", step)))) : null,
+    card.shortcut ? h2("div", { class: "shortcut" }, h2("h2", { text: "Shortcut" }), mathEl("p", card.shortcut)) : null,
+    card.eliminations.length && !isGridIn2(state.question) ? h2(
       "section",
       null,
-      h("h2", { text: "Kill the rest" }),
-      h("ul", { class: "list" }, ...card.eliminations.map((e) => h("li", null, h("span", { class: "letter", text: `${e.letter}.` }), mathEl("span", e.reason))))
+      h2("h2", { text: "Kill the rest" }),
+      h2("ul", { class: "list" }, ...card.eliminations.map((e) => h2("li", null, h2("span", { class: "letter", text: `${e.letter}.` }), mathEl("span", e.reason))))
     ) : null,
-    h("div", { class: "banner", style: "background:var(--bg)" }, h("h2", { text: "Takeaway" }), mathEl("p", card.takeaway, { class: "stem" })),
+    h2("div", { class: "banner", style: "background:var(--bg)" }, h2("h2", { text: "Takeaway" }), mathEl("p", card.takeaway, { class: "stem" })),
     renderDrill()
   ];
-  return h("div", { class: "card" }, ...children);
+  return h2("div", { class: "card" }, ...children);
 }
 function renderDrill() {
   const d = state.drill;
   if (!d.data) {
-    return h(
+    return h2(
       "div",
       { class: "row", style: "border-top:1px solid var(--line);padding-top:10px" },
-      h("button", { class: "btn", disabled: d.loading, title: "Writes one new mini-question on the same rule", onclick: () => void startDrill() }, d.loading ? spinner() : null, d.loading ? "Writing a question..." : "Test me"),
-      d.error ? h("span", { class: "small", style: "color:var(--danger)", text: d.error }) : null
+      h2("button", { class: "btn", disabled: d.loading, title: "Writes one new mini-question on the same rule", onclick: () => void startDrill() }, d.loading ? spinner2() : null, d.loading ? "Writing a question..." : "Test me"),
+      d.error ? h2("span", { class: "small", style: "color:var(--danger)", text: d.error }) : null
     );
   }
   const drill = d.data;
   const gridIn = drill.format === "spr" || !drill.question.choices;
   const children = [
-    h("h2", { text: `Test me \xB7 ${drill.ruleId} ${drill.ruleName}` }),
+    h2("h2", { text: `Test me \xB7 ${drill.ruleId} ${drill.ruleName}` }),
     drill.question.passage ? mathEl("div", drill.question.passage, { class: "passage" }) : null,
-    drill.question.figure ? h("div", { class: "figure" }, h("div", { class: "figure-label", text: "Figure" }), mathEl("div", drill.question.figure)) : null,
+    drill.question.figure ? h2("div", { class: "figure" }, h2("div", { class: "figure-label", text: "Figure" }), mathEl("div", drill.question.figure)) : null,
     mathEl("p", drill.question.stem, { class: "stem" })
   ];
   if (gridIn) {
     const entry = d.response.trim() ? parseSprEntry(d.response) : null;
     children.push(
-      h(
+      h2(
         "div",
         { class: "picks" },
-        h(
+        h2(
           "div",
           { style: "flex:1;min-width:140px" },
-          h("input", {
+          h2("input", {
             id: "drill-spr-input",
             class: "input",
             maxlength: 6,
@@ -15300,24 +22525,24 @@ function renderDrill() {
             }
           })
         ),
-        h("button", { id: "drill-check", class: "btn primary", disabled: !entry?.ok || Boolean(d.result) || d.picked === "spr", onclick: () => void checkDrillResponse() }, d.picked === "spr" && !d.result ? spinner() : null, "Check")
+        h2("button", { id: "drill-check", class: "btn primary", disabled: !entry?.ok || Boolean(d.result) || d.picked === "spr", onclick: () => void checkDrillResponse() }, d.picked === "spr" && !d.result ? spinner2() : null, "Check")
       )
     );
-    if (entry && !entry.ok && !d.result) children.push(h("p", { class: "small", style: "color:var(--danger)", text: entry.error }));
+    if (entry && !entry.ok && !d.result) children.push(h2("p", { class: "small", style: "color:var(--danger)", text: entry.error }));
   } else if (drill.question.choices) {
     const choices = drill.question.choices;
     children.push(
-      h(
+      h2(
         "ol",
         { class: "choices" },
         ...LETTERS.map((letter) => {
           const isPick = d.picked === letter;
           const isCorrect = d.result?.correctLetter === letter;
           const cls = d.result ? isCorrect ? "correct" : isPick ? "picked" : "" : isPick ? "selected" : "selectable";
-          return h(
+          return h2(
             "li",
             { class: `choice ${cls}`.trim(), onclick: () => void answerDrill(letter) },
-            h("span", { class: "letter", text: `${letter}.` }),
+            h2("span", { class: "letter", text: `${letter}.` }),
             mathEl("span", choices[letter])
           );
         })
@@ -15327,23 +22552,23 @@ function renderDrill() {
   if (d.result) {
     const answer = d.result.correctLetter ?? d.result.correctAnswer ?? "";
     children.push(
-      h(
+      h2(
         "div",
         { class: `banner ${d.result.correct ? "good" : "danger"}` },
-        h("p", { class: "stem", text: d.result.correct ? "Right." : `Not quite. The answer is ${answer}.` }),
+        h2("p", { class: "stem", text: d.result.correct ? "Right." : `Not quite. The answer is ${answer}.` }),
         mathEl("p", d.result.correct ? d.result.whyCorrect : d.result.fix ?? d.result.whyCorrect),
         !d.result.correct && d.result.fix ? mathEl("p", d.result.whyCorrect, { class: "muted small" }) : null,
-        d.result.solution?.length ? h("ol", { class: "steps small" }, ...d.result.solution.map((step) => mathEl("li", step))) : null
+        d.result.solution?.length ? h2("ol", { class: "steps small" }, ...d.result.solution.map((step) => mathEl("li", step))) : null
       ),
-      h("button", { class: "btn", disabled: d.loading, onclick: () => void startDrill() }, d.loading ? spinner() : null, "Another one")
+      h2("button", { class: "btn", disabled: d.loading, onclick: () => void startDrill() }, d.loading ? spinner2() : null, "Another one")
     );
   }
-  if (d.error) children.push(h("div", { class: "banner danger", role: "alert", text: d.error }));
-  return h("div", { style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px" }, ...children);
+  if (d.error) children.push(h2("div", { class: "banner danger", role: "alert", text: d.error }));
+  return h2("div", { style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px" }, ...children);
 }
 function renderChat() {
   const c = state.chat;
-  const input = h("input", {
+  const input = h2("input", {
     id: "chat-input",
     class: "input",
     placeholder: "Ask about this question",
@@ -15351,25 +22576,25 @@ function renderChat() {
       if (event.key === "Enter") void sendChat();
     }
   });
-  return h(
+  return h2(
     "div",
     { class: "card" },
-    h("h2", { text: "Ask about this question" }),
-    c.messages.length ? h(
+    h2("h2", { text: "Ask about this question" }),
+    c.messages.length ? h2(
       "div",
       { class: "chat" },
-      ...c.messages.map((m) => h("div", { class: `msg ${m.role === "user" ? "user" : "tutor"}`, id: `msg-${m.id}` }, h("span", { class: "who", text: m.role === "user" ? "you" : "tutor" }), mathEl("span", m.text || (c.busy ? "..." : ""), { class: "body" })))
+      ...c.messages.map((m) => h2("div", { class: `msg ${m.role === "user" ? "user" : "tutor"}`, id: `msg-${m.id}` }, h2("span", { class: "who", text: m.role === "user" ? "you" : "tutor" }), mathEl("span", m.text || (c.busy ? "..." : ""), { class: "body" })))
     ) : null,
-    c.error ? h("div", { class: "banner danger", role: "alert", text: c.error }) : null,
-    h("div", { class: "row" }, h("div", { style: "flex:1;min-width:0" }, input), h("button", { class: "btn", disabled: c.busy, onclick: () => void sendChat() }, c.busy ? spinner() : "Send"))
+    c.error ? h2("div", { class: "banner danger", role: "alert", text: c.error }) : null,
+    h2("div", { class: "row" }, h2("div", { style: "flex:1;min-width:0" }, input), h2("button", { class: "btn", disabled: c.busy, onclick: () => void sendChat() }, c.busy ? spinner2() : "Send"))
   );
 }
 function renderFooter() {
-  return h(
+  return h2(
     "div",
     { class: "footer muted" },
     webButton("/", "Open the web app"),
-    h("span", { class: "small", text: [state.settings.email, state.health ? `v${state.health.version}` : ""].filter(Boolean).join(" \xB7 ") })
+    h2("span", { class: "small", text: [state.settings.email, state.health ? `v${state.health.version}` : ""].filter(Boolean).join(" \xB7 ") })
   );
 }
 function describe(error) {
@@ -15433,6 +22658,12 @@ async function capture() {
   render3();
   try {
     const tab = await activeTab();
+    if (!await addons.beforeCapture(tab)) return;
+    const textImage = await addons.tryTextCapture(tab);
+    if (textImage) {
+      await processImage(textImage);
+      return;
+    }
     let raw;
     try {
       raw = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
@@ -15446,7 +22677,9 @@ async function capture() {
       }
       throw error;
     }
-    await processImage(await downscale(raw));
+    const image = await addons.transformImage(await downscale(raw));
+    if (!image) return;
+    await processImage(image);
   } catch (error) {
     if (await handleAuthFailure(error)) return;
     state.captureError = describe(error);
@@ -15459,6 +22692,7 @@ async function processImage(image) {
   const data = await request(state.settings, "/api/extract", { body: { image, source: "capture" } });
   resetQuestion();
   state.question = data.question;
+  void addons.afterExtract(normalizeQuestion(data.question));
 }
 async function allowAllSites() {
   try {
@@ -15498,6 +22732,7 @@ async function explain() {
     });
     state.question = data.question;
     state.explained = { attemptId: data.attemptId, card: data.card, ruleName: data.rule?.name ?? null, picked, response, isCorrect: data.isCorrect ?? null };
+    void addons.afterExplain(data, picked, response);
     void refreshRecent();
     state.chat = { messages: [], busy: false, error: null };
     state.drill = emptyDrill();
@@ -15531,6 +22766,7 @@ async function answerDrill(letter) {
   render3();
   try {
     d.result = await request(state.settings, "/api/drill/check", { body: { drillId: d.data.drillId, picked: letter } });
+    if (state.explained) void addons.afterDrillCheck(state.explained.attemptId, d.result.correct);
   } catch (error) {
     if (await handleAuthFailure(error)) return;
     d.error = describe(error);
@@ -15552,6 +22788,7 @@ async function checkDrillResponse() {
   render3();
   try {
     d.result = await request(state.settings, "/api/drill/check", { body: { drillId: d.data.drillId, response: entry.text } });
+    if (state.explained) void addons.afterDrillCheck(state.explained.attemptId, d.result.correct);
   } catch (error) {
     if (await handleAuthFailure(error)) return;
     d.error = describe(error);
@@ -15602,7 +22839,10 @@ async function consumePendingCapture() {
   render3();
   try {
     if (pending.error) throw new Error(pending.error);
-    if (pending.image) await processImage(pending.image);
+    if (pending.image) {
+      const image = await addons.transformImage(pending.image);
+      if (image) await processImage(image);
+    }
   } catch (error) {
     if (await handleAuthFailure(error)) return;
     state.captureError = describe(error);
@@ -15619,6 +22859,7 @@ async function consumePendingQuestion() {
   if (state.view !== "main" || !pending.id || !pending.stem) return;
   resetQuestion();
   state.question = pending;
+  void addons.afterExtract(normalizeQuestion(pending));
   render3();
 }
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -15645,4 +22886,35 @@ async function boot() {
   await consumePendingCapture();
   await consumePendingQuestion();
 }
+var addons = createAddons(
+  {
+    get settings() {
+      return state.settings;
+    },
+    request,
+    rerender: () => render3(),
+    openWeb: (path2) => openWeb(path2),
+    describe
+  },
+  {
+    getQuestion: () => state.question ? normalizeQuestion(state.question) : null,
+    getExplained: () => state.explained && { attemptId: state.explained.attemptId, picked: state.explained.picked === "spr" ? "correct" : state.explained.picked },
+    processImage,
+    capture: () => void capture(),
+    pick: (letter) => {
+      const d = state.drill;
+      if (d.data && !d.result) {
+        if (d.data.question.choices && letter !== "correct") void answerDrill(letter);
+        return;
+      }
+      if (!state.question || state.explained) return;
+      if (isGridIn2(state.question) && letter !== "correct") return;
+      state.picked = letter;
+      render3();
+    },
+    explain: () => void explain(),
+    testMe: () => void startDrill(),
+    focusChat: () => document.getElementById("chat-input")?.focus()
+  }
+);
 void boot();

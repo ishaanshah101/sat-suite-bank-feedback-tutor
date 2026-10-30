@@ -6,7 +6,7 @@ import path from "node:path";
 
 execFileSync("node", ["scripts/build-extension.mjs"], { stdio: "inherit" });
 const manifest = JSON.parse(fs.readFileSync("extension/manifest.json", "utf8"));
-const files = ["manifest.json", "sidepanel.html", "sidepanel.css", "dist/sidepanel.js", "dist/background.js", "icons/icon16.png", "icons/icon32.png", "icons/icon48.png", "icons/icon128.png"];
+const files = ["manifest.json", "sidepanel.html", "sidepanel.css", "addons.css", "welcome.html", "welcome.css", "dist/sidepanel.js", "dist/background.js", "dist/welcome.js", "icons/icon16.png", "icons/icon32.png", "icons/icon48.png", "icons/icon128.png"];
 for (const file of files) {
   if (!fs.existsSync(path.join("extension", file))) throw new Error(`missing extension/${file}`);
 }

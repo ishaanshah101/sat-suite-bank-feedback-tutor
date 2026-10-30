@@ -18,6 +18,8 @@ import {
   type RuleCard,
   type Settings,
 } from "./types";
+import { createAddons } from "./addons";
+import { normalizeQuestion } from "./addons/types";
 
 interface State {
   view: "loading" | "connect" | "main";
@@ -281,16 +283,18 @@ async function signOut() {
 // ---------- main view ----------
 
 function renderMain(): Node[] {
-  const nodes: Node[] = [renderHeader(), renderCapture()];
+  const nodes: (Node | null)[] = [renderHeader(), ...addons.renderAboveCapture(), renderCapture()];
   if (state.question) nodes.push(renderQuestion(state.question));
   else nodes.push(renderHowTo());
   if (!state.question && state.recent?.length) nodes.push(renderRecent(state.recent));
   if (state.explained) {
     nodes.push(renderRuleCard(state.explained.card, state.explained.picked, state.explained.ruleName));
+    nodes.push(...addons.renderAfterRuleCard());
     nodes.push(renderChat());
   }
+  nodes.push(...addons.renderBottom());
   nodes.push(renderFooter());
-  return nodes;
+  return nodes.filter((n): n is Node => Boolean(n));
 }
 
 function renderHeader(): Node {
@@ -352,12 +356,13 @@ function renderRecent(items: RecentAttempt[]): Node {
 function renderCapture(): Node {
   const hint = state.shortcut ? ["or press ", h("kbd", { text: state.shortcut })] : ["(set a shortcut at chrome://extensions/shortcuts)"];
   const children: Child[] = [
-    h("button", { class: "btn primary big", disabled: state.capturing, onclick: () => void capture() }, state.capturing ? spinner() : null, state.capturing ? "Reading the question..." : state.question ? "Capture again" : "Capture this tab"),
+    h("button", { class: "btn primary big", disabled: state.capturing, onclick: () => void capture() }, state.capturing ? spinner() : null, state.capturing ? (addons.isCropping() ? "Crop below, then send" : "Reading the question...") : state.question ? "Capture again" : "Capture this tab"),
     h("p", { class: "muted small" }, "On the Question Bank tab, click the Rulecard toolbar icon once (that is Chrome's permission to read the tab), reveal the answer, then click Capture ", ...hint, "."),
   ];
   if (state.health && !state.health.ai.live && !state.health.ai.stub && state.health.ai.configured.length === 0) {
     children.push(h("div", { class: "banner warn" }, "The server has no AI key yet, so capture will fail until you add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel. ", link(`${state.settings.server}/health`, "Status page")));
   }
+  children.push(...addons.renderInCapture());
   if (state.captureError) children.push(h("div", { class: "banner danger", role: "alert", text: state.captureError }));
   if (state.needsAllSites) {
     children.push(h("button", { class: "btn", onclick: () => void allowAllSites() }, "Allow capturing on all sites (no icon click needed)"));
@@ -435,6 +440,7 @@ function renderQuestion(q: Question): Node {
       ),
     );
   }
+  children.push(...addons.renderQuestionExtras(normalizeQuestion(q)));
   if (!state.explained) children.push(renderPickPanel(q));
   return h("div", { class: "card" }, ...children);
 }
@@ -531,6 +537,7 @@ function renderPickPanel(q: Question): Node {
       if (event.key === "Enter") void explain();
     },
   });
+  children.push(...addons.renderPickExtras());
   children.push(reasoning);
   children.push(
     h(
@@ -785,6 +792,12 @@ async function capture() {
   render();
   try {
     const tab = await activeTab();
+    if (!(await addons.beforeCapture(tab))) return;
+    const textImage = await addons.tryTextCapture(tab);
+    if (textImage) {
+      await processImage(textImage);
+      return;
+    }
     let raw: string;
     try {
       raw = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
@@ -798,7 +811,9 @@ async function capture() {
       }
       throw error;
     }
-    await processImage(await downscale(raw));
+    const image = await addons.transformImage(await downscale(raw));
+    if (!image) return;
+    await processImage(image);
   } catch (error) {
     if (await handleAuthFailure(error)) return;
     state.captureError = describe(error);
@@ -812,6 +827,7 @@ async function processImage(image: string) {
   const data = await request<ExtractResponse>(state.settings, "/api/extract", { body: { image, source: "capture" } });
   resetQuestion();
   state.question = data.question;
+  void addons.afterExtract(normalizeQuestion(data.question));
 }
 
 async function allowAllSites() {
@@ -853,6 +869,7 @@ async function explain() {
     });
     state.question = data.question;
     state.explained = { attemptId: data.attemptId, card: data.card, ruleName: data.rule?.name ?? null, picked, response, isCorrect: data.isCorrect ?? null };
+    void addons.afterExplain(data, picked, response);
     void refreshRecent();
     state.chat = { messages: [], busy: false, error: null };
     state.drill = emptyDrill();
@@ -888,6 +905,7 @@ async function answerDrill(letter: Letter) {
   render();
   try {
     d.result = await request<CheckResponse>(state.settings, "/api/drill/check", { body: { drillId: d.data.drillId, picked: letter } });
+    if (state.explained) void addons.afterDrillCheck(state.explained.attemptId, d.result.correct);
   } catch (error) {
     if (await handleAuthFailure(error)) return;
     d.error = describe(error);
@@ -910,6 +928,7 @@ async function checkDrillResponse() {
   render();
   try {
     d.result = await request<CheckResponse>(state.settings, "/api/drill/check", { body: { drillId: d.data.drillId, response: entry.text } });
+    if (state.explained) void addons.afterDrillCheck(state.explained.attemptId, d.result.correct);
   } catch (error) {
     if (await handleAuthFailure(error)) return;
     d.error = describe(error);
@@ -964,7 +983,10 @@ async function consumePendingCapture() {
   render();
   try {
     if (pending.error) throw new Error(pending.error);
-    if (pending.image) await processImage(pending.image);
+    if (pending.image) {
+      const image = await addons.transformImage(pending.image);
+      if (image) await processImage(image);
+    }
   } catch (error) {
     if (await handleAuthFailure(error)) return;
     state.captureError = describe(error);
@@ -986,6 +1008,7 @@ async function consumePendingQuestion() {
   if (state.view !== "main" || !pending.id || !pending.stem) return;
   resetQuestion();
   state.question = pending;
+  void addons.afterExtract(normalizeQuestion(pending));
   render();
 }
 
@@ -1016,5 +1039,38 @@ async function boot() {
   await consumePendingCapture();
   await consumePendingQuestion();
 }
+
+const addons = createAddons(
+  {
+    get settings() {
+      return state.settings;
+    },
+    request,
+    rerender: () => render(),
+    openWeb: (path: string) => openWeb(path),
+    describe,
+  },
+  {
+    getQuestion: () => (state.question ? normalizeQuestion(state.question) : null),
+    getExplained: () =>
+      state.explained && { attemptId: state.explained.attemptId, picked: state.explained.picked === "spr" ? "correct" : state.explained.picked },
+    processImage,
+    capture: () => void capture(),
+    pick: (letter) => {
+      const d = state.drill;
+      if (d.data && !d.result) {
+        if (d.data.question.choices && letter !== "correct") void answerDrill(letter);
+        return;
+      }
+      if (!state.question || state.explained) return;
+      if (isGridIn(state.question) && letter !== "correct") return;
+      state.picked = letter;
+      render();
+    },
+    explain: () => void explain(),
+    testMe: () => void startDrill(),
+    focusChat: () => document.getElementById("chat-input")?.focus(),
+  },
+);
 
 void boot();

@@ -1,8 +1,10 @@
-// Run: node scripts/store/panel-shots.cjs && node scripts/store/compose-graphics.cjs (needs Chromium from Playwright).
+// Run: node scripts/store/panel-shots.mjs && node scripts/store/compose-graphics.mjs (needs Chromium from Playwright).
 // Builds every Chrome Web Store graphic for Rulecard from the panel shots.
-const { chromium } = require("@playwright/test");
-const fs = require("fs");
-const path = require("path");
+import { chromium } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DIR = path.resolve(__dirname, "../../store");
 const OUT = DIR;
@@ -33,7 +35,7 @@ const BASE_CSS = `
   .panel .shot{display:block;width:100%;object-fit:cover;object-position:top}
 `;
 
-const OFF = { "rule.png": 0, "math-rule.png": 0, "spr-rule.png": 40, "drill.png": 233, "home.png": 0 };
+const OFF = { "rule.png": 0, "math-rule.png": 0, "spr-rule.png": 40, "drill.png": 233, "home.png": 0, "addons-home.png": 0 };
 const screenshot = (n, title, sub, file, opts = {}) => `<!doctype html><html><head><style>${BASE_CSS}
   body{width:1280px;height:800px;position:relative;overflow:hidden}
   .wrap{position:absolute;inset:0;display:flex;align-items:center;padding:0 72px 0 88px;gap:72px}
@@ -56,7 +58,7 @@ const shots = [
   ["Math", "Math rules with worked steps", "Tables, graphs and equations read into real math notation, with step by step work and a Desmos shortcut when it saves time.", "math-rule.png"],
   ["Grid-ins", "Grid-in answers graded exactly", "Type what you entered. Rulecard checks it against every accepted form, like 3/17, .1764 and .1765, using the official entry rules.", "spr-rule.png"],
   ["Test me", "Practice the same rule right away", "Press Test me for a fresh question on that exact rule. Math practice questions are double-checked by a second, independent solve.", "drill.png"],
-  ["History", "Capture any question, track every miss", "Press Capture on a Question Bank question. Every review is saved to your free account, so the rules you keep missing are always one click away.", "home.png"],
+  ["Study coach", "A plan for today, built from your misses", "Rules due for review, offline flashcards, your weakest skills with Question Bank filters, and a countdown to test day.", "addons-home.png"],
 ];
 
 const smallTile = `<!doctype html><html><head><style>${BASE_CSS}

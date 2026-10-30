@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 
 await mkdir("extension/dist", { recursive: true });
 await build({
-  entryPoints: { sidepanel: "extension/src/sidepanel.ts", background: "extension/src/background.ts" },
+  entryPoints: { sidepanel: "extension/src/sidepanel.ts", background: "extension/src/background.ts", welcome: "extension/src/addons/welcome.ts" },
   outdir: "extension/dist",
   bundle: true,
   format: "esm",

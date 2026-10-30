@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Rulecard",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Learn the one rule behind each SAT Reading & Writing and Math miss: capture a Question Bank question, get the rule, practice it.",
   "minimum_chrome_version": "116",
   "icons": {
@@ -29,7 +29,10 @@
   "permissions": [
     "sidePanel",
     "activeTab",
-    "storage"
+    "storage",
+    "scripting",
+    "contextMenus",
+    "alarms"
   ],
   "host_permissions": [
     "https://satsuiteeducatorquestionbank.collegeboard.org/*",
@@ -47,5 +50,8 @@
       "description": "Capture the current tab into Rulecard"
     }
   },
-  "homepage_url": "https://rulecard.vercel.app"
+  "homepage_url": "https://rulecard.vercel.app",
+  "optional_permissions": [
+    "notifications"
+  ]
 }

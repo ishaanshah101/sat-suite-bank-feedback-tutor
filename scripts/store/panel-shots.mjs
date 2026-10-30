@@ -1,8 +1,10 @@
 // Drives the real Rulecard 0.3.0 side panel with mocked API responses (RW + Math) and saves crisp 2x panel shots.
-const { chromium } = require("@playwright/test");
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
+import { chromium } from "@playwright/test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const REPO = path.resolve(__dirname, "../..");
 const OUT = path.join(REPO, "store", ".panels");
@@ -118,7 +120,7 @@ const recent = [
   let [worker] = context.serviceWorkers();
   if (!worker) worker = await context.waitForEvent("serviceworker", { timeout: 15000 });
   const id = new URL(worker.url()).host;
-  await worker.evaluate(async () => chrome.storage.local.set({ settings: { server: "https://rulecard.vercel.app", token: "t", email: "alex@example.com" } }));
+  await worker.evaluate(async () => chrome.storage.local.set({ settings: { server: "https://rulecard.vercel.app", token: "t", email: "alex@example.com" }, "rc.addons.prefs.v1": { badges: false, plan: false, practice: false, pastePanel: false, timer: false } }));
   const panel = await context.newPage();
   const shot = async (name, top = 0) => {
     await panel.waitForTimeout(500);
