@@ -52,7 +52,7 @@ Other ways in: **Upload PDF** (the Question Bank export "With correct answers an
 ## Publishing the extension on the Chrome Web Store (only you can do this)
 
 1. Register as a Chrome Web Store developer at https://chrome.google.com/webstore/devconsole with your Google account and pay the one-time $5 fee.
-2. Click **New item** and upload `store/rulecard-extension-0.3.0.zip` from this repo (version 0.3.0, Reading and Writing plus Math).
+2. Click **New item** and upload `store/rulecard-extension-0.4.0.zip` from this repo (version 0.3.0, Reading and Writing plus Math).
 3. Fill the tabs from `store/LISTING.md` (description, category, the four screenshots in `store/`, 1280×800, permission justifications, privacy policy URL `https://rulecard.vercel.app/privacy`).
 4. Submit for review. Reviews usually take a few days. Choose **Unlisted** first if you want to share it by link before it is searchable.
 5. To ship an update later: bump `version` in `extension/manifest.json`, run `pnpm package:extension`, upload the new zip.

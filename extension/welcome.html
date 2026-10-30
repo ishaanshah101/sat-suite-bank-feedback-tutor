@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Welcome to Rulecard</title>
+    <link rel="stylesheet" href="welcome.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="icons/icon128.png" alt="" width="56" height="56" />
+        <div>
+          <h1>Rulecard is installed</h1>
+          <p class="muted">Learn the one rule behind every Digital SAT miss, in Reading &amp; Writing and in Math.</p>
+        </div>
+      </header>
+
+      <section class="pin">
+        <strong>First, pin it.</strong> Click the puzzle-piece icon in Chrome's toolbar, then the pin next to Rulecard.
+      </section>
+
+      <ol class="steps">
+        <li>
+          <h2>Work a question</h2>
+          <p>Open the SAT Suite Question Bank, answer a Reading &amp; Writing or Math question, then <b>reveal the answer</b>. Grid-in Math questions work too: type what you got.</p>
+          <button id="open-qb" class="btn primary">Open the Question Bank</button>
+        </li>
+        <li>
+          <h2>Capture it</h2>
+          <p>Click the Rulecard icon, press <kbd data-shortcut>Alt + Shift + R</kbd>, or <b>right-click the page, then Capture this question with Rulecard</b>. On any other site, select a question, right-click and choose <b>Explain this question with Rulecard</b>, or paste it into the panel.</p>
+          <button id="shortcuts" class="btn">Change the shortcut</button>
+        </li>
+        <li>
+          <h2>Get the rule</h2>
+          <p>Tell Rulecard what you picked and why. You get the rule it tested, why your pick breaks it, and a one-line takeaway.</p>
+        </li>
+        <li>
+          <h2>Make it stick</h2>
+          <p>Missed rules come back for <b>Review</b> on a spaced schedule, and <b>Today's plan</b> tells you which skills to work next, with the exact Question Bank filters. The toolbar badge shows how many rules are due. Export to Anki or print a study sheet any time.</p>
+          <button id="open-panel" class="btn">Open the side panel</button>
+        </li>
+      </ol>
+
+      <p class="muted small">Tip: in the side panel press <kbd>?</kbd> for keyboard shortcuts: 1–4 to pick, Enter to explain, T for Test me, R to review.</p>
+    </main>
+    <script type="module" src="dist/welcome.js"></script>
+  </body>
+</html>

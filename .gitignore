@@ -44,3 +44,5 @@ next-env.d.ts
 /.pglite
 /test-results
 /playwright-report
+store/.panels/
+tests/unit/addons/fixtures/local/
