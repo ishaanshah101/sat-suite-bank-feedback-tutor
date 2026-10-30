@@ -26,8 +26,18 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
 
   Rulecard is an independent study tool. It is not affiliated with or endorsed by College Board. SAT is a trademark of College Board.
 
-- **Screenshots (1280x800):** `screenshot-1-capture.png`, `screenshot-2-rule.png`, `screenshot-3-account.png`, `screenshot-4-math.png`
-- **Store icon (128x128):** `../extension/icons/icon128.png`
+- **Graphic assets (all in this folder):**
+  - Store icon (128x128): `store-icon-128.png` (96x96 artwork with 16px transparent padding, per Google's icon guidelines)
+  - Screenshots (1280x800, 24-bit PNG, no alpha), upload in this order:
+    1. `screenshot-1-reading-and-writing.png`
+    2. `screenshot-2-math.png`
+    3. `screenshot-3-grid-ins.png`
+    4. `screenshot-4-test-me.png`
+    5. `screenshot-5-history.png`
+  - Small promo tile (440x280): `small-promo-tile-440x280.png`
+  - Marquee promo tile (1400x560): `marquee-promo-tile-1400x560.png`
+  - Global promo video: optional, leave blank until there is a YouTube demo.
+  - Regenerate all of these with `node scripts/store/panel-shots.cjs && node scripts/store/compose-graphics.cjs`.
 - **Homepage URL:** https://rulecard.vercel.app
 - **Support URL:** https://github.com/ishaanshah101/sat-suite-bank-feedback-tutor/issues
 
