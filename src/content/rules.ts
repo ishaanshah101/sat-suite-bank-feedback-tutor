@@ -1,7 +1,9 @@
-import type { Domain, Skill } from "@/lib/questions/taxonomy";
+import type { Domain, Section, Skill } from "@/lib/questions/taxonomy";
+import { MATH_RULES } from "./math-rules";
 
 export interface Rule {
   id: string;
+  section: Section;
   domain: Domain | "General";
   skill: Skill | "General";
   /** 3 to 6 words */
@@ -15,6 +17,8 @@ export interface Rule {
   /** The usual wrong-answer bait */
   trap: string;
   example: { wrong: string; right: string };
+  /** Math only: the fastest reliable route, often in the built-in Desmos calculator. */
+  shortcut?: string;
 }
 
 const SEC = "Standard English Conventions" as const;
@@ -22,7 +26,7 @@ const EOI = "Expression of Ideas" as const;
 const CAS = "Craft and Structure" as const;
 const INI = "Information and Ideas" as const;
 
-export const RULES: Rule[] = [
+const RW_RULES: Omit<Rule, "section">[] = [
   // Boundaries
   {
     id: "BND-01",
@@ -584,6 +588,8 @@ export const RULES: Rule[] = [
   },
 ];
 
+export const RULES: Rule[] = [...RW_RULES.map((r) => ({ ...r, section: "rw" as const })), ...MATH_RULES];
+
 export const RULE_BY_ID: ReadonlyMap<string, Rule> = new Map(RULES.map((r) => [r.id, r]));
 
 export function getRule(id: string | null | undefined): Rule | null {
@@ -596,13 +602,22 @@ export function rulesForSkill(skill: Skill | null): Rule[] {
   return RULES.filter((r) => r.skill === skill);
 }
 
-export const GENERAL_RULES: Rule[] = RULES.filter((r) => r.domain === "General");
+export function rulesForSection(section: Section): Rule[] {
+  return RULES.filter((r) => r.section === section);
+}
+
+/** Section-wide strategy rules (GEN-xx for Reading and Writing, MGEN-xx for Math). */
+export function generalRules(section: Section): Rule[] {
+  return RULES.filter((r) => r.domain === "General" && r.section === section);
+}
+
+export const GENERAL_RULES: Rule[] = generalRules("rw");
 
 export function formatRulesForPrompt(rules: Rule[]): string {
   return rules
     .map(
       (r) =>
-        `${r.id} ${r.name}\n  Rule: ${r.statement}\n  Spot it: ${r.spot_it}\n  Test: ${r.test}\n  Trap: ${r.trap}`,
+        `${r.id} ${r.name}\n  Rule: ${r.statement}\n  Spot it: ${r.spot_it}\n  Test: ${r.test}\n  Trap: ${r.trap}${r.shortcut ? `\n  Shortcut: ${r.shortcut}` : ""}`,
     )
     .join("\n");
 }
