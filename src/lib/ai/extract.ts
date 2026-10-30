@@ -2,7 +2,8 @@ import { generateText, Output } from "ai";
 import { EXTRACT_INSTRUCTIONS } from "./prompts";
 import { ExtractionOutputSchema, type ExtractionOutput, type ParsedQuestion } from "./schemas";
 import { abortAfter, isNoOutputError, retryOnNoOutput, withFailover, type FailoverResult } from "./providers";
-import { normalizeDifficulty, normalizeDomain, normalizeSkill, domainForSkill } from "@/lib/questions/taxonomy";
+import { SECTION_TEST_NAME, domainForSkill, inferSection, normalizeDifficulty, normalizeDomain, normalizeSkill } from "@/lib/questions/taxonomy";
+import { splitAcceptedAnswers } from "@/lib/questions/spr";
 
 export class ExtractionError extends Error {
   constructor(message: string) {
@@ -24,31 +25,45 @@ export function parseDataUrl(dataUrl: string): { mediaType: string; base64: stri
 
 export function normalizeExtraction(output: ExtractionOutput): ParsedQuestion {
   const stem = output.stem?.trim() ?? "";
+  const skill = normalizeSkill(output.skill);
+  const domain = normalizeDomain(output.domain) ?? domainForSkill(skill);
+  const section = inferSection({ section: output.section, test: output.test, skill: output.skill, domain: output.domain });
   const choices = {
-    A: output.choices.A?.trim() ?? "",
-    B: output.choices.B?.trim() ?? "",
-    C: output.choices.C?.trim() ?? "",
-    D: output.choices.D?.trim() ?? "",
+    A: output.choices?.A?.trim() ?? "",
+    B: output.choices?.B?.trim() ?? "",
+    C: output.choices?.C?.trim() ?? "",
+    D: output.choices?.D?.trim() ?? "",
   };
-  if (!output.question_found || !stem || Object.values(choices).some((c) => !c)) {
-    throw new ExtractionError(output.notes?.trim() || "No complete question with four choices was found. Make sure the whole question and all four choices are visible.");
+  const hasChoices = Object.values(choices).every((c) => c.length > 0);
+  // Only Math has grid-ins; a Math question without four choices is one.
+  const format = section === "math" && (output.format === "spr" || !hasChoices) ? "spr" : "mcq";
+  if (!output.question_found || !stem || (format === "mcq" && !hasChoices)) {
+    throw new ExtractionError(
+      output.notes?.trim() ||
+        "No complete question was found. Make sure the whole question (and all four choices, if it has them) is visible.",
+    );
   }
   const qbIdRaw = output.qb_id?.trim().toLowerCase() ?? "";
   const qb_id = /^[0-9a-f]{8}$/.test(qbIdRaw) ? qbIdRaw : null;
-  const skill = normalizeSkill(output.skill);
-  const domain = normalizeDomain(output.domain) ?? domainForSkill(skill);
   const difficulty = normalizeDifficulty(output.difficulty);
-  const correct = output.visible_answer_panel ? output.correct : null;
+  const answers =
+    format === "spr" && output.visible_answer_panel
+      ? [...new Set((output.accepted_answers ?? []).flatMap((a) => splitAcceptedAnswers(a)))].slice(0, 12)
+      : [];
   return {
     qb_id,
-    test: output.test?.trim() || (skill ? "SAT Reading and Writing" : null),
+    section,
+    format,
+    test: output.test?.trim() || (skill || section === "math" ? SECTION_TEST_NAME[section] : null),
     domain,
     skill,
     difficulty,
     passage: output.passage?.trim() || null,
     stem,
-    choices,
-    correct,
+    choices: format === "mcq" ? choices : null,
+    correct: format === "mcq" && output.visible_answer_panel ? output.correct : null,
+    answers: answers.length ? answers : null,
+    figure: output.figure?.trim() || null,
     rationale: output.rationale?.trim() || null,
   };
 }
@@ -71,8 +86,8 @@ export async function extractQuestion(input: ExtractInput): Promise<FailoverResu
         messages: [{ role: "user", content }],
         output: Output.object({ schema: ExtractionOutputSchema, name: "parsed_question" }),
         providerOptions: provider.providerOptions("extract"),
-        maxOutputTokens: 4000,
-        abortSignal: abortAfter(28_000),
+        maxOutputTokens: 6000,
+        abortSignal: abortAfter(35_000),
       }));
       output = result.output;
     } catch (error) {

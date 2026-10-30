@@ -4,10 +4,11 @@ import { useRef, useState } from "react";
 import type { QuestionRow } from "@/db/schema";
 import type { Letter, Pick, RuleCard } from "@/lib/ai/schemas";
 import { postJson } from "@/lib/client/api";
+import { parseSprEntry } from "@/lib/questions/spr";
 import { ChatPanel } from "./chat-panel";
 import { DrillPanel } from "./drill-panel";
 import { InputStrip, type PdfImport } from "./input-strip";
-import { PdfList } from "./pdf-list";
+import { PdfList, type QueueItem } from "./pdf-list";
 import { QuestionCard } from "./question-card";
 import { RuleCardView } from "./rule-card";
 import { Button, Card, ErrorNote, Spinner } from "./ui";
@@ -18,14 +19,17 @@ interface Explained {
   attemptId: string;
   card: RuleCard;
   picked: Pick;
+  response: string | null;
+  isCorrect: boolean | null;
 }
 
 export function ReviewWorkspace() {
   const [question, setQuestion] = useState<QuestionRow | null>(null);
   const [pdf, setPdf] = useState<PdfImport | null>(null);
-  const [queue, setQueue] = useState<QuestionRow[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState<Pick | null>(null);
+  const [response, setResponse] = useState("");
   const [reasoning, setReasoning] = useState("");
   const [allowSolve, setAllowSolve] = useState(false);
   const [explaining, setExplaining] = useState(false);
@@ -37,28 +41,35 @@ export function ReviewWorkspace() {
     currentId.current = q.id;
     setQuestion(q);
     setPicked(null);
+    setResponse("");
     setReasoning("");
     setAllowSolve(false);
     setExplained(null);
     setError(null);
   };
 
+  const gridIn = question?.format === "spr";
+  const entry = parseSprEntry(response);
+
   const explain = async () => {
     if (!question || !picked) return;
+    if (picked === "spr" && !entry.ok) return;
     const id = question.id;
+    const typed = picked === "spr" && entry.ok ? entry.text : null;
     setExplaining(true);
     setError(null);
     try {
-      const data = await postJson<{ attemptId: string; card: RuleCard; question: QuestionRow }>("/api/explain", {
+      const data = await postJson<{ attemptId: string; card: RuleCard; question: QuestionRow; isCorrect?: boolean | null }>("/api/explain", {
         questionId: id,
         picked,
+        ...(typed ? { response: typed } : {}),
         reasoning: reasoning.trim() || null,
         allowModelSolve: allowSolve,
       });
       // The user may have loaded another question while this one was being explained.
       if (currentId.current !== id) return;
       setQuestion(data.question);
-      setExplained({ attemptId: data.attemptId, card: data.card, picked });
+      setExplained({ attemptId: data.attemptId, card: data.card, picked, response: typed, isCorrect: data.isCorrect ?? null });
     } catch (e) {
       if (currentId.current === id) setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -66,14 +77,24 @@ export function ReviewWorkspace() {
     }
   };
 
-  const next = () => {
+  const [loadingNext, setLoadingNext] = useState(false);
+  const next = async () => {
     const [head, ...rest] = queue;
-    if (!head) return;
-    setQueue(rest);
-    load(head);
+    if (!head || loadingNext) return;
+    setLoadingNext(true);
+    setError(null);
+    try {
+      const row = await head.load();
+      setQueue(rest);
+      load(row);
+    } catch (e) {
+      setError(`Could not read ${head.label}: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setLoadingNext(false);
+    }
   };
 
-  const needsAnswer = question && !question.correct;
+  const needsAnswer = question && (gridIn ? !question.answers?.length : !question.correct);
 
   return (
     <div className="space-y-5">
@@ -95,10 +116,16 @@ export function ReviewWorkspace() {
             onOpen={(q) => {
               load(q);
             }}
-            onQueue={(rows) => {
-              const [head, ...rest] = rows;
+            onQueue={(items) => {
+              const [head, ...rest] = items;
+              if (!head) return;
               setQueue(rest);
-              if (head) load(head);
+              setLoadingNext(true);
+              head
+                .load()
+                .then(load)
+                .catch((e) => setError(`Could not read ${head.label}: ${e instanceof Error ? e.message : String(e)}`))
+                .finally(() => setLoadingNext(false));
             }}
             onClose={() => setPdf(null)}
           />
@@ -108,15 +135,22 @@ export function ReviewWorkspace() {
       {queue.length ? (
         <p className="text-sm text-muted">
           {queue.length} more in your queue.{" "}
-          <button type="button" onClick={next} className="font-medium text-accent underline underline-offset-2">
+          <button type="button" onClick={() => void next()} disabled={loadingNext} className="font-medium text-accent underline underline-offset-2">
             Skip to next
           </button>
+          {loadingNext ? <Spinner /> : null}
         </p>
       ) : null}
 
       {question ? (
         <Card>
-          <QuestionCard question={question} picked={explained?.picked ?? null} showAnswer={Boolean(explained)}>
+          <QuestionCard
+            question={question}
+            picked={explained?.picked ?? null}
+            response={explained?.response ?? null}
+            isCorrect={explained?.isCorrect ?? null}
+            showAnswer={Boolean(explained)}
+          >
             {needsAnswer && !explained ? (
               <div className="rounded-xl border border-warn/40 bg-warn-soft px-4 py-3 text-sm" data-testid="needs-answer-banner">
                 <p className="font-medium">The correct answer is not in what I read.</p>
@@ -129,19 +163,38 @@ export function ReviewWorkspace() {
             ) : null}
             {!explained ? (
               <div className="space-y-3 border-t border-line pt-4" data-testid="pick-panel">
-                <p className="text-sm font-medium">Which did you pick?</p>
-                <div className="flex flex-wrap gap-2">
-                  {LETTERS.map((l) => (
-                    <button
-                      key={l}
-                      type="button"
-                      onClick={() => setPicked(l)}
-                      className={`h-10 w-10 rounded-lg border text-sm font-semibold transition ${picked === l ? "border-accent bg-accent text-white" : "border-line hover:bg-bg"}`}
-                      data-testid={`pick-${l}`}
-                    >
-                      {l}
-                    </button>
-                  ))}
+                <p className="text-sm font-medium">{gridIn ? "What did you enter?" : "Which did you pick?"}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {gridIn ? (
+                    <input
+                      value={response}
+                      onChange={(e) => {
+                        setResponse(e.target.value);
+                        setPicked(e.target.value.trim() ? "spr" : null);
+                      }}
+                      onFocus={() => {
+                        if (response.trim()) setPicked("spr");
+                      }}
+                      inputMode="decimal"
+                      maxLength={6}
+                      placeholder="Your answer"
+                      aria-label="Your answer"
+                      className={`h-10 w-36 rounded-lg border bg-bg px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent ${picked === "spr" ? "border-accent" : "border-line"}`}
+                      data-testid="spr-input"
+                    />
+                  ) : (
+                    LETTERS.map((l) => (
+                      <button
+                        key={l}
+                        type="button"
+                        onClick={() => setPicked(l)}
+                        className={`h-10 w-10 rounded-lg border text-sm font-semibold transition ${picked === l ? "border-accent bg-accent text-white" : "border-line hover:bg-bg"}`}
+                        data-testid={`pick-${l}`}
+                      >
+                        {l}
+                      </button>
+                    ))
+                  )}
                   <button
                     type="button"
                     onClick={() => setPicked("correct")}
@@ -151,6 +204,12 @@ export function ReviewWorkspace() {
                     I got it right, but explain
                   </button>
                 </div>
+                {gridIn && picked === "spr" && response.trim() && !entry.ok ? (
+                  <p className="text-sm text-danger" data-testid="spr-error">
+                    {entry.error}
+                  </p>
+                ) : null}
+                {gridIn ? <p className="text-xs text-muted">Grid-in rules: up to 5 characters (6 if negative), fractions like 7/2 or decimals like 3.5; no mixed numbers or symbols.</p> : null}
                 <input
                   value={reasoning}
                   onChange={(e) => setReasoning(e.target.value)}
@@ -159,7 +218,11 @@ export function ReviewWorkspace() {
                   data-testid="reasoning-input"
                 />
                 <div className="flex items-center gap-3">
-                  <Button onClick={explain} disabled={!picked || explaining || (Boolean(needsAnswer) && !allowSolve)} data-testid="explain-button">
+                  <Button
+                    onClick={explain}
+                    disabled={!picked || explaining || (picked === "spr" && !entry.ok) || (Boolean(needsAnswer) && !allowSolve)}
+                    data-testid="explain-button"
+                  >
                     {explaining ? <Spinner /> : null} Explain
                   </Button>
                   {explaining ? <span className="text-sm text-muted">Writing your rule card...</span> : null}
@@ -173,9 +236,9 @@ export function ReviewWorkspace() {
         <Card className="text-sm text-muted">
           <p className="font-medium text-ink">How it works</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>Open the SAT Suite Question Bank in another tab and work a question.</li>
-            <li>Click Capture tab once and pick that tab. Each later press takes one picture.</li>
-            <li>Tell me what you picked (and why). You get the one rule it tested, why your pick breaks it, and a takeaway.</li>
+            <li>Open the SAT Suite Question Bank in another tab and work a Reading and Writing or Math question.</li>
+            <li>Click Capture tab once and pick that tab. Each later press takes one picture. You can also upload the Question Bank PDF, a screenshot, or paste the text.</li>
+            <li>Tell me what you picked or typed (and why). You get the one rule it tested, why your answer breaks it, and a takeaway; Math adds the steps and a Desmos or backsolving shortcut.</li>
             <li>Ask follow-ups in the chat, or press Test me for a fresh question on the same rule.</li>
           </ol>
         </Card>
@@ -184,11 +247,12 @@ export function ReviewWorkspace() {
       {explained && question ? (
         <>
           <Card>
-            <RuleCardView card={explained.card} picked={explained.picked} />
+            <RuleCardView card={explained.card} picked={explained.picked} response={explained.response} />
             <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4">
               <DrillPanel attemptId={explained.attemptId} />
               {queue.length ? (
-                <Button onClick={next} className="ml-auto">
+                <Button onClick={() => void next()} disabled={loadingNext} className="ml-auto">
+                  {loadingNext ? <Spinner /> : null}
                   Next question ({queue.length} left)
                 </Button>
               ) : null}

@@ -88,26 +88,39 @@ describe("parsePdfText", () => {
     expect(q.difficulty).toBe("Hard");
     expect(q.passage).toBe("The collection of letters, which spans forty years, _____ donated to the archive in 2011.");
     expect(q.stem).toMatch(/^Which choice completes/);
-    expect(q.choices.B).toBe("was");
+    expect(q.choices?.B).toBe("was");
     expect(q.correct).toBe("B");
     expect(q.rationale).toBe('Choice B is the best answer. The subject "collection" is singular.');
     expect(q.ok).toBe(true);
   });
 
-  it("flags questions without four choices as needing a look", () => {
-    const text = `Question ID: cecbdeba
+  it("flags a Reading and Writing question without four choices as needing a look", () => {
+    const text = `Question ID: cecbdeb0
 Assessment Test Domain Skill Difficulty
-SAT Math Algebra Linear equations in one variable Easy
+SAT Reading and Writing Expression of Ideas Transitions Easy
 Question
-If 3x + 2 = 11, what is the value of x?
+The bakery sold out by noon. _____ the owners doubled the next day's batch.
+Which choice completes the text with the most logical transition?
+A. Consequently,
+B. However,
 Answer
-Correct Answer: 3
+Correct Answer: A
 Rationale
-The correct answer is 3.`;
+Choice A is the best answer.`;
     const { questions } = parsePdfText(text);
     expect(questions).toHaveLength(1);
     expect(questions[0].ok).toBe(false);
+    expect(questions[0].needsVision).toBe(false);
     expect(questions[0].issues.join(" ")).toContain("Missing choices");
+  });
+
+  it("marks Reading and Writing questions as multiple choice that need no vision", () => {
+    const [q] = parsePdfText(NEW_LAYOUT).questions;
+    expect(q.section).toBe("rw");
+    expect(q.format).toBe("mcq");
+    expect(q.needsVision).toBe(false);
+    expect(q.answers).toBeNull();
+    expect(q.figure).toBeNull();
   });
 
   it("warns when there are no question markers", () => {

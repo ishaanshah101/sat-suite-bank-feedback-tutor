@@ -1,4 +1,5 @@
-import { DIFFICULTIES, DOMAINS, SKILLS, squash, type Difficulty, type Domain, type Skill } from "./taxonomy";
+import { DIFFICULTIES, DOMAINS, SKILLS, domainForSkill, inferSection, squash, type Difficulty, type Domain, type Skill } from "./taxonomy";
+import { splitAcceptedAnswers } from "./spr";
 import type { Letter, ParsedQuestion } from "@/lib/ai/schemas";
 
 /** One positioned text run from pdf.js getTextContent (y grows upward, PDF user space). */
@@ -26,6 +27,8 @@ export interface ParsedPdfQuestion extends ParsedQuestion {
   pages: number[];
   issues: string[];
   ok: boolean;
+  /** Math questions: the PDF text layer mangles fractions and exponents, so the page is read with vision on open. */
+  needsVision: boolean;
 }
 
 export interface PdfParseResult {
@@ -124,8 +127,9 @@ class HeaderMatcher {
     const ordered = [...candidates].sort((a, b) => b.length - a.length);
     for (const candidate of ordered) {
       const ck = squash(candidate);
-      if (this.key.includes(ck)) {
-        this.key = this.key.replace(ck, "");
+      const at = this.find(ck);
+      if (at >= 0) {
+        this.key = this.key.slice(0, at) + this.key.slice(at + ck.length);
         this.consume(words(candidate));
         return candidate;
       }
@@ -138,6 +142,16 @@ class HeaderMatcher {
       }
     }
     return null;
+  }
+  /** Index of the candidate in the squashed header, skipping hits that are the tail of "non..." (Linear inside Nonlinear). */
+  private find(ck: string): number {
+    let from = 0;
+    for (;;) {
+      const at = this.key.indexOf(ck, from);
+      if (at < 0) return -1;
+      if (!(ck.startsWith("linear") && this.key.slice(Math.max(0, at - 3), at) === "non")) return at;
+      from = at + 1;
+    }
   }
   private canConsume(cw: string[]): boolean {
     const pool = [...this.bag];
@@ -178,6 +192,25 @@ function parseHeader(lines: string[]): { test: string | null; domain: Domain | n
   const domain = matcher.take(DOMAINS);
   const difficulty = matcher.take(DIFFICULTIES);
   return { test: testName, domain, skill, difficulty };
+}
+
+/** Grid-in answers from the "Correct Answer:" line, which may wrap onto the following lines. */
+function answersFromAnswerBlock(rest: string[]): string[] {
+  const start = rest.findIndex((t) => /correct\s*answ\s*er/i.test(t));
+  if (start < 0) return [];
+  const parts: string[] = [rest[start].replace(/^.*?correct\s*answ\s*er\s*:?/i, "")];
+  for (const t of rest.slice(start + 1)) {
+    if (/^\s*(rationale|question\s*difficulty|id:|question\s*id)/i.test(t) || squash(t) === "rationale") break;
+    parts.push(t);
+  }
+  const text = parts.join(" ").replace(/\s+/g, " ").replace(/\s*([./])\s*/g, "$1").trim();
+  return splitAcceptedAnswers(text);
+}
+
+/** "The correct answer is 403." in a grid-in rationale. */
+function answerFromRationale(text: string): string[] {
+  const m = /the correct answer is\s+(-?[\d./\u2212]+)/i.exec(text);
+  return m ? splitAcceptedAnswers(m[1].replace(/\.$/, "")) : [];
 }
 
 function correctFromRationale(text: string): Letter | null {
@@ -298,6 +331,39 @@ function parseBlock(lines: Line[], id: string): ParsedPdfQuestion {
 
   const letters: Letter[] = ["A", "B", "C", "D"];
   const missing = letters.filter((l) => !choices[l]);
+  const section = inferSection({ test: header.test, skill: header.skill, domain: header.domain });
+
+  if (section === "math") {
+    // Math: the text layer is only a preview (vision reads the page on open), so a found id is enough.
+    const found = letters.length - missing.length;
+    const answers = correct ? [] : answersFromAnswerBlock(rest);
+    if (!correct && answers.length === 0 && rationale) answers.push(...answerFromRationale(rationale));
+    const format = correct || (answers.length === 0 && found >= 2) ? "mcq" : "spr";
+    if (format === "mcq" && !correct) issues.push("No correct answer found");
+    if (format === "spr" && answers.length === 0) issues.push("No correct answer found");
+    if (!rationale) issues.push("No rationale found");
+    return {
+      qb_id: id,
+      section,
+      format,
+      test: header.test ?? "SAT Math",
+      domain: header.domain ?? domainForSkill(header.skill),
+      skill: header.skill,
+      difficulty,
+      passage,
+      stem,
+      choices: format === "mcq" ? { A: choices.A ?? "", B: choices.B ?? "", C: choices.C ?? "", D: choices.D ?? "" } : null,
+      correct: format === "mcq" ? correct : null,
+      answers: format === "spr" && answers.length ? answers : null,
+      figure: null,
+      rationale,
+      pages,
+      issues,
+      ok: true,
+      needsVision: true,
+    };
+  }
+
   if (missing.length) issues.push(`Missing choices: ${missing.join(", ")}`);
   if (!stem) issues.push("No question stem found");
   if (!correct) issues.push("No correct answer found");
@@ -305,6 +371,8 @@ function parseBlock(lines: Line[], id: string): ParsedPdfQuestion {
 
   return {
     qb_id: id,
+    section: "rw",
+    format: "mcq",
     test: header.test,
     domain: header.domain,
     skill: header.skill,
@@ -313,10 +381,13 @@ function parseBlock(lines: Line[], id: string): ParsedPdfQuestion {
     stem,
     choices: { A: choices.A ?? "", B: choices.B ?? "", C: choices.C ?? "", D: choices.D ?? "" },
     correct,
+    answers: null,
+    figure: null,
     rationale,
     pages,
     issues,
     ok: missing.length === 0 && Boolean(stem) && Boolean(correct),
+    needsVision: false,
   };
 }
 

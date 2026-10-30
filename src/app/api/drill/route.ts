@@ -6,7 +6,8 @@ import { createDrill, getAttempt } from "@/db/queries";
 import { chargeAiQuota } from "@/lib/ai/quota";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Math drills are written and then solved again independently before they are shown.
+export const maxDuration = 120;
 
 const Body = z.object({ attemptId: z.string().uuid() });
 
@@ -24,7 +25,13 @@ export async function POST(request: Request) {
       drillId: row.id,
       ruleId: rule.id,
       ruleName: rule.name,
-      question: { passage: drill.passage, stem: drill.stem, choices: drill.choices },
+      format: drill.format,
+      question: {
+        passage: drill.passage,
+        figure: drill.figure ?? null,
+        stem: drill.stem,
+        choices: drill.format === "mcq" ? drill.choices : null,
+      },
       provider,
       model,
     });

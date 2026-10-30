@@ -4,6 +4,13 @@ import { getRule } from "@/content/rules";
 
 export const runtime = "nodejs";
 
+function resultOf(isCorrect: boolean | null, picked: string, correct: string | null): "right" | "missed" | "unknown" {
+  if (isCorrect !== null) return isCorrect ? "right" : "missed";
+  if (picked === "correct") return "right";
+  if (picked === "spr" || !correct) return "unknown";
+  return picked === correct ? "right" : "missed";
+}
+
 /** The signed-in account's most recent reviews, newest first. Used by the extension's Recent list. */
 export async function GET(request: Request) {
   return withApi(async (session) => {
@@ -15,7 +22,10 @@ export async function GET(request: Request) {
         createdAt: attempt.createdAt,
         picked: attempt.picked,
         correct: question.correct,
-        result: attempt.picked === "correct" || attempt.picked === question.correct ? "right" : "missed",
+        section: question.section,
+        format: question.format,
+        response: attempt.response,
+        result: resultOf(attempt.isCorrect, attempt.picked, question.correct),
         ruleId: attempt.ruleId,
         ruleName: attempt.ruleId ? (getRule(attempt.ruleId)?.name ?? null) : null,
         skill: question.skill,

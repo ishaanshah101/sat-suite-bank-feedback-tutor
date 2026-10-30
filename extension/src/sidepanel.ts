@@ -1,5 +1,7 @@
 import { ApiError, authenticate, DEFAULT_SERVER, loadSettings, normalizeServer, request, saveSettings, streamChat, webLink } from "./api";
 import { downscale } from "./image";
+import { renderMathHtml } from "../../src/lib/math/render";
+import { parseSprEntry } from "../../src/lib/questions/spr";
 import {
   LETTERS,
   type ChatMessage,
@@ -34,9 +36,11 @@ interface State {
   allowSolve: boolean;
   explaining: boolean;
   explainError: string | null;
-  explained: { attemptId: string; card: RuleCard; ruleName: string | null; picked: Pick } | null;
+  /** What the student typed for a grid-in question. */
+  sprInput: string;
+  explained: { attemptId: string; card: RuleCard; ruleName: string | null; picked: Pick; response: string | null; isCorrect: boolean | null } | null;
   chat: { messages: ChatMessage[]; busy: boolean; error: string | null };
-  drill: { data: DrillResponse | null; picked: Letter | null; result: CheckResponse | null; loading: boolean; error: string | null };
+  drill: { data: DrillResponse | null; picked: Letter | "spr" | null; response: string; result: CheckResponse | null; loading: boolean; error: string | null };
 }
 
 const state: State = {
@@ -56,10 +60,15 @@ const state: State = {
   allowSolve: false,
   explaining: false,
   explainError: null,
+  sprInput: "",
   explained: null,
   chat: { messages: [], busy: false, error: null },
-  drill: { data: null, picked: null, result: null, loading: false, error: null },
+  drill: emptyDrill(),
 };
+
+function emptyDrill(): State["drill"] {
+  return { data: null, picked: null, response: "", result: null, loading: false, error: null };
+}
 
 const DIAGNOSIS: Record<RuleCard["diagnosis"], { label: string; tone: string }> = {
   misread: { label: "misread the sentence", tone: "warn" },
@@ -97,6 +106,16 @@ function h<K extends keyof HTMLElementTagNameMap>(
 }
 
 const chip = (text: string, tone = "") => h("span", { class: `chip ${tone}`.trim(), text });
+
+/** An element whose text may hold LaTeX math in \( \): plain parts are escaped, math becomes MathML. */
+function mathEl<K extends keyof HTMLElementTagNameMap>(tag: K, text: string, props: Record<string, unknown> | null = null): HTMLElementTagNameMap[K] {
+  const el = h(tag, props);
+  el.innerHTML = renderMathHtml(text);
+  return el;
+}
+
+const isMathQuestion = (q: Question | null | undefined) => q?.section === "math";
+const isGridIn = (q: Question | null | undefined) => q?.format === "spr";
 const spinner = () => h("span", { class: "spinner", "aria-label": "working" });
 
 function link(href: string, text: string, cls = ""): HTMLAnchorElement {
@@ -166,7 +185,7 @@ function renderConnect(): Node[] {
       "div",
       { class: "card" },
       h("h1", { text: "Rulecard" }),
-      h("p", { class: "muted small", text: "Capture a Question Bank question and learn the one rule it tested. Your history is saved to your account, on the web app too." }),
+      h("p", { class: "muted small", text: "Capture a Reading and Writing or Math question from the Question Bank and learn the one rule it tested. Your history is saved to your account, on the web app too." }),
       h("div", { class: "tabs", role: "tablist" }, tab("signin", "Sign in"), tab("signup", "Create account")),
       h("label", { class: "field" }, "Email", email),
       h("label", { class: "field" }, "Password", password),
@@ -317,8 +336,14 @@ function renderRecent(items: RecentAttempt[]): Node {
       h(
         "button",
         { class: "recent", onclick: () => void openWeb(`/history/${item.id}`) },
-        h("span", { class: "row" }, chip(item.result === "right" ? "right" : "missed", item.result === "right" ? "good" : "danger"), h("span", { class: "small muted", text: item.ruleName ?? item.skill ?? "" })),
-        h("span", { class: "recent-stem", text: item.stem }),
+        h(
+          "span",
+          { class: "row" },
+          chip(item.result === "right" ? "right" : item.result === "missed" ? "missed" : "reviewed", item.result === "right" ? "good" : item.result === "missed" ? "danger" : ""),
+          item.section ? chip(item.section === "math" ? "Math" : "R&W") : null,
+          h("span", { class: "small muted", text: item.ruleName ?? item.skill ?? "" }),
+        ),
+        mathEl("span", item.stem, { class: "recent-stem" }),
       ),
     ),
   );
@@ -348,9 +373,9 @@ function renderHowTo(): Node {
     h(
       "ol",
       { class: "steps small" },
-      h("li", { text: "Work a question in the SAT Suite Question Bank and reveal the answer." }),
+      h("li", { text: "Work a Reading and Writing or Math question in the SAT Suite Question Bank and reveal the answer." }),
       h("li", { text: "Press Capture. One picture of that tab is read; nothing is recorded." }),
-      h("li", { text: "Tell me what you picked (and why). You get the one rule it tested, why your pick breaks it, and a takeaway." }),
+      h("li", { text: "Tell me what you picked or typed (and why). You get the one rule it tested, why your answer breaks it, and for Math the steps and a Desmos shortcut." }),
       h("li", { text: "Ask follow-ups, or press Test me for a fresh question on the same rule." }),
     ),
   );
@@ -362,66 +387,76 @@ function renderQuestion(q: Question): Node {
   const chips = h(
     "div",
     { class: "row" },
+    chip(isMathQuestion(q) ? "Math" : "Reading and Writing"),
+    isGridIn(q) ? chip("grid-in", "accent") : null,
     q.qbId ? chip(`ID ${q.qbId}`) : null,
     q.domain ? chip(q.domain, "accent") : null,
     q.skill ? chip(q.skill, "accent") : null,
     q.difficulty ? chip(q.difficulty) : null,
     q.answerSource === "model" ? chip("answer solved by the model", "warn") : null,
   );
-  const choices = h(
-    "ol",
-    { class: "choices" },
-    ...LETTERS.map((letter) => {
-      const isPick = picked === letter;
-      const isCorrect = showAnswer && q.correct === letter;
-      const cls = `choice ${isCorrect ? "correct" : isPick ? "picked" : ""}`.trim();
-      return h(
-        "li",
-        { class: cls },
-        h("span", { class: "letter", text: `${letter}.` }),
-        h("span", { text: q.choices[letter] }),
-        isCorrect ? h("span", { class: "tag good", text: "correct" }) : isPick ? h("span", { class: "tag danger", text: "your pick" }) : null,
-      );
-    }),
-  );
-  const children: Child[] = [chips, q.passage ? h("div", { class: "passage", text: q.passage }) : null, h("p", { class: "stem", text: q.stem }), choices];
+  const children: Child[] = [
+    chips,
+    q.passage ? mathEl("div", q.passage, { class: "passage" }) : null,
+    q.figure ? h("div", { class: "figure" }, h("div", { class: "figure-label", text: "Figure (as read)" }), mathEl("div", q.figure)) : null,
+    mathEl("p", q.stem, { class: "stem" }),
+  ];
+  if (!isGridIn(q) && q.choices) {
+    const choices = q.choices;
+    children.push(
+      h(
+        "ol",
+        { class: "choices" },
+        ...LETTERS.map((letter) => {
+          const isPick = picked === letter;
+          const isCorrect = showAnswer && q.correct === letter;
+          const cls = `choice ${isCorrect ? "correct" : isPick ? "picked" : ""}`.trim();
+          return h(
+            "li",
+            { class: cls },
+            h("span", { class: "letter", text: `${letter}.` }),
+            mathEl("span", choices[letter]),
+            isCorrect ? h("span", { class: "tag good", text: "correct" }) : isPick ? h("span", { class: "tag danger", text: "your pick" }) : null,
+          );
+        }),
+      ),
+    );
+  } else if (showAnswer && state.explained) {
+    const ex = state.explained;
+    const accepted = q.answers?.length ? q.answers.join(", ") : ex.card.correct_answer;
+    children.push(
+      h(
+        "div",
+        { class: "spr-result" },
+        ex.response
+          ? h("div", { class: `choice ${ex.isCorrect === true ? "correct" : ex.isCorrect === false ? "picked" : ""}`.trim() }, h("span", { class: "letter", text: "You" }), h("span", { text: ex.response }), ex.isCorrect === true ? h("span", { class: "tag good", text: "correct" }) : ex.isCorrect === false ? h("span", { class: "tag danger", text: "not accepted" }) : null)
+          : null,
+        accepted ? h("div", { class: "choice correct" }, h("span", { class: "letter", text: "Key" }), h("span", { text: `Accepted: ${accepted}` })) : null,
+      ),
+    );
+  }
   if (!state.explained) children.push(renderPickPanel(q));
   return h("div", { class: "card" }, ...children);
 }
 
+function sprCheck(): { ok: boolean; error: string | null } {
+  if (!state.sprInput.trim()) return { ok: false, error: null };
+  const entry = parseSprEntry(state.sprInput);
+  return entry.ok ? { ok: true, error: null } : { ok: false, error: entry.error };
+}
+
 function renderPickPanel(q: Question): Node {
-  const needsAnswer = !q.correct;
-  const picks = h(
-    "div",
-    { class: "picks" },
-    ...LETTERS.map((letter) =>
-      h("button", {
-        class: `pick ${state.picked === letter ? "on" : ""}`.trim(),
-        text: letter,
-        onclick: () => {
-          state.picked = letter;
-          render();
-        },
-      }),
-    ),
-    h("button", {
-      class: `pick wide ${state.picked === "correct" ? "on" : ""}`.trim(),
-      text: "I got it right, but explain",
-      onclick: () => {
-        state.picked = "correct";
-        render();
-      },
-    }),
-  );
-  const reasoning = h("input", {
-    id: "reasoning",
-    class: "input",
-    placeholder: "What was your thinking? (optional, one line)",
-    onkeydown: (event: KeyboardEvent) => {
-      if (event.key === "Enter") void explain();
+  const gridIn = isGridIn(q);
+  const needsAnswer = gridIn ? !q.answers?.length : !q.correct;
+  const rightButton = h("button", {
+    class: `pick wide ${state.picked === "correct" ? "on" : ""}`.trim(),
+    text: "I got it right, but explain",
+    onclick: () => {
+      state.picked = "correct";
+      render();
     },
   });
-  const children: Child[] = [h("h2", { text: "Which did you pick?" })];
+  const children: Child[] = [h("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
   if (needsAnswer) {
     children.push(
       h(
@@ -445,13 +480,69 @@ function renderPickPanel(q: Question): Node {
       ),
     );
   }
-  children.push(picks, reasoning);
+  let sprOk = true;
+  if (gridIn) {
+    const check = sprCheck();
+    sprOk = state.picked !== "spr" || check.ok;
+    const input = h("input", {
+      id: "spr-input",
+      class: "input",
+      maxlength: 6,
+      inputmode: "decimal",
+      autocomplete: "off",
+      placeholder: "Your answer, e.g. 3/17 or .75",
+      value: state.sprInput,
+      oninput: (event: Event) => {
+        state.sprInput = (event.target as HTMLInputElement).value;
+        state.picked = state.sprInput.trim() ? "spr" : state.picked === "spr" ? null : state.picked;
+        render();
+      },
+      onkeydown: (event: KeyboardEvent) => {
+        if (event.key === "Enter") void explain();
+      },
+    });
+    children.push(h("div", { class: "picks" }, h("div", { style: "flex:1;min-width:140px" }, input), rightButton));
+    if (state.picked === "spr" && check.error) children.push(h("p", { class: "small", style: "color:var(--danger)", role: "alert", text: check.error }));
+    else children.push(h("p", { class: "muted small", text: "Enter it the way you would on the test: a fraction or a decimal, up to 5 characters (6 if negative)." }));
+  } else {
+    children.push(
+      h(
+        "div",
+        { class: "picks" },
+        ...LETTERS.map((letter) =>
+          h("button", {
+            class: `pick ${state.picked === letter ? "on" : ""}`.trim(),
+            text: letter,
+            onclick: () => {
+              state.picked = letter;
+              render();
+            },
+          }),
+        ),
+        rightButton,
+      ),
+    );
+  }
+  const reasoning = h("input", {
+    id: "reasoning",
+    class: "input",
+    placeholder: "What was your thinking? (optional, one line)",
+    onkeydown: (event: KeyboardEvent) => {
+      if (event.key === "Enter") void explain();
+    },
+  });
+  children.push(reasoning);
   children.push(
     h(
       "div",
       { class: "row" },
-      h("button", { class: "btn primary", disabled: !state.picked || state.explaining || (needsAnswer && !state.allowSolve), onclick: () => void explain() }, state.explaining ? spinner() : null, "Explain"),
-      state.explaining ? h("span", { class: "muted small", text: "Writing your rule card..." }) : null,
+      h(
+        "button",
+        { id: "explain-button", class: "btn primary", disabled: !state.picked || !sprOk || state.explaining || (needsAnswer && !state.allowSolve), onclick: () => void explain() },
+        state.explaining ? spinner() : null,
+        "Explain",
+      ),
+      state.explaining ? h("span", { class: "muted small", text: isMathQuestion(q) ? "Working it out..." : "Writing your rule card..." }) : null,
     ),
   );
   if (state.explainError) children.push(h("div", { class: "banner danger", role: "alert", text: state.explainError }));
@@ -460,12 +551,16 @@ function renderPickPanel(q: Question): Node {
 
 function renderRuleCard(card: RuleCard, picked: Pick, ruleName: string | null): Node {
   const diag = DIAGNOSIS[card.diagnosis] ?? DIAGNOSIS.unknown;
-  const section = (title: string, body: string) => h("section", null, h("h2", { text: title }), h("p", { text: body }));
+  const math = isMathQuestion(state.question);
+  const section = (title: string, body: string) => h("section", null, h("h2", { text: title }), mathEl("p", body));
+  const answerLabel = card.correct_letter ?? card.correct_answer ?? "the answer";
+  const pickedLabel = picked === "spr" ? state.explained?.response ?? "your answer" : picked;
+  const rulePath = `/rules${math ? "?section=math" : ""}#${card.rule_id}`;
   const children: Child[] = [
     h(
       "div",
       { class: "row" },
-      chip(diag.label, diag.tone),
+      chip(math && card.diagnosis === "careless" ? "computation slip" : math && card.diagnosis === "misread" ? "misread the question" : diag.label, diag.tone),
       chip(`confidence ${Math.round(card.confidence * 100)}%`),
       card.solved_by_model ? chip("answer worked out by the model, double check it", "warn") : null,
       card.suggested_rule ? chip(`suggested new rule: ${card.suggested_rule}`) : null,
@@ -473,20 +568,27 @@ function renderRuleCard(card: RuleCard, picked: Pick, ruleName: string | null): 
     h(
       "div",
       { class: "banner accent" },
-      h("div", { class: "rule-id" }, "Rule ", link(`${state.settings.server}/rules#${card.rule_id}`, `${card.rule_id}${ruleName ? ` · ${ruleName}` : ""}`)),
-      h("p", { class: "rule-statement", text: card.rule_statement }),
+      h(
+        "div",
+        { class: "rule-id" },
+        "Rule ",
+        h("button", { class: "btn link rule-link", text: `${card.rule_id}${ruleName ? ` · ${ruleName}` : ""}`, onclick: () => void openWeb(rulePath) }),
+      ),
+      mathEl("p", card.rule_statement, { class: "rule-statement" }),
     ),
-    section(`Why ${card.correct_letter} is right`, card.why_correct),
-    card.why_pick_fails && picked !== "correct" ? section(`Why ${picked} fails`, card.why_pick_fails) : null,
-    card.eliminations.length
+    section(`Why ${answerLabel} is right`, card.why_correct),
+    card.why_pick_fails && picked !== "correct" ? section(`Why ${pickedLabel} fails`, card.why_pick_fails) : null,
+    card.steps?.length ? h("section", null, h("h2", { text: "Steps" }), h("ol", { class: "steps" }, ...card.steps.map((step) => mathEl("li", step)))) : null,
+    card.shortcut ? h("div", { class: "shortcut" }, h("h2", { text: "Shortcut" }), mathEl("p", card.shortcut)) : null,
+    card.eliminations.length && !isGridIn(state.question)
       ? h(
           "section",
           null,
           h("h2", { text: "Kill the rest" }),
-          h("ul", { class: "list" }, ...card.eliminations.map((e) => h("li", null, h("span", { class: "letter", text: `${e.letter}.` }), h("span", { text: e.reason })))),
+          h("ul", { class: "list" }, ...card.eliminations.map((e) => h("li", null, h("span", { class: "letter", text: `${e.letter}.` }), mathEl("span", e.reason)))),
         )
       : null,
-    h("div", { class: "banner", style: "background:var(--bg)" }, h("h2", { text: "Takeaway" }), h("p", { class: "stem", text: card.takeaway })),
+    h("div", { class: "banner", style: "background:var(--bg)" }, h("h2", { text: "Takeaway" }), mathEl("p", card.takeaway, { class: "stem" })),
     renderDrill(),
   ];
   return h("div", { class: "card" }, ...children);
@@ -498,40 +600,79 @@ function renderDrill(): Node {
     return h(
       "div",
       { class: "row", style: "border-top:1px solid var(--line);padding-top:10px" },
-      h("button", { class: "btn", disabled: d.loading, title: "Writes one new mini-question on the same rule", onclick: () => void startDrill() }, d.loading ? spinner() : null, "Test me"),
+      h("button", { class: "btn", disabled: d.loading, title: "Writes one new mini-question on the same rule", onclick: () => void startDrill() }, d.loading ? spinner() : null, d.loading ? "Writing a question..." : "Test me"),
       d.error ? h("span", { class: "small", style: "color:var(--danger)", text: d.error }) : null,
     );
   }
   const drill = d.data;
-  const choices = h(
-    "ol",
-    { class: "choices" },
-    ...LETTERS.map((letter) => {
-      const isPick = d.picked === letter;
-      const isCorrect = d.result?.correctLetter === letter;
-      const cls = d.result ? (isCorrect ? "correct" : isPick ? "pick" : "") : isPick ? "selected" : "selectable";
-      return h(
-        "li",
-        { class: `choice ${cls}`.trim(), onclick: () => void answerDrill(letter) },
-        h("span", { class: "letter", text: `${letter}.` }),
-        h("span", { text: drill.question.choices[letter] }),
-      );
-    }),
-  );
+  const gridIn = drill.format === "spr" || !drill.question.choices;
   const children: Child[] = [
     h("h2", { text: `Test me · ${drill.ruleId} ${drill.ruleName}` }),
-    drill.question.passage ? h("div", { class: "passage", text: drill.question.passage }) : null,
-    h("p", { class: "stem", text: drill.question.stem }),
-    choices,
+    drill.question.passage ? mathEl("div", drill.question.passage, { class: "passage" }) : null,
+    drill.question.figure ? h("div", { class: "figure" }, h("div", { class: "figure-label", text: "Figure" }), mathEl("div", drill.question.figure)) : null,
+    mathEl("p", drill.question.stem, { class: "stem" }),
   ];
+  if (gridIn) {
+    const entry = d.response.trim() ? parseSprEntry(d.response) : null;
+    children.push(
+      h(
+        "div",
+        { class: "picks" },
+        h(
+          "div",
+          { style: "flex:1;min-width:140px" },
+          h("input", {
+            id: "drill-spr-input",
+            class: "input",
+            maxlength: 6,
+            inputmode: "decimal",
+            autocomplete: "off",
+            placeholder: "Your answer",
+            value: d.response,
+            disabled: Boolean(d.result) || d.picked === "spr",
+            oninput: (event: Event) => {
+              d.response = (event.target as HTMLInputElement).value;
+              render();
+            },
+            onkeydown: (event: KeyboardEvent) => {
+              if (event.key === "Enter") void checkDrillResponse();
+            },
+          }),
+        ),
+        h("button", { id: "drill-check", class: "btn primary", disabled: !entry?.ok || Boolean(d.result) || d.picked === "spr", onclick: () => void checkDrillResponse() }, d.picked === "spr" && !d.result ? spinner() : null, "Check"),
+      ),
+    );
+    if (entry && !entry.ok && !d.result) children.push(h("p", { class: "small", style: "color:var(--danger)", text: entry.error }));
+  } else if (drill.question.choices) {
+    const choices = drill.question.choices;
+    children.push(
+      h(
+        "ol",
+        { class: "choices" },
+        ...LETTERS.map((letter) => {
+          const isPick = d.picked === letter;
+          const isCorrect = d.result?.correctLetter === letter;
+          const cls = d.result ? (isCorrect ? "correct" : isPick ? "picked" : "") : isPick ? "selected" : "selectable";
+          return h(
+            "li",
+            { class: `choice ${cls}`.trim(), onclick: () => void answerDrill(letter) },
+            h("span", { class: "letter", text: `${letter}.` }),
+            mathEl("span", choices[letter]),
+          );
+        }),
+      ),
+    );
+  }
   if (d.result) {
+    const answer = d.result.correctLetter ?? d.result.correctAnswer ?? "";
     children.push(
       h(
         "div",
         { class: `banner ${d.result.correct ? "good" : "danger"}` },
-        h("p", { class: "stem", text: d.result.correct ? "Right." : `Not quite. The answer is ${d.result.correctLetter}.` }),
-        h("p", { text: d.result.correct ? d.result.whyCorrect : d.result.fix ?? d.result.whyCorrect }),
-        !d.result.correct ? h("p", { class: "muted small", text: d.result.whyCorrect }) : null,
+        h("p", { class: "stem", text: d.result.correct ? "Right." : `Not quite. The answer is ${answer}.` }),
+        mathEl("p", d.result.correct ? d.result.whyCorrect : d.result.fix ?? d.result.whyCorrect),
+        !d.result.correct && d.result.fix ? mathEl("p", d.result.whyCorrect, { class: "muted small" }) : null,
+        d.result.solution?.length ? h("ol", { class: "steps small" }, ...d.result.solution.map((step) => mathEl("li", step))) : null,
       ),
       h("button", { class: "btn", disabled: d.loading, onclick: () => void startDrill() }, d.loading ? spinner() : null, "Another one"),
     );
@@ -558,7 +699,7 @@ function renderChat(): Node {
       ? h(
           "div",
           { class: "chat" },
-          ...c.messages.map((m) => h("div", { class: `msg ${m.role === "user" ? "user" : "tutor"}`, id: `msg-${m.id}` }, h("span", { class: "who", text: m.role === "user" ? "you" : "tutor" }), h("span", { class: "body", text: m.text || (c.busy ? "..." : "") }))),
+          ...c.messages.map((m) => h("div", { class: `msg ${m.role === "user" ? "user" : "tutor"}`, id: `msg-${m.id}` }, h("span", { class: "who", text: m.role === "user" ? "you" : "tutor" }), mathEl("span", m.text || (c.busy ? "..." : ""), { class: "body" }))),
         )
       : null,
     c.error ? h("div", { class: "banner danger", role: "alert", text: c.error }) : null,
@@ -583,6 +724,8 @@ function describe(error: unknown): string {
     if (error.code === "extraction_failed") return "I could not find a question in that picture. Scroll so the whole question and the choices are visible, then capture again.";
     if (error.code === "needs_answer") return "The answer was not visible. Reveal it on the Question Bank tab and capture again, or tick 'Let the model work out the answer'.";
     if (error.code === "daily_limit") return error.message;
+    if (error.code === "invalid_response") return error.message;
+    if (error.code === "unverified") return "Could not double-check that question. Try again.";
     if (error.status === 429) return error.message;
     return error.message;
   }
@@ -605,12 +748,13 @@ async function handleAuthFailure(error: unknown): Promise<boolean> {
 function resetQuestion() {
   state.question = null;
   state.picked = null;
+  state.sprInput = "";
   state.allowSolve = false;
   state.explaining = false;
   state.explainError = null;
   state.explained = null;
   state.chat = { messages: [], busy: false, error: null };
-  state.drill = { data: null, picked: null, result: null, loading: false, error: null };
+  state.drill = emptyDrill();
 }
 
 async function refreshHealth() {
@@ -689,18 +833,29 @@ async function explain() {
   const q = state.question;
   if (!q || !state.picked || state.explaining) return;
   const reasoning = ((document.getElementById("reasoning") as HTMLInputElement | null)?.value ?? "").trim();
+  const picked = state.picked;
+  let response: string | null = null;
+  if (picked === "spr") {
+    const entry = parseSprEntry(state.sprInput);
+    if (!entry.ok) {
+      state.explainError = entry.error;
+      render();
+      return;
+    }
+    response = entry.text;
+  }
   state.explaining = true;
   state.explainError = null;
   render();
   try {
     const data = await request<ExplainResponse>(state.settings, "/api/explain", {
-      body: { questionId: q.id, picked: state.picked, reasoning: reasoning || null, allowModelSolve: state.allowSolve },
+      body: { questionId: q.id, picked, ...(response ? { response } : {}), reasoning: reasoning || null, allowModelSolve: state.allowSolve },
     });
     state.question = data.question;
-    state.explained = { attemptId: data.attemptId, card: data.card, ruleName: data.rule?.name ?? null, picked: state.picked };
+    state.explained = { attemptId: data.attemptId, card: data.card, ruleName: data.rule?.name ?? null, picked, response, isCorrect: data.isCorrect ?? null };
     void refreshRecent();
     state.chat = { messages: [], busy: false, error: null };
-    state.drill = { data: null, picked: null, result: null, loading: false, error: null };
+    state.drill = emptyDrill();
   } catch (error) {
     if (await handleAuthFailure(error)) return;
     state.explainError = describe(error);
@@ -713,7 +868,7 @@ async function explain() {
 async function startDrill() {
   const attemptId = state.explained?.attemptId;
   if (!attemptId || state.drill.loading) return;
-  state.drill = { data: null, picked: null, result: null, loading: true, error: null };
+  state.drill = { ...emptyDrill(), loading: true };
   render();
   try {
     state.drill.data = await request<DrillResponse>(state.settings, "/api/drill", { body: { attemptId } });
@@ -741,6 +896,28 @@ async function answerDrill(letter: Letter) {
   render();
 }
 
+async function checkDrillResponse() {
+  const d = state.drill;
+  if (!d.data || d.result || d.picked) return;
+  const entry = parseSprEntry(d.response);
+  if (!entry.ok) {
+    d.error = entry.error;
+    render();
+    return;
+  }
+  d.picked = "spr";
+  d.error = null;
+  render();
+  try {
+    d.result = await request<CheckResponse>(state.settings, "/api/drill/check", { body: { drillId: d.data.drillId, response: entry.text } });
+  } catch (error) {
+    if (await handleAuthFailure(error)) return;
+    d.error = describe(error);
+    d.picked = null;
+  }
+  render();
+}
+
 async function sendChat() {
   const attemptId = state.explained?.attemptId;
   const input = document.getElementById("chat-input") as HTMLInputElement | null;
@@ -759,7 +936,7 @@ async function sendChat() {
     await streamChat(state.settings, attemptId, history, (delta) => {
       reply.text += delta;
       const body = document.querySelector(`#msg-${reply.id} .body`);
-      if (body) body.textContent = reply.text;
+      if (body) body.innerHTML = renderMathHtml(reply.text);
       else render();
     });
     if (!reply.text) reply.text = "(no reply)";
@@ -797,8 +974,24 @@ async function consumePendingCapture() {
   }
 }
 
+/**
+ * A question handed to the panel from elsewhere (for example the extension's own check script, or a
+ * future "send to panel" button): load it as the current question and clear the key.
+ */
+async function consumePendingQuestion() {
+  const stored = (await chrome.storage.session.get("pendingQuestion")) as { pendingQuestion?: Question };
+  const pending = stored.pendingQuestion;
+  if (!pending) return;
+  await chrome.storage.session.remove("pendingQuestion");
+  if (state.view !== "main" || !pending.id || !pending.stem) return;
+  resetQuestion();
+  state.question = pending;
+  render();
+}
+
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "session" && changes.pendingCapture?.newValue) void consumePendingCapture();
+  if (area === "session" && changes.pendingQuestion?.newValue) void consumePendingQuestion();
 });
 
 // ---------- boot ----------
@@ -821,6 +1014,7 @@ async function boot() {
   void refreshRecent();
   await refreshHealth();
   await consumePendingCapture();
+  await consumePendingQuestion();
 }
 
 void boot();

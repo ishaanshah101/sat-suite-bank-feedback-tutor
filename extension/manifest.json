@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Rulecard",
-  "version": "0.2.0",
-  "description": "Learn the one rule behind every SAT Reading & Writing miss. Capture a Question Bank question, get the rule, then practice it.",
+  "version": "0.3.0",
+  "description": "Learn the one rule behind each SAT Reading & Writing and Math miss: capture a Question Bank question, get the rule, practice it.",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",

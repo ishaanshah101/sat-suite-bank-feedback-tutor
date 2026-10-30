@@ -56,9 +56,9 @@ C. The setting is bleak.
 D. "The ending is abrupt."
 ${ANSWER}`;
     const [q] = parsePdfText(text).questions;
-    expect(q.choices.B).toBe('"The characters are vivid, as noted by critic D. H. Lawrence."');
-    expect(q.choices.C).toBe("The setting is bleak.");
-    expect(q.choices.D).toBe('"The ending is abrupt."');
+    expect(q.choices?.B).toBe('"The characters are vivid, as noted by critic D. H. Lawrence."');
+    expect(q.choices?.C).toBe("The setting is bleak.");
+    expect(q.choices?.D).toBe('"The ending is abrupt."');
     expect(q.ok).toBe(true);
   });
 
@@ -76,7 +76,7 @@ ${ANSWER}`;
     const [q] = parsePdfText(text).questions;
     expect(q.passage).toContain("A. Philip Randolph");
     expect(q.stem).toBe("Which choice best states the main idea of the text?");
-    expect(q.choices.A).toBe("Randolph planned early.");
+    expect(q.choices?.A).toBe("Randolph planned early.");
     expect(q.ok).toBe(true);
   });
 

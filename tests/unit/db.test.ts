@@ -61,4 +61,50 @@ describe("database layer on PGlite", () => {
     await q.deleteAttempt(attempt.id);
     expect((await q.listAttempts(USER)).length).toBe(1);
   });
+
+  it("stores Math grid-ins, typed answers and grading, and counts misses from is_correct", async () => {
+    const q = await import("@/db/queries");
+    const grid = await q.upsertQuestion(
+      USER,
+      {
+        qb_id: "5eedf00d",
+        section: "math",
+        format: "spr",
+        test: "SAT Math",
+        domain: "Algebra",
+        skill: "Linear equations in one variable",
+        difficulty: "Medium",
+        passage: "\\(17x - 2 = 1\\)",
+        stem: "What value of \\(x\\)?",
+        choices: null,
+        correct: null,
+        answers: [".1764", ".1765", "3/17"],
+        figure: null,
+        rationale: null,
+      },
+      "capture",
+    );
+    expect(grid).toMatchObject({ section: "math", format: "spr", choices: null, answerSource: "official" });
+    expect(grid.answers).toEqual([".1764", ".1765", "3/17"]);
+    // A re-capture without the answer panel keeps the official answers.
+    const again = await q.upsertQuestion(USER, { qb_id: "5eedf00d", section: "math", format: "spr", test: null, domain: null, skill: null, difficulty: null, passage: null, stem: "s", choices: null, correct: null, answers: null, figure: "a table", rationale: null }, "capture");
+    expect(again.id).toBe(grid.id);
+    expect(again.answers).toEqual([".1764", ".1765", "3/17"]);
+    expect(again.figure).toBe("a table");
+
+    const wrong = await q.createAttempt(USER, { questionId: grid.id, picked: "spr", response: ".18", reasoning: null });
+    await q.finishAttempt(wrong.id, { explanation: {}, ruleId: "LE1-01", provider: "stub", model: "m", isCorrect: false });
+    const right = await q.createAttempt(USER, { questionId: grid.id, picked: "spr", response: "3/17", reasoning: null });
+    await q.finishAttempt(right.id, { explanation: {}, ruleId: "LE1-01", provider: "stub", model: "m", isCorrect: true });
+    const stats = await q.getRuleStats(USER);
+    expect(stats.find((s) => s.ruleId === "LE1-01")).toMatchObject({ attemptMisses: 1, misses: 1 });
+
+    const drill = await q.createDrill(USER, { attemptId: wrong.id, ruleId: "LE1-01", question: { stem: "x" } });
+    await q.answerDrill(drill.id, "spr", false, "7");
+    expect(await q.getDrill(USER, drill.id)).toMatchObject({ picked: "spr", response: "7", correct: false });
+
+    const unknown = await q.upsertQuestion(USER, { qb_id: null, section: "math", format: "spr", test: null, domain: null, skill: null, difficulty: null, passage: null, stem: "t", choices: null, correct: null, answers: null, figure: null, rationale: null }, "paste");
+    await q.setModelGridInAnswer(unknown.id, "6");
+    expect((await q.getQuestion(USER, unknown.id))).toMatchObject({ answers: ["6"], answerSource: "model" });
+  });
 });

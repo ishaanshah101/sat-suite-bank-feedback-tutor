@@ -128,6 +128,51 @@ test("paste, explain, chat, test me, history and rules", async ({ page }) => {
   await expect(page.locator("#BND-01")).toBeVisible();
 });
 
+test("Math grid-in: type an answer, rule card with steps, chat, verified drill, history and rules", async ({ page }) => {
+  test.setTimeout(120_000);
+  await signUp(page);
+  await openTab(page, "tab-paste", "paste-textarea");
+  await page.getByTestId("paste-textarea").fill("SAT Math question 5eedf00d: 17x - 2 = 1. What value of x is the solution? Correct Answer: .1764, .1765, 3/17");
+  await page.getByTestId("paste-submit").click();
+  const input = page.getByTestId("spr-input");
+  await expect(input).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Math", { exact: true }).first()).toBeVisible();
+  await expect(page.locator("math").first()).toBeVisible();
+  await expect(page.getByTestId("pick-A")).toHaveCount(0);
+
+  await input.fill("3 1/2");
+  await expect(page.getByText("Mixed numbers are not allowed", { exact: false })).toBeVisible();
+  await expect(page.getByTestId("explain-button")).toBeDisabled();
+  await input.fill(".18");
+  await page.getByTestId("reasoning-input").fill("I subtracted 2");
+  await page.getByTestId("explain-button").click();
+  const card = page.getByTestId("rule-card");
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toContainText("LE1-01");
+  await expect(card).toContainText("3/17");
+  await expect(page.getByTestId("rule-steps")).toBeVisible();
+  await expect(page.getByTestId("rule-shortcut")).toContainText("Desmos");
+
+  await page.getByTestId("chat-input").fill("Why add 2?");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByTestId("chat-panel")).toContainText("Stub tutor reply: add 2", { timeout: 30_000 });
+
+  await page.getByRole("button", { name: "Test me" }).click();
+  await expect(page.getByTestId("drill-spr-input")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("drill-spr-input").fill("6");
+  await page.getByTestId("drill-spr-submit").click();
+  await expect(page.getByTestId("drill-result")).toContainText("Right.");
+
+  await page.goto("/history?section=math");
+  await expect(page.getByRole("cell", { name: "missed" })).toBeVisible();
+  await expect(page.getByText(".18").first()).toBeVisible();
+  await page.goto("/rules?section=math");
+  await expect(page.locator("#LE1-01")).toBeVisible();
+  await expect(page.getByText("missed 1 time").first()).toBeVisible();
+  await page.goto("/rules");
+  await expect(page.locator("#BND-01")).toBeVisible();
+});
+
 test("PDF export parses in the browser and opens a question", async ({ page }) => {
   await signUp(page);
   await openTab(page, "tab-pdf", "pdf-panel");

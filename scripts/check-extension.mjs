@@ -130,6 +130,37 @@ try {
   const missedRow = await web.getByRole("cell", { name: "missed" }).first().waitFor({ timeout: 30000 }).then(() => true, () => false);
   ok("History opens the web app signed in as the same account", /\/history$/.test(web.url()) && missedRow, `${web.url()} ${(await web.locator("main").innerText().catch(() => "")).slice(0, 150)}`);
 
+  // Math: a grid-in question. The stub model returns a Math grid-in extraction for text that contains
+  // "SAT Math"; the question is handed to the panel through the pendingQuestion hook.
+  const mathQuestion = await worker.evaluate(async () => {
+    const { settings } = await chrome.storage.local.get("settings");
+    const res = await fetch(settings.server + "/api/extract", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${settings.token}` },
+      body: JSON.stringify({ text: "SAT Math grid-in stub: \\(\\frac{3}{17}\\) check question for the extension.", source: "paste" }),
+    });
+    const data = await res.json();
+    if (data.question) await chrome.storage.session.set({ pendingQuestion: data.question });
+    return data.question ?? data;
+  });
+  ok("math extraction returns a grid-in question", mathQuestion?.section === "math" && mathQuestion?.format === "spr", JSON.stringify(mathQuestion).slice(0, 160));
+  await panel.getByText("What did you enter?").waitFor({ timeout: 15000 });
+  ok("panel shows the grid-in pick panel and renders math", (await panel.locator("#spr-input").count()) === 1 && (await panel.locator(".card math").count()) > 0);
+  await panel.locator("#spr-input").fill("3 1/2");
+  await panel.getByRole("alert").filter({ hasText: "Mixed numbers" }).waitFor({ timeout: 5000 }).catch(() => undefined);
+  ok("grid-in input rejects a mixed number and disables Explain", (await panel.getByText(/Mixed numbers are not allowed/).count()) === 1 && (await panel.locator("#explain-button").isDisabled()));
+  await panel.locator("#spr-input").fill("3/17");
+  await panel.locator("#explain-button").click();
+  await panel.locator(".steps").first().waitFor({ timeout: 60000 });
+  const mathRule = await panel.locator(".rule-id").innerText();
+  ok("math rule card shows a Math rule, steps and the graded grid-in answer", /(LE1|LFN|LE2|SYS|INQ|EQX|NLE|NLF|RAT|PCT|ONE|TWO|PRB|SMP|EVS|ARV|LAT|TRG|CIR|MTH)-\d{2}/.test(mathRule) && (await panel.locator(".spr-result .tag.good").count()) === 1, mathRule);
+  await panel.getByRole("button", { name: "Test me" }).click();
+  await panel.locator("#drill-spr-input").waitFor({ timeout: 60000 });
+  await panel.locator("#drill-spr-input").fill("6");
+  await panel.locator("#drill-check").click();
+  await panel.locator(".banner.good, .banner.danger").last().waitFor({ timeout: 30000 });
+  ok("math grid-in drill checks a typed answer", (await panel.locator(".banner.good").count()) >= 1, await panel.locator(".banner.good, .banner.danger").last().innerText());
+
   await panel.getByRole("button", { name: "Sign out" }).click();
   await panel.locator("#password").waitFor({ timeout: 10000 });
   const cleared = await worker.evaluate(() => chrome.storage.local.get("settings"));

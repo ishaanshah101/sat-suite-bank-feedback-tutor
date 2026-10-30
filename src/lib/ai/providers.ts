@@ -6,7 +6,8 @@ import { recordProviderError, recordProviderOk } from "@/db/queries";
 
 export type ProviderName = "openai" | "anthropic" | "gateway";
 const KNOWN: ProviderName[] = ["openai", "anthropic", "gateway"];
-export type TaskKind = "extract" | "explain" | "chat" | "drill";
+/** "math" is Math explanations, drills and drill checks: the stronger model with more room to reason. */
+export type TaskKind = "extract" | "explain" | "chat" | "drill" | "math";
 
 export interface ProviderHandle {
   name: ProviderName;
@@ -32,6 +33,7 @@ function openaiModels(): Record<TaskKind, string> {
     explain,
     chat: env("OPENAI_CHAT_MODEL") ?? explain,
     drill: explain,
+    math: env("OPENAI_MATH_MODEL") ?? explain,
   };
 }
 
@@ -42,6 +44,7 @@ function anthropicModels(): Record<TaskKind, string> {
     explain,
     chat: env("ANTHROPIC_CHAT_MODEL") ?? explain,
     drill: explain,
+    math: env("ANTHROPIC_MATH_MODEL") ?? explain,
   };
 }
 
@@ -82,6 +85,7 @@ function gatewayCandidates(): Record<TaskKind, string[]> {
     explain,
     chat: list("GATEWAY_CHAT_MODEL", explain),
     drill: explain,
+    math: list("GATEWAY_MATH_MODEL", explain),
   };
 }
 
@@ -96,12 +100,15 @@ export function isModelUnavailableError(error: unknown): boolean {
 // Provider options are JSON values passed straight through to the model provider.
 type ProviderOptionsValue = Record<string, Record<string, string | number | boolean | Record<string, number>>>;
 
+const ANTHROPIC_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium", math: "high" };
+const OPENAI_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "low", chat: "low", drill: "low", math: "medium" };
+
 function gatewayOptionsFor(id: string, kind: TaskKind): ProviderOptionsValue {
-  const anthropicEffort: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium" };
-  if (id.startsWith("anthropic/")) return { anthropic: { effort: anthropicEffort[kind] } };
-  if (id.startsWith("openai/gpt-5") || id.startsWith("openai/gpt-6")) return { openai: { reasoningEffort: "low" } };
+  if (id.startsWith("anthropic/")) return { anthropic: { effort: ANTHROPIC_EFFORT[kind] } };
+  if (id.startsWith("openai/gpt-5") || id.startsWith("openai/gpt-6")) return { openai: { reasoningEffort: OPENAI_EFFORT[kind] } };
   // Gemini thinks by default and its thinking tokens count against the output limit, which truncates JSON.
-  if (id.startsWith("google/gemini")) return { google: { thinkingConfig: { thinkingBudget: 512 } } };
+  // Math gets a bigger budget (its callers raise maxOutputTokens to match).
+  if (id.startsWith("google/gemini")) return { google: { thinkingConfig: { thinkingBudget: kind === "math" ? 6000 : 512 } } };
   return {};
 }
 
@@ -167,19 +174,18 @@ function makeOpenAI(apiKey: string): ProviderHandle {
     name: "openai",
     model: (kind) => provider(models[kind]),
     modelId: (kind) => models[kind],
-    providerOptions: () => ({ openai: { reasoningEffort: "low" } }),
+    providerOptions: (kind) => ({ openai: { reasoningEffort: OPENAI_EFFORT[kind] } }),
   };
 }
 
 function makeAnthropic(apiKey: string): ProviderHandle {
   const provider = createAnthropic({ apiKey });
   const models = anthropicModels();
-  const effort: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium" };
   return {
     name: "anthropic",
     model: (kind) => provider(models[kind]),
     modelId: (kind) => models[kind],
-    providerOptions: (kind) => ({ anthropic: { effort: effort[kind] } }),
+    providerOptions: (kind) => ({ anthropic: { effort: ANTHROPIC_EFFORT[kind] } }),
   };
 }
 

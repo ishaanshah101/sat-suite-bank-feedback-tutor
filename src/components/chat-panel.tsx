@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
+import { MathText } from "./math-text";
 import { Button, Spinner } from "./ui";
 
 export function ChatPanel({ attemptId, initialMessages = [] }: { attemptId: string; initialMessages?: UIMessage[] }) {
@@ -38,7 +39,7 @@ export function ChatPanel({ attemptId, initialMessages = [] }: { attemptId: stri
           {messages.map((m) => (
             <li key={m.id} className={`rounded-xl px-3 py-2 text-[15px] leading-relaxed ${m.role === "user" ? "ml-8 bg-accent-soft" : "mr-8 bg-bg"}`}>
               <span className="mr-2 text-xs font-semibold uppercase tracking-wide text-muted">{m.role === "user" ? "you" : "tutor"}</span>
-              {m.parts.map((part, i) => (part.type === "text" ? <span key={i} className="whitespace-pre-wrap">{part.text}</span> : null))}
+              {m.parts.map((part, i) => (part.type === "text" ? <MathText key={i} text={part.text} className="whitespace-pre-wrap" /> : null))}
             </li>
           ))}
         </ol>

@@ -55,10 +55,10 @@ export async function POST(request: Request) {
     }
     const result = streamText({
       model: provider.model("chat"),
-      instructions: chatInstructions(question, attempt.picked as Pick, attempt.reasoning, card.success ? card.data : null),
+      instructions: chatInstructions(question, attempt.picked as Pick, attempt.response, attempt.reasoning, card.success ? card.data : null),
       messages: await convertToModelMessages(safeMessages),
       providerOptions: provider.providerOptions("chat"),
-      maxOutputTokens: 1500,
+      maxOutputTokens: question.section === "math" ? 2500 : 1500,
       onEnd: async ({ text }) => {
         noteStreamOk(provider);
         await addChatMessage(session.userId, attempt.id, "assistant", text).catch(() => undefined);

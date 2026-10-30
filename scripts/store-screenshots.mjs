@@ -72,9 +72,30 @@ try {
   const shot3 = path.join(os.tmpdir(), "panel-rule.png");
   await panel.screenshot({ path: shot3 });
 
-  await frame(shot2, "Capture the question you just missed", "Open any SAT Question Bank question, click Capture, and tell Rulecard which answer you picked and why.", "store/screenshot-1-capture.png");
+  // Math: a grid-in question handed to the panel (the stub model returns one for text containing "SAT Math").
+  await worker.evaluate(async () => {
+    const { settings } = await chrome.storage.local.get("settings");
+    const res = await fetch(settings.server + "/api/extract", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${settings.token}` },
+      body: JSON.stringify({ text: "SAT Math grid-in stub question for the store screenshot.", source: "paste" }),
+    });
+    const data = await res.json();
+    if (data.question) await chrome.storage.session.set({ pendingQuestion: data.question });
+  });
+  await panel.locator("#spr-input").waitFor({ timeout: 20000 });
+  await panel.locator("#spr-input").fill("3/17");
+  await panel.locator("#reasoning").fill("I set up the fraction from the table");
+  await panel.locator("#explain-button").click();
+  await panel.locator(".steps").first().waitFor({ timeout: 90000 });
+  await panel.evaluate(() => document.querySelector(".rule-id")?.closest(".card")?.scrollIntoView({ block: "start" }));
+  const shot4 = path.join(os.tmpdir(), "panel-math.png");
+  await panel.screenshot({ path: shot4 });
+
+  await frame(shot2, "Capture the question you just missed", "Open any Reading and Writing or Math question in the SAT Question Bank, click Capture, and tell Rulecard which answer you picked and why.", "store/screenshot-1-capture.png");
   await frame(shot3, "Get the one rule it tested", "A short rule card: why the answer is right, why your pick fails, and a takeaway. Then ask follow-ups or drill the rule.", "store/screenshot-2-rule.png");
   await frame(shot1, "Your history follows you", "Free account with email and password. Every review is saved, in the extension and on the web app.", "store/screenshot-3-account.png");
+  await frame(shot4, "Math too, step by step", "Grid-in answers checked by the official entry rules, worked steps, and Desmos shortcuts when they save time.", "store/screenshot-4-math.png");
   console.log("wrote store/screenshot-*.png");
 } finally {
   await context.close();

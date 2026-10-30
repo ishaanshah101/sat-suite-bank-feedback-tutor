@@ -46,3 +46,19 @@ body {
   white-space: pre-wrap;
   line-height: 1.6;
 }
+
+math {
+  font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math;
+  font-size: 1.05em;
+}
+
+math[display="block"] {
+  display: block math;
+  margin: 0.5em 0;
+  text-align: center;
+}
+
+.figure-text {
+  white-space: pre-wrap;
+  line-height: 1.55;
+}

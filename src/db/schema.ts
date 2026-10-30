@@ -3,6 +3,8 @@ import { boolean, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-o
 import { DEFAULT_OWNER_USER_ID } from "@/lib/env";
 
 export type Letter = "A" | "B" | "C" | "D";
+export type Section = "rw" | "math";
+export type QuestionFormat = "mcq" | "spr";
 export type Choices = Record<Letter, string>;
 
 const base = {
@@ -17,6 +19,8 @@ export const questions = pgTable(
   {
     ...base,
     qbId: text("qb_id"),
+    section: text("section").$type<Section>().notNull().default("rw"),
+    format: text("format").$type<QuestionFormat>().notNull().default("mcq"),
     source: text("source").$type<"capture" | "pdf" | "paste" | "image">().notNull(),
     test: text("test"),
     domain: text("domain"),
@@ -24,8 +28,13 @@ export const questions = pgTable(
     difficulty: text("difficulty"),
     stem: text("stem").notNull(),
     passage: text("passage"),
-    choices: jsonb("choices").$type<Choices>().notNull(),
+    /** Null for grid-in (student-produced response) questions. */
+    choices: jsonb("choices").$type<Choices>(),
     correct: text("correct").$type<Letter>(),
+    /** Grid-in only: every accepted form of the answer, for example [".1764", ".1765", "3/17"]. */
+    answers: jsonb("answers").$type<string[]>(),
+    /** A figure or table described in words by the extractor (math), so explanations can use it. */
+    figure: text("figure"),
     answerSource: text("answer_source").$type<"official" | "model">(),
     rationale: text("rationale"),
     raw: jsonb("raw").$type<Record<string, unknown>>(),
@@ -40,7 +49,11 @@ export const attempts = pgTable(
     questionId: uuid("question_id")
       .notNull()
       .references(() => questions.id, { onDelete: "cascade" }),
-    picked: text("picked").$type<Letter | "correct">().notNull(),
+    picked: text("picked").$type<Letter | "correct" | "spr">().notNull(),
+    /** Grid-in only: what the student typed. */
+    response: text("response"),
+    /** Graded at explain time; null for attempts saved before grading existed. */
+    isCorrect: boolean("is_correct"),
     reasoning: text("reasoning"),
     explanation: jsonb("explanation").$type<Record<string, unknown>>(),
     ruleId: text("rule_id"),
@@ -70,7 +83,8 @@ export const drills = pgTable(
     attemptId: uuid("attempt_id").references(() => attempts.id, { onDelete: "cascade" }),
     ruleId: text("rule_id").notNull(),
     question: jsonb("question").$type<Record<string, unknown>>().notNull(),
-    picked: text("picked").$type<Letter>(),
+    picked: text("picked").$type<Letter | "spr">(),
+    response: text("response"),
     correct: boolean("correct"),
   },
   (t) => [index("drills_user_rule_idx").on(t.userId, t.ruleId), index("drills_attempt_idx").on(t.attemptId)],

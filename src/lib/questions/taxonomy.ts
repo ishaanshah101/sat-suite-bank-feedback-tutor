@@ -171,13 +171,17 @@ export function domainForSkill(skill: Skill | null): Domain | null {
   return skill ? SKILL_DOMAIN[skill] : null;
 }
 
-/** Best guess of the section from whatever is known; R&W when nothing says otherwise. */
+/**
+ * Best guess of the section. The official skill or domain label wins (it comes from the Question Bank),
+ * then the test name, then a model's own guess; Reading and Writing when nothing says otherwise.
+ */
 export function inferSection(input: { section?: string | null; test?: string | null; skill?: string | null; domain?: string | null }): Section {
-  if (input.section === "math" || input.section === "rw") return input.section;
   const skill = normalizeSkill(input.skill);
   if (skill) return sectionOfSkill(skill);
   const domain = normalizeDomain(input.domain);
   if (domain) return sectionOfDomain(domain);
   if (input.test && /math/i.test(input.test)) return "math";
+  if (input.test && /reading|writing/i.test(input.test)) return "rw";
+  if (input.section === "math" || input.section === "rw") return input.section;
   return "rw";
 }

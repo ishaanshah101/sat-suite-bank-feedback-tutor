@@ -10,7 +10,7 @@ export default function SignInPage() {
         <div className="mb-6">
           <div className="text-xs font-semibold uppercase tracking-widest text-muted">Rulecard</div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Learn the rule behind every miss</h1>
-          <p className="mt-2 text-sm text-muted">Free SAT Reading &amp; Writing review. Your history is saved to your account and shared with the Chrome extension.</p>
+          <p className="mt-2 text-sm text-muted">Free SAT Reading and Writing and Math review. Your history is saved to your account and shared with the Chrome extension.</p>
         </div>
         <AuthForm />
         <p className="mt-6 text-center text-xs text-muted">

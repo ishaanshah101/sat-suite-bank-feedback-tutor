@@ -8,6 +8,7 @@ import { Shell } from "@/components/shell";
 import { Card } from "@/components/ui";
 import { getAttempt, listChatMessages } from "@/db/queries";
 import { requirePageSession } from "@/lib/auth/session";
+import { isPickCorrect } from "@/lib/ai/prompts";
 import { RuleCardSchema, type Pick } from "@/lib/ai/schemas";
 
 export default async function AttemptPage({ params }: { params: Promise<{ attemptId: string }> }) {
@@ -28,12 +29,18 @@ export default async function AttemptPage({ params }: { params: Promise<{ attemp
       </div>
       <div className="space-y-5">
         <Card>
-          <QuestionCard question={question} picked={attempt.picked as Pick} showAnswer />
+          <QuestionCard
+            question={question}
+            picked={attempt.picked as Pick}
+            response={attempt.response}
+            isCorrect={attempt.isCorrect ?? isPickCorrect(question, attempt.picked as Pick, attempt.response)}
+            showAnswer
+          />
           {attempt.reasoning ? <p className="mt-3 text-sm text-muted">Your thinking: {attempt.reasoning}</p> : null}
         </Card>
         {card.success ? (
           <Card>
-            <RuleCardView card={card.data} picked={attempt.picked} />
+            <RuleCardView card={card.data} picked={attempt.picked} response={attempt.response} />
             <div className="mt-5 border-t border-line pt-4">
               <DrillPanel attemptId={attempt.id} />
             </div>

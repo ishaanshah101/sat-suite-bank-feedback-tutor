@@ -9,16 +9,17 @@ export default function PrivacyPage() {
         Rulecard
       </Link>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight">Privacy policy</h1>
-      <p className="mt-1 text-muted">Last updated October 26, 2026.</p>
+      <p className="mt-1 text-muted">Last updated October 30, 2026.</p>
 
       <h2 className="mt-8 text-base font-semibold">What Rulecard collects</h2>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>Your email address and a salted hash of your password (never the password itself).</li>
         <li>
-          The SAT practice questions you send it: a screenshot of the tab you choose to capture with the Chrome extension, a PDF page, an
-          image or pasted text. Rulecard reads the question out of it and saves the question text, not the screenshot.
+          The SAT practice questions (Reading and Writing or Math) you send it: a screenshot of the tab you choose to capture with the Chrome
+          extension, a PDF page, an image or pasted text. Rulecard reads the question out of it, including equations and a written description of
+          any graph, table or figure, and saves that text, not the screenshot.
         </li>
-        <li>Your answer choice, any reasoning you type, the explanations, chat messages and practice drills that follow.</li>
+        <li>Your answer choice or typed answer, any reasoning you type, the explanations, chat messages and practice drills that follow.</li>
         <li>A count of AI requests per account, for the daily limit, and a short-lived record of sign-in tries per network address, to slow down password guessing.</li>
       </ul>
 

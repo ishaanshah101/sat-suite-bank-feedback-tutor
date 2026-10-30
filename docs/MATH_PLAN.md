@@ -65,3 +65,28 @@ From the Question Bank's own data (October 2026, read from a cloud sandbox):
 - Grid-in correctness is checked by code against the official accepted forms, not by the model.
 - Math drills are verified by an independent second solve before the student sees them.
 - Not fetching questions from College Board's question API: that is an undocumented endpoint and adds terms-of-use risk before publishing.
+
+## Contracts (fixed; the UI, the extension and the server all build against these)
+
+Math text convention: LaTeX inside `\( \)` (inline) or `\[ \]` (display), never `$`. Render any question, choice, figure, rule, card, drill or chat text with `renderMathHtml()` from `src/lib/math/render.ts`; it escapes plain text and outputs MathML. The extension imports the same file through a relative path (esbuild bundles KaTeX). Reading and Writing text never contains `\(`, so rendering it is a no-op apart from escaping.
+
+`QuestionRow` (`src/db/schema.ts`) gains:
+- `section: "rw" | "math"` and `format: "mcq" | "spr"`.
+- `choices: Choices | null` (null for grid-ins).
+- `answers: string[] | null` (accepted grid-in forms) and `figure: string | null` (the figure or table in words, may contain math).
+
+`AttemptRow` gains `response: string | null` and `isCorrect: boolean | null`; `picked` can be `"spr"`.
+
+API:
+- `POST /api/extract`: input unchanged. Response `{ question: QuestionRow, provider, model }`.
+- `POST /api/questions`: body `{ questions: ParsedQuestion[] }`. `ParsedQuestion` (`src/lib/ai/schemas.ts`) adds `section`, `format`, `answers`, `figure`, and its choices are nullable; all of these are optional with defaults.
+- `POST /api/explain`: body `{ questionId, picked: "A"|"B"|"C"|"D"|"correct"|"spr", response?: string, reasoning?: string|null, allowModelSolve?: boolean }`.
+  - `response` is required when `picked` is `"spr"`. It is validated with `parseSprEntry`; a bad entry returns 400 `{ code: "invalid_response", error }`.
+  - Response: `{ attemptId, card: RuleCard, question: QuestionRow, rule: { id, name }, isCorrect: boolean | null, provider, model }`.
+  - `RuleCard` adds `correct_letter: Letter | null`, `correct_answer: string | null`, `steps: string[]` and `shortcut: string | null`. Show "Steps" when steps is non-empty and "Shortcut" when present. The correct answer label is `correct_letter ?? correct_answer`. A grid-in card has no eliminations.
+  - Errors: 409 `needs_answer` when the answer is unknown and `allowModelSolve` is false (grid-ins too).
+- `POST /api/drill`: `{ attemptId }` returns `{ drillId, ruleId, ruleName, format: "mcq"|"spr", question: { passage, figure, stem, choices: Choices|null }, provider, model }`. Math drills are verified by an independent solve; on a mismatch the server returns 502 `{ code: "unverified" }`.
+- `POST /api/drill/check`: `{ drillId, picked: Letter }` for multiple choice or `{ drillId, response: string }` for a grid-in. Returns `{ correct, format, correctLetter: Letter|null, correctAnswer: string|null, whyCorrect, fix: string|null, solution: string[] }`. A bad grid-in entry returns 400 `invalid_response`.
+- `POST /api/chat`: unchanged; replies may contain `\( \)` math.
+- `GET /api/attempts`: each item adds `section`, `format`, `response`, and `result: "right" | "missed" | "unknown"`.
+- History and Rules pages: rules carry `section`; `rulesForSection(section)` and `SECTION_LABEL` come from `src/content/rules.ts` and `taxonomy.ts`.

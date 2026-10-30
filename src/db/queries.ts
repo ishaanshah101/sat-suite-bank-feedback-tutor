@@ -17,12 +17,17 @@ import {
   type QuestionRow,
   type UserRow,
 } from "./schema";
-import type { ParsedQuestion } from "@/lib/ai/schemas";
+import type { ParsedQuestionInput } from "@/lib/ai/schemas";
 
-export async function upsertQuestion(userId: string, parsed: ParsedQuestion, source: QuestionRow["source"]): Promise<QuestionRow> {
+export async function upsertQuestion(userId: string, parsed: ParsedQuestionInput, source: QuestionRow["source"]): Promise<QuestionRow> {
   const db = await getDb();
+  const format = parsed.format ?? "mcq";
+  const answers = format === "spr" && parsed.answers?.length ? parsed.answers : null;
+  const official = format === "spr" ? Boolean(answers) : Boolean(parsed.correct);
   const values = {
     qbId: parsed.qb_id,
+    section: parsed.section ?? "rw",
+    format,
     source,
     test: parsed.test,
     domain: parsed.domain,
@@ -30,9 +35,11 @@ export async function upsertQuestion(userId: string, parsed: ParsedQuestion, sou
     difficulty: parsed.difficulty,
     stem: parsed.stem,
     passage: parsed.passage,
-    choices: parsed.choices,
-    correct: parsed.correct,
-    answerSource: parsed.correct ? ("official" as const) : null,
+    choices: format === "spr" ? null : parsed.choices,
+    correct: format === "spr" ? null : parsed.correct,
+    answers,
+    figure: parsed.figure ?? null,
+    answerSource: official ? ("official" as const) : null,
     rationale: parsed.rationale,
     raw: parsed as unknown as Record<string, unknown>,
     updatedAt: new Date(),
@@ -50,10 +57,14 @@ export async function upsertQuestion(userId: string, parsed: ParsedQuestion, sou
           stem: values.stem,
           passage: values.passage,
           choices: values.choices,
+          section: values.section,
+          format: values.format,
           raw: values.raw,
           updatedAt: values.updatedAt,
           correct: sql`coalesce(excluded.correct, ${questions.correct})`,
-          answerSource: sql`case when excluded.correct is not null then 'official' else ${questions.answerSource} end`,
+          answers: sql`coalesce(excluded.answers, ${questions.answers})`,
+          figure: sql`coalesce(excluded.figure, ${questions.figure})`,
+          answerSource: sql`case when excluded.correct is not null or excluded.answers is not null then 'official' else ${questions.answerSource} end`,
           rationale: sql`coalesce(excluded.rationale, ${questions.rationale})`,
           domain: sql`coalesce(excluded.domain, ${questions.domain})`,
           skill: sql`coalesce(excluded.skill, ${questions.skill})`,
@@ -89,20 +100,35 @@ export async function setModelAnswer(id: string, correct: Letter): Promise<void>
     .where(and(eq(questions.id, id), sql`${questions.correct} is null`));
 }
 
-export async function createAttempt(userId: string, input: { questionId: string; picked: Letter | "correct"; reasoning: string | null }): Promise<AttemptRow> {
+/** Grid-in: remember an answer the model worked out (flagged as model-made), only when none is known. */
+export async function setModelGridInAnswer(id: string, answer: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .update(questions)
+    .set({ answers: [answer], answerSource: "model", updatedAt: new Date() })
+    .where(and(eq(questions.id, id), sql`${questions.answers} is null`));
+}
+
+export async function createAttempt(
+  userId: string,
+  input: { questionId: string; picked: Letter | "correct" | "spr"; response?: string | null; reasoning: string | null },
+): Promise<AttemptRow> {
   const db = await getDb();
   const [row] = await db
     .insert(attempts)
-    .values({ userId, questionId: input.questionId, picked: input.picked, reasoning: input.reasoning })
+    .values({ userId, questionId: input.questionId, picked: input.picked, response: input.response ?? null, reasoning: input.reasoning })
     .returning();
   return row;
 }
 
-export async function finishAttempt(id: string, input: { explanation: Record<string, unknown>; ruleId: string; provider: string; model: string }): Promise<void> {
+export async function finishAttempt(
+  id: string,
+  input: { explanation: Record<string, unknown>; ruleId: string; provider: string; model: string; isCorrect?: boolean | null },
+): Promise<void> {
   const db = await getDb();
   await db
     .update(attempts)
-    .set({ explanation: input.explanation, ruleId: input.ruleId, provider: input.provider, model: input.model, updatedAt: new Date() })
+    .set({ explanation: input.explanation, ruleId: input.ruleId, provider: input.provider, model: input.model, isCorrect: input.isCorrect ?? null, updatedAt: new Date() })
     .where(eq(attempts.id, id));
 }
 
@@ -169,11 +195,12 @@ export async function getDrill(userId: string, id: string): Promise<DrillRow | n
 }
 
 /** Records the first answer only; a second click on a drill that already has one changes nothing. */
-export async function answerDrill(id: string, picked: Letter, correct: boolean): Promise<void> {
+/** Record the first answer to a drill (a letter, or "spr" with the typed response); later answers are ignored. */
+export async function answerDrill(id: string, picked: Letter | "spr", correct: boolean, response: string | null = null): Promise<void> {
   const db = await getDb();
   await db
     .update(drills)
-    .set({ picked, correct, updatedAt: new Date() })
+    .set({ picked, correct, response, updatedAt: new Date() })
     .where(and(eq(drills.id, id), sql`${drills.picked} is null`));
 }
 
