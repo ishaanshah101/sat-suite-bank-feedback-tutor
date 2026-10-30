@@ -1,4 +1,4 @@
-# Adding SAT Math (work in progress, paused 2026-10-30)
+# Adding SAT Math (done, shipped 2026-10-30)
 
 Goal: Rulecard covers the Math section as fully as Reading and Writing: capture, PDF, paste and image input; rule cards; chat; Test me drills; history; rules cheat sheet; the extension; the store listing.
 
@@ -11,52 +11,31 @@ From the Question Bank's own data (October 2026, read from a cloud sandbox):
 - Equations are MathML; about 1 in 4 questions has a figure or a table.
 - College Board's grid-in entry rules: a positive answer fits in 5 characters and a negative one in 6. Fractions and decimals are fine. A decimal that does not fit must fill every space (2/3 as .6666, .6667, 0.666 or 0.667). No mixed numbers. No symbols.
 
-## Done so far
+## What shipped (commit 225ffe5, live on https://rulecard.vercel.app)
 
-- [x] `src/lib/questions/taxonomy.ts`: sections (`rw`, `math`), Math domains and skills, skill codes, `inferSection`. *(committed)*
-- [x] `src/lib/questions/spr.ts`: grid-in parsing, validation, and correctness (exact value, or a full-width truncated or rounded decimal). *(written but kept out of the commit, in `git stash`: run `git stash pop` on resume. Fix first: typecheck fails because tsconfig targets below ES2020, so replace the `0n`-style BigInt literals with `BigInt(0)` or raise the target to ES2020. Unit tests still to write.)*
-- Paused 2026-10-30 at the user's request. Checkpoint commit pushed; the grid-in checker is in `git stash` (or rewrite it from the description above if the stash is gone).
-- [x] `src/content/rules.ts`: `Rule` gains `section` and an optional `shortcut`. The R&W array becomes `RW_RULES` (section added by a map), `RULES = [...RW, ...MATH_RULES]`, plus `rulesForSection()` and `generalRules(section)`. *(committed)*
-- [x] `src/content/math-rules.ts`: 62 Math rules (2 to 5 per skill, all 19 skills) plus MTH-01..04 strategy rules (Desmos, answer what is asked, plug in or backsolve, grid-in entry rules). Formulas are LaTeX inside `\( \)`. `tests/unit/rules.test.ts` updated. All 42 unit tests pass. *(committed)*
+Every step of the plan is done. Math has the same features as Reading and Writing: capture, PDF, paste and image input; rule cards; chat; Test me drills; history; the rules cheat sheet; the Chrome extension; the store listing.
 
-## Remaining steps, in order
+1. **Taxonomy and rules.** `src/lib/questions/taxonomy.ts` has both sections. `src/content/math-rules.ts` has 66 Math rules: 62 skill rules (2 to 5 for each of the 19 skills) plus MTH-01..04 strategy rules (Desmos, answer what is asked, plug in or backsolve, grid-in entry). Reading and Writing keeps its 37.
+2. **Grid-ins.** `src/lib/questions/spr.ts` checks entries against College Board's rules and grades with exact fractions (BigInt). A full-width truncated or rounded decimal counts, and so does any accepted form. Mixed numbers, `%`, `$` and commas are refused before any AI call.
+3. **Database.** `0005_math.sql` is applied to Supabase. It adds section, format, answers and figure to questions, and response and is_correct to attempts and drills. `rule_stats` counts misses from `is_correct`. Old rows read as Reading and Writing multiple choice.
+4. **AI.** One extraction prompt handles both sections: math in `\( \)` and figures described as text. Math cards add 3 to 6 worked steps and a shortcut. Math uses a separate `math` task kind (more thinking, longer timeouts). Math drills are solved a second time, independently, and shown only when the two answers agree. Chat understands Math.
+5. **Rendering.** KaTeX renders math to MathML on the web and in the extension. `trust:false` means no links or scripts.
+6. **UI.** Grid-in answer box, figure box, Steps and Shortcut sections, grid-in drills, Reading and Writing / Math tabs on Rules, a section filter on History, and updated copy.
+7. **PDF.** The parser detects Math blocks and grid-in answers. Math questions are read with vision.
+8. **Extension 0.3.0.** Same Math features. `store/rulecard-extension-0.3.0.zip`, four screenshots including `screenshot-4-math.png`, and an updated `store/LISTING.md`.
 
-1. **Rules:** done.
-2. **Database (`0005_math.sql`, applied to Supabase and run on every PGlite boot, so it must be idempotent):**
-   - On `questions`: add `section` (`rw` or `math`), `format` (`mcq` or `spr`), `answers` (jsonb list of accepted grid-in forms) and `figure` (the figure as read). `choices` becomes nullable for grid-ins.
-   - On `attempts`: `picked` also allows `spr`; add `response` (what was typed) and `is_correct`.
-   - On `drills`: `picked` also allows `spr`; add `response`.
-   - `rule_stats` counts a miss from `is_correct = false`, falling back to the old letter comparison.
-   - Update the Drizzle schema to match.
-3. **Schemas (`src/lib/ai/schemas.ts`):**
-   - `ParsedQuestion`: add section, format, answers, figure; choices becomes nullable.
-   - Extraction output: add section, format, figure, accepted_answers.
-   - Rule card: the model-facing schema adds `correct_answer`, `steps[]` and `shortcut`, and `correct_letter` becomes nullable. The stored schema gives defaults to cards saved before this change.
-   - `Pick`: letter, `correct`, or `spr` with a `response`.
-   - Drill: format, accepted answers and solution steps.
-4. **AI:**
-   - Extraction prompt for both sections: math in `\( \)`, the figure described exactly (tables as rows), and grid-in answers read from the answer panel.
-   - Math explain prompt: the rule card plus 3 to 6 steps and a Desmos or backsolve shortcut. It uses the stronger model with a bigger thinking budget and a longer timeout.
-   - Math drill: generate, then an independent solve that must agree. Retry once, otherwise return an error.
-   - Chat: math-aware, with LaTeX allowed.
-   - Stub model: math variants for the tests.
-   - Daily limit: count each drill verification as part of its drill.
-5. **Math rendering:** add the `katex` package and render `\( \)` to MathML (no font files needed, Chrome supports MathML). Use it in a `MathText` component on the web and in a bundled helper in the extension. Apply it to the question, choices, rule card, drill and chat.
-6. **UI:**
-   - Grid-in pick panel: a text box that validates with `parseSprEntry`, plus "I got it right, but explain".
-   - Question card: a figure box, a grid-in chip, accepted answers shown once revealed.
-   - Rule card: Steps and Shortcut sections.
-   - Drill: grid-in input.
-   - Rules page: Reading and Writing / Math tabs.
-   - History: a section filter or column.
-   - Copy on the home page and sign-in page mentions both sections.
-7. **PDF:** detect Math blocks from the header. Math questions are read with vision on open, rendering the question's pages stacked. Parse "Correct Answer:" lines for grid-ins.
-8. **Extension:** grid-in input, MathML rendering, steps and shortcut, grid-in drills. Bump to version 0.3.0. New zip, new screenshots including a Math one. Store listing and privacy text say "Reading and Writing and Math".
-9. **Tests:**
-   - Unit: grid-ins, Math rules, the PDF parser on a Math block, extraction normalization, sanitizing Math cards.
-   - End-to-end: paste a Math grid-in and run explain, chat and drill.
-   - Extension check: one Math flow.
-10. **Ship:** run lint, typecheck and all tests. Apply 0005 to Supabase. Deploy production. Run the production check with real Math questions. Update docs (README, HANDOFF). Merge PR #1 to main (the user gave permission).
+## Verification
+
+- Local: lint and typecheck clean, 74 unit tests, 8 of 8 end-to-end tests (including the Math grid-in flow), and 20 of 20 extension checks in Chromium (Reading and Writing plus Math).
+- Production (2026-10-30, commit 225ffe5, real model calls through the AI Gateway free tier, `google/gemini-2.5-flash`): `scripts/check-production-math.mjs` passed 18 of 18 from a Vercel sandbox:
+  - A pasted grid-in was read as Math with answer 7. `3 1/2` was refused. `17/5` was graded wrong with rule LE1-01 and three steps. `7` was graded right.
+  - A Math multiple-choice question about the minimum of \(x^2-6x+5\) produced correct A, rule NLF-03, steps, and eliminations for C and D.
+  - A screenshot with a table had its table read into the figure, with answer B. Picking C produced rule LFN-03, which names the step-by-2 trap.
+  - A verified grid-in drill and its check returned solution steps.
+  - Math chat streamed a reply.
+  - Reading and Writing was unchanged (BND-01, no steps).
+  - History showed both sections with right and missed results.
+  - The test account was deleted.
 
 ## Decisions
 

@@ -1,10 +1,12 @@
 # Rulecard
 
-A small web app and Chrome extension for reviewing Digital SAT Reading & Writing questions from
+A small web app and Chrome extension for reviewing Digital SAT questions, both Reading & Writing and Math, from
 College Board's Question Bank. Anyone can create a free account (email and password); each account keeps its own history. Capture a question from the Question Bank tab, say which
 answer you picked and why, and get a rule-first explanation plus a chat for follow-ups.
 
-See `docs/PLAN.md` for the full build contract and `docs/HANDOFF.md` for how to use it.
+Math works the same way, plus grid-in answers, worked steps, shortcuts and verified practice questions.
+
+See `docs/PLAN.md` for the full build contract, `docs/MATH_PLAN.md` for the Math design, and `docs/HANDOFF.md` for how to use it.
 
 ## Local development
 
@@ -18,6 +20,7 @@ pnpm dev
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm lint`, `pnpm typecheck`, `pnpm test` (vitest), `pnpm test:e2e` (Playwright)
+- `node scripts/check-production-math.mjs`: an end-to-end check against the live app with real model calls (creates and deletes a throwaway account; `BASE=` targets another deployment)
 
 ## Browser extension
 

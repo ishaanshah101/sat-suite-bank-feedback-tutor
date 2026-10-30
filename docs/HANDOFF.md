@@ -1,6 +1,6 @@
 # Rulecard handoff
 
-Built overnight on 2026-10-25 from `docs/PLAN.md`. Live. Since 2026-10-26 anyone can create a free account (email and password, no Google sign-in); each account has its own saved history, shared between the web app and the Chrome extension.
+Built overnight on 2026-10-25 from `docs/PLAN.md`. Live. Since 2026-10-30 it covers **both sections of the Digital SAT: Reading and Writing, and Math** (see the Math section below and `docs/MATH_PLAN.md`). Since 2026-10-26 anyone can create a free account (email and password, no Google sign-in); each account has its own saved history, shared between the web app and the Chrome extension.
 
 ## Where it is
 
@@ -8,7 +8,7 @@ Built overnight on 2026-10-25 from `docs/PLAN.md`. Live. Since 2026-10-26 anyone
 |---|---|
 | Live app | https://rulecard.vercel.app (also `rulecard-ishaanshah101-4212s-projects.vercel.app`) |
 | Accounts | Sign in or create an account at https://rulecard.vercel.app/signin or in the extension. Your history from before accounts belongs to whoever first creates an account with the old passcode (the `APP_PASSCODE` env var in Vercel) entered under "Used Rulecard with a passcode before?". Do that first. |
-| Code | GitHub `ishaanshah101/sat-suite-bank-feedback-tutor`, branch `claude/vibrant-euler-a7y0s4` |
+| Code | GitHub `ishaanshah101/sat-suite-bank-feedback-tutor`, branch `main` (work happened on `claude/vibrant-euler-a7y0s4`, merged through PR #1) |
 | Vercel project | `rulecard` (id `prj_7wnHxsHjmOH15eIGeqRSPGmKMmAm`), team `ishaanshah101-4212s-projects`, Node 24, Hobby plan |
 | Supabase project | `rulecard` (ref `ecidfvanammfndoudwua`), region us-west-1, org "Ishaan's Org", free plan |
 | Database role | `rulecard_app` (owns the tables, connects through the Supavisor transaction pooler on port 6543) |
@@ -19,8 +19,8 @@ Built overnight on 2026-10-25 from `docs/PLAN.md`. Live. Since 2026-10-26 anyone
 1. Open the SAT Suite Question Bank in one Chrome tab and work a question. Reveal the answer and explanation on that tab.
 2. Open https://rulecard.vercel.app in another tab and sign in.
 3. Click **Capture tab**. In Chrome's picker choose the **Chrome Tab** list, pick the Question Bank tab, check the preview, click Share. Nothing is recorded; one still picture is taken per press.
-4. Tap the letter you picked (or "I got it right, but explain"), optionally type one line of your thinking, click **Explain**.
-5. Read the rule card: the one rule tested, why the right answer fits it, why your pick breaks it, how to kill the rest, a takeaway.
+4. Tap the letter you picked (or "I got it right, but explain"), optionally type one line of your thinking, click **Explain**. For a Math grid-in question (no choices), type the answer you entered instead, the way the test accepts it (`7/2` or `3.5`, never `3 1/2`).
+5. Read the rule card: the one rule tested, why the right answer fits it, why your pick breaks it, how to kill the rest, a takeaway. Math cards also show the worked steps and the fastest route (Desmos, backsolving, a pattern) when there is one.
 6. Ask follow-ups in the chat under the card. Press **Test me** for a fresh mini-question on the same rule.
 7. Next question: click **Capture again**. Everything is saved automatically. `History` lists every review; `Rules` is the cheat sheet, with the rules you keep missing at the top.
 
@@ -38,11 +38,22 @@ Other ways in: **Upload PDF** (the Question Bank export "With correct answers an
 - **Verified on production (2026-10-26, commit 5f7b849):** 22 of 22 checks from a Vercel sandbox against https://rulecard.vercel.app: sign-in page, privacy page and the redirect are public; unknown account rejected; sign up; duplicate email refused; case-insensitive sign in; `/api/me`; paste → extract → explain with the real model (gateway, Gemini 2.5 Flash Lite, 4–6 s each); the recent list; a second account sees none of the first account's reviews and cannot drill its attempt (404); handoff link signs the browser in and lands on History, and refuses an off-site `next`; delete account needs the password, removes everything, and the old token stops working. The test accounts were deleted afterwards. Locally: 41 unit tests, 7 end-to-end tests and 15 of 15 extension checks in Chromium pass.
 - **Database:** `0004_accounts.sql` is applied to Supabase. The Supabase advisor lists `users`, `ai_usage`, `unlock_attempts` and `provider_status` as "RLS enabled, no policy" (info level). That is intended: only the server's own database role reads them; the browser never talks to Supabase directly.
 
+## SAT Math (added 2026-10-30)
+
+- **Coverage:** the 4 official Math domains and 19 skills, the same labels the Question Bank uses. There are 66 Math rules, 2 to 5 per skill plus 4 strategy rules (MTH-01..04). The cheat sheet at `/rules?section=math` has its own tab.
+- **Grid-ins** (student-produced responses, about a quarter of Math): the app checks what you typed against College Board's entry rules and grades it with code, not the model. Every accepted form counts (`3/17`, `.1764` and `.1765` for the same answer).
+- **Equations and figures** render as real math (KaTeX to MathML) in the web app and the extension. Tables and graphs are read as a precise text description. Screenshots are still never stored.
+- **Test me on Math:** a second, independent solve checks every drill before you see it. If the two disagree twice, you get "Could not double-check that question. Try again" instead of a possibly wrong question.
+- **PDF exports:** Math blocks are detected and read with vision. Grid-in answers come from the "Correct Answer:" line.
+- **Models:** Math uses a separate model setting with more thinking time. Optional overrides: `OPENAI_MATH_MODEL`, `ANTHROPIC_MATH_MODEL`, `GATEWAY_MATH_MODEL`. With no keys set, Math runs on the AI Gateway free tier like everything else; adding `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is the best quality upgrade for hard Math.
+- **Database:** `0005_math.sql` is applied to Supabase. Existing reviews read as Reading and Writing.
+- **Verified on production (2026-10-30, commit 225ffe5):** `node scripts/check-production-math.mjs` passed 18 of 18 from a Vercel sandbox against https://rulecard.vercel.app with real model calls. It covers grid-in extraction and grading (right, wrong, and a refused mixed number), a Math multiple-choice card with steps and eliminations, a screenshot with a table, a verified drill, Math chat, a Reading and Writing regression check, and history across both sections. Locally: 74 unit tests, 8 end-to-end tests and 20 extension checks pass.
+
 ## Publishing the extension on the Chrome Web Store (only you can do this)
 
 1. Register as a Chrome Web Store developer at https://chrome.google.com/webstore/devconsole with your Google account and pay the one-time $5 fee.
-2. Click **New item** and upload `store/rulecard-extension-0.2.0.zip` from this repo.
-3. Fill the tabs from `store/LISTING.md` (description, category, the three screenshots in `store/`, permission justifications, privacy policy URL `https://rulecard.vercel.app/privacy`).
+2. Click **New item** and upload `store/rulecard-extension-0.3.0.zip` from this repo (version 0.3.0, Reading and Writing plus Math).
+3. Fill the tabs from `store/LISTING.md` (description, category, the four screenshots in `store/`, 1280×800, permission justifications, privacy policy URL `https://rulecard.vercel.app/privacy`).
 4. Submit for review. Reviews usually take a few days. Choose **Unlisted** first if you want to share it by link before it is searchable.
 5. To ship an update later: bump `version` in `extension/manifest.json`, run `pnpm package:extension`, upload the new zip.
 
@@ -52,7 +63,7 @@ Before going public, read College Board's Question Bank terms (see Risks): every
 
 1. **AI: already working, nothing required.** Verified on production on 2026-10-25: with no API key set, the app falls back to Vercel AI Gateway on the account's free tier. The free tier blocks some models, so the app skips those and lands on one it may use (Google `gemini-2.5-flash` at the time of testing). Extraction, the rule card, chat and Test me all answered correctly. Optional upgrade for better or more reliable answers: add `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY`) in Vercel → project `rulecard` → Settings → Environment Variables (Production and Preview), then Redeploy. Your own key is always tried first. If the free gateway allowance ever runs out, Explain shows the gateway's message and that key fixes it.
 2. Verified for you: the live database connection. `/api/ping` on production returns `db:true`. The project is served by the `aws-0-us-west-1` Supavisor cluster; the `aws-1` host (which the build first used) answers "Tenant or user not found". The cluster number cannot be derived from the region, so if you ever rebuild `DATABASE_URL`, copy the host from the Supabase dashboard (Connect → Transaction pooler).
-3. Optional: open a pull request from `claude/vibrant-euler-a7y0s4` to `main`. Production is currently deployed straight from the work branch.
+3. Done: the work branch was merged into `main` through PR #1. Production deploys from `main`.
 4. Optional: rotate secrets you want fresh. `APP_PASSCODE`, `SESSION_SECRET`, `CRON_SECRET` and the database role password were generated by the build and passed through the session once when they were set in Vercel. Changing `SESSION_SECRET` signs every browser and extension out. `APP_PASSCODE` now only matters for claiming the old history. To rotate the database password run `alter role rulecard_app password '...'` in the Supabase SQL editor and update `DATABASE_URL`.
 
 ## What was verified
@@ -89,7 +100,7 @@ Verified: `pnpm check:extension` loads the unpacked extension into headless Chro
 - Next.js 16 App Router, TypeScript, Tailwind v4, deployed on Vercel. `src/proxy.ts` checks a signed session (cookie, or bearer token from the extension) on every page and API route except `/signin`, `/privacy`, the sign-in/sign-up APIs, `/api/cron/*`, `/api/ping`. Accounts live in `src/lib/auth/accounts.ts`; tables `users` and `ai_usage` come from `0004_accounts.sql`.
 - Data: Drizzle ORM over Postgres. Production uses Supabase through the transaction pooler; tests and local dev can use `DATABASE_URL=pglite://memory` (in-process Postgres). Schema in `src/db/migrations/0001_init.sql`; RLS policies and ownership in `0002_supabase_rls.sql` (already applied). Every row carries `user_id`, and every query filters by it, so accounts only ever see their own rows.
 - AI: `src/lib/ai/providers.ts` builds the provider chain from `AI_PROVIDER_ORDER` (default `openai,anthropic`) and whichever keys exist, fails over on 401/402/403/429/5xx and cools the failed provider down for 10 minutes. Extraction, rule cards and drills use structured outputs; chat streams.
-- Rule library: `src/content/rules.ts` (37 rules across the ten official Reading and Writing skills plus three general rules). The model must cite one id; unknown ids fall back to the skill's first rule and the model's suggestion is kept in `suggested_rule`.
+- Rule library: `src/content/rules.ts` (37 rules across the ten official Reading and Writing skills plus three general rules) and `src/content/math-rules.ts` (66 Math rules across the 19 official Math skills plus four strategy rules). The model must cite one id from the question's section; an unknown id, or one from the other section, falls back to a general rule (GEN-03 or MTH-02) and the model's suggestion is kept in `suggested_rule`.
 - Inputs: capture (`src/lib/client/capture.ts`), PDF (`src/workers/pdf.worker.ts` + `src/lib/questions/pdf-parse.ts`, with a main-thread fallback and a vision fallback per page), paste, image.
 
 ## Running locally
