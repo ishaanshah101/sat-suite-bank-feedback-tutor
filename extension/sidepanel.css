@@ -117,3 +117,15 @@ math[display="block"] { margin: 4px 0; }
 .spr-result { display: flex; flex-direction: column; gap: 6px; }
 .spr-result .letter { width: auto; min-width: 32px; }
 .btn.link.rule-link { font-size: inherit; text-transform: inherit; letter-spacing: inherit; font-weight: 600; text-decoration: underline; }
+
+/* Header and tab bar stay pinned at the top while the tab below scrolls. */
+.rc-top { position: sticky; top: 0; z-index: 20; background: var(--bg); margin: -12px -12px 0; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line); }
+.rc-tabbar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.rc-tabbtn { appearance: none; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; padding: 7px 2px; border-radius: 9px; cursor: pointer; position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; min-width: 0; }
+.rc-tabbtn:hover { color: var(--ink); background: var(--bg); }
+.rc-tabbtn.active { background: var(--accent); color: #fff; }
+.rc-tabbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rc-tabcount { background: var(--danger); color: #fff; border-radius: 999px; font-size: 10px; line-height: 1; padding: 2px 5px; }
+.rc-tabbtn.active .rc-tabcount { background: #fff; color: var(--accent); }
+.rc-tabdot { position: absolute; top: 4px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+@media (max-width: 300px) { .rc-tabbtn { font-size: 11px; } }

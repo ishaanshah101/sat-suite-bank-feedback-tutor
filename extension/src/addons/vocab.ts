@@ -213,7 +213,7 @@ export function wordsToAnkiCsv(words: WordItem[]): string {
 
 // ---------------------------------------------------------------- DOM
 
-let bankOpen = false;
+let bankOpen = true;
 let bankQuery = "";
 const PAGE = 30;
 
@@ -246,7 +246,7 @@ function wordRow(w: WordItem): HTMLElement {
 
 const mixText = (c: Confusable) => `"${c.picked}" instead of "${c.word}"${c.count > 1 ? ` (${c.count} times)` : ""}`;
 
-/** The "Word bank" card: a collapsed details element with search, the word list, mix-ups and Anki export. */
+/** The "Word bank" card (the Words tab, open by default): a details element with search, the word list, mix-ups and Anki export. */
 export function renderWordBank(words: WordItem[], handlers: WordBankHandlers): HTMLElement {
   const missed = words.filter((w) => w.result === "missed").length;
   const count = `${words.length} ${words.length === 1 ? "word" : "words"}${missed ? `, ${missed} missed` : ""}`;

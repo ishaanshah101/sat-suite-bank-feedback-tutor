@@ -189,17 +189,24 @@ function makeAnthropic(apiKey: string): ProviderHandle {
   };
 }
 
-/** Preference order. Your own keys come first; the gateway is appended last when it is enabled. */
-export function providerOrder(): ProviderName[] {
-  const raw = env("AI_PROVIDER_ORDER") ?? "openai,anthropic";
-  const names = raw
+function parseNames(raw: string | undefined): ProviderName[] {
+  return (raw ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter((s): s is ProviderName => (KNOWN as string[]).includes(s));
-  const unique = [...new Set(names)];
+}
+
+/**
+ * Preference order. Your own keys come first; the gateway is appended last when it is enabled.
+ * AI_DISABLED_PROVIDERS (for example "openai,anthropic") switches providers off even when their key is set,
+ * so a paid key can stay stored without ever being billed.
+ */
+export function providerOrder(): ProviderName[] {
+  const unique = [...new Set(parseNames(env("AI_PROVIDER_ORDER") ?? "openai,anthropic"))];
   for (const fallback of ["openai", "anthropic"] as const) if (!unique.includes(fallback)) unique.push(fallback);
   if (gatewayEnabled() && !unique.includes("gateway")) unique.push("gateway");
-  return unique;
+  const disabled = new Set(parseNames(env("AI_DISABLED_PROVIDERS")));
+  return unique.filter((name) => !disabled.has(name));
 }
 
 export function isConfigured(name: ProviderName): boolean {

@@ -62,7 +62,7 @@ const errors = [];
 try {
   await context.route("https://rulecard.vercel.app/**", (route) => {
     const p = new URL(route.request().url()).pathname;
-    if (p === "/api/health") return route.fulfill({ json: { ok: true, version: "0.4.0", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } } });
+    if (p === "/api/health") return route.fulfill({ json: { ok: true, version: "0.5.0", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } } });
     if (p === "/api/attempts") return route.fulfill({ json: { attempts: [] } });
     return route.fulfill({ json: {} });
   });
@@ -80,11 +80,17 @@ try {
   await panel.waitForTimeout(1500);
   const shot = async (name) => { await panel.waitForTimeout(300); await panel.screenshot({ path: path.join(OUT, name), fullPage: true }); };
   await shot("addons-home.png");
-  for (const label of ["Activity", "Word bank", "Skill map"]) {
+  const tab = async (name) => { await panel.getByRole("tab", { name: new RegExp(`^${name}`) }).click(); await panel.waitForTimeout(300); };
+  await tab("Progress");
+  for (const label of ["Activity", "Skill map"]) {
     const s = panel.locator("summary", { hasText: label }).first();
     if (await s.count()) await s.click();
   }
-  await shot("addons-open.png");
+  await shot("addons-progress.png");
+  await tab("Practice");
+  await shot("addons-practice.png");
+  await tab("Words");
+  await shot("addons-words.png");
   const start = panel.getByRole("button", { name: /^5 words$/ });
   if (await start.count()) {
     await start.click();

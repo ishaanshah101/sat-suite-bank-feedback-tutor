@@ -58,7 +58,7 @@ const shots = [
   ["Math", "Math rules with worked steps", "Tables, graphs and equations read into real math notation, with step by step work and a Desmos shortcut when it saves time.", "math-rule.png"],
   ["Grid-ins", "Grid-in answers graded exactly", "Type what you entered. Rulecard checks it against every accepted form, like 3/17, .1764 and .1765, using the official entry rules.", "spr-rule.png"],
   ["Test me", "Practice the same rule right away", "Press Test me for a fresh question on that exact rule. Math practice questions are double-checked by a second, independent solve.", "drill.png"],
-  ["Study coach", "A plan for today, built from your misses", "Rules due for review, offline flashcards, your weakest skills with Question Bank filters, and a countdown to test day.", "addons-home.png"],
+  ["Study coach", "Capture first, today's plan right below", "Home is just Capture and a daily plan built from your misses. Progress, practice, your word bank and settings are one tap away in the tab bar.", "addons-home.png"],
 ];
 
 const smallTile = `<!doctype html><html><head><style>${BASE_CSS}

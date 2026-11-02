@@ -1,4 +1,4 @@
-// Drives the real Rulecard 0.3.0 side panel with mocked API responses (RW + Math) and saves crisp 2x panel shots.
+// Drives the real Rulecard side panel with mocked API responses (RW + Math) and saves crisp 2x panel shots.
 import { chromium } from "@playwright/test";
 import fs from "node:fs";
 import os from "node:os";
@@ -103,7 +103,7 @@ const recent = [
   const json = (route, body) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   await context.route("https://rulecard.vercel.app/**", async (route) => {
     const p = new URL(route.request().url()).pathname;
-    if (p === "/api/health") return json(route, { ok: true, version: "0.3.0", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
+    if (p === "/api/health") return json(route, { ok: true, version: "0.5.0", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
     if (p === "/api/attempts") return json(route, { attempts: recent });
     const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : rwQuestion;
     if (p === "/api/extract") return json(route, { question: q, provider: "anthropic", model: "x" });
@@ -132,7 +132,7 @@ const recent = [
   };
 
   await panel.goto(`chrome-extension://${id}/sidepanel.html`);
-  await panel.getByText("All history").waitFor();
+  await panel.getByRole("button", { name: "Capture this tab" }).waitFor();
   await shot("home.png");
 
   // RW

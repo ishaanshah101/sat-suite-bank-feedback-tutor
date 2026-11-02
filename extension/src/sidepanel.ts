@@ -283,16 +283,23 @@ async function signOut() {
 // ---------- main view ----------
 
 function renderMain(): Node[] {
-  const nodes: (Node | null)[] = [renderHeader(), ...addons.renderAboveCapture(), renderCapture()];
-  if (state.question) nodes.push(renderQuestion(state.question));
-  else nodes.push(renderHowTo());
-  if (!state.question && state.recent?.length) nodes.push(renderRecent(state.recent));
-  if (state.explained) {
-    nodes.push(renderRuleCard(state.explained.card, state.explained.picked, state.explained.ruleName));
-    nodes.push(...addons.renderAfterRuleCard());
-    nodes.push(renderChat());
+  const tab = addons.tab();
+  const nodes: (Node | null)[] = [h("div", { class: "rc-top" }, renderHeader(), addons.renderTabBar())];
+  if (tab === "home") {
+    nodes.push(...addons.renderAboveCapture(), renderCapture());
+    if (state.question) nodes.push(renderQuestion(state.question));
+    if (state.explained) {
+      nodes.push(renderRuleCard(state.explained.card, state.explained.picked, state.explained.ruleName));
+      nodes.push(...addons.renderAfterRuleCard());
+      nodes.push(renderChat());
+    }
+    nodes.push(...addons.renderHomeBelow());
+  } else {
+    if (tab === "progress" && state.recent?.length) nodes.push(renderRecent(state.recent));
+    if (tab === "settings") nodes.push(renderHowTo());
+    nodes.push(...addons.renderTab(tab));
   }
-  nodes.push(...addons.renderBottom());
+  nodes.push(...addons.renderOverlays());
   nodes.push(renderFooter());
   return nodes.filter((n): n is Node => Boolean(n));
 }
@@ -786,6 +793,8 @@ async function activeTab(): Promise<chrome.tabs.Tab> {
 
 async function capture() {
   if (state.capturing) return;
+  // Capturing always happens on Home, wherever the shortcut was pressed.
+  addons.showTab("home");
   state.capturing = true;
   state.captureError = null;
   state.needsAllSites = false;
@@ -827,6 +836,7 @@ async function processImage(image: string) {
   const data = await request<ExtractResponse>(state.settings, "/api/extract", { body: { image, source: "capture" } });
   resetQuestion();
   state.question = data.question;
+  addons.showTab("home");
   void addons.afterExtract(normalizeQuestion(data.question));
 }
 
@@ -978,6 +988,7 @@ async function consumePendingCapture() {
   await chrome.storage.session.remove("pendingCapture");
   if (Date.now() - pending.at > 120_000) return;
   if (state.view !== "main") return;
+  addons.showTab("home");
   state.capturing = true;
   state.captureError = null;
   render();
@@ -1006,6 +1017,7 @@ async function consumePendingQuestion() {
   if (!pending) return;
   await chrome.storage.session.remove("pendingQuestion");
   if (state.view !== "main" || !pending.id || !pending.stem) return;
+  addons.showTab("home");
   resetQuestion();
   state.question = pending;
   void addons.afterExtract(normalizeQuestion(pending));

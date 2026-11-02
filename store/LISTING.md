@@ -1,6 +1,6 @@
 # Chrome Web Store listing for Rulecard
 
-Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.4.0.zip`
+Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.5.0.zip`
 from this folder (rebuild it with `pnpm package:extension` after changing `extension/`).
 
 ## Store listing tab
@@ -21,6 +21,8 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
   5. Ask follow-up questions, or press Test me for a fresh practice question on the same rule. Math practice questions are checked by an independent second solve before you see them.
 
   Math support: equations and expressions shown as real math notation, graphs and tables read and described, student-produced response (grid-in) answers checked by the official entry rules (fractions, decimals, and accepted forms), and a rule library covering all 19 official Math skills alongside the 10 Reading and Writing skills.
+
+  The panel opens on Home: Capture, the rule card and today's plan. Everything else sits one tap away in the tab bar (Progress, Practice, Words, Settings).
 
   Study tools built in (they work offline, from a study log kept on your device):
   - Today's plan: a daily checklist with your due reviews, your two weakest skills (with the exact Question Bank filters) and timed sets as your test date gets close.
