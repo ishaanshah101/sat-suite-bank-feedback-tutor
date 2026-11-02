@@ -1,5 +1,5 @@
 // Rulecard add-ons controller. ONE object the existing sidepanel.ts talks to through a few
-// hooks and render slots. See docs/CLAUDE_HANDOFF.md (feature catalog, checklist) and
+// hooks, render slots and the panel's tabs (Home, Progress, Practice, Words, Settings). See docs/CLAUDE_HANDOFF.md (feature catalog, checklist) and
 // docs/UPSTREAM-0.3.0.md (line-by-line hook spots in upstream 0.3.0).
 // It also wires offline practice (flashcards.ts, redo.ts, practice-ui.ts), capture anywhere
 // (selection.ts, paste.ts), seen before (seen.ts), the weekly report (report.ts) and the coach:
@@ -100,11 +100,23 @@ const CONFIDENCE: { key: SelfConfidence; label: string; hint: string }[] = [
   { key: "guess", label: "Guessed", hint: "no idea" },
 ];
 
+/** The side panel's tabs. Home is the capture-and-explain flow; everything else waits one click away. */
+export type PanelTab = "home" | "progress" | "practice" | "words" | "settings";
+export const PANEL_TABS: { id: PanelTab; label: string }[] = [
+  { id: "home", label: "Home" },
+  { id: "progress", label: "Progress" },
+  { id: "practice", label: "Practice" },
+  { id: "words", label: "Words" },
+  { id: "settings", label: "Settings" },
+];
+
 /** An open offline practice screen. */
 type Practice = { mode: "flashcards"; deck: DeckState } | { mode: "redo"; redo: RedoState };
 
 export function createAddons(ctx: AddonContext, host: HostBridge) {
   const s = {
+    /** Which tab of the side panel is showing. */
+    tab: "home" as PanelTab,
     prefs: { ...DEFAULT_PREFS } as Prefs,
     log: [] as LogEntry[],
     srs: {} as SrsState,
@@ -121,7 +133,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     confidence: null as SelfConfidence | null,
     journal: defaultFilter() as JournalFilter,
     showHelp: false,
-    showSettings: false,
     strategyOpen: false,
     lastSeconds: null as number | null,
     toast: null as string | null,
@@ -215,18 +226,31 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     await selection.start();
   });
 
+  /** Show a tab (and start it at the top). */
+  function showTab(tab: PanelTab) {
+    if (s.tab === tab) return;
+    s.tab = tab;
+    ctx.rerender();
+    if (typeof window !== "undefined") window.scrollTo({ top: 0 });
+  }
+
   function hotkeyActions(): HotkeyActions {
-    if (s.wordQuiz) return { raw: pressWordQuizKey, help: toggleHelp };
-    if (s.quiz && !s.quizPaused) return { raw: pressQuizKey, help: toggleHelp };
-    if (s.practice && practiceView) {
-      const v = practiceView;
-      return { raw: (key) => pressPracticeKey(v.handlers, key, v.mode), help: toggleHelp };
+    // Keys act on the tab you can see: a quiz waiting on another tab never eats a letter meant for Home.
+    if (s.tab === "words") return s.wordQuiz ? { raw: pressWordQuizKey, help: toggleHelp } : { capture: () => host.capture?.(), help: toggleHelp };
+    if (s.tab === "practice") {
+      if (s.quiz && !s.quizPaused) return { raw: pressQuizKey, help: toggleHelp };
+      if (s.practice && practiceView) {
+        const v = practiceView;
+        return { raw: (key) => pressPracticeKey(v.handlers, key, v.mode), help: toggleHelp };
+      }
+      const r = s.review;
+      if (r.open && r.drill && !r.result) {
+        return { pick: (l: Letter) => void answerReview(l), help: toggleHelp };
+      }
+      if (r.open && r.result) return { review: () => void nextReview(), help: toggleHelp };
+      return { capture: () => host.capture?.(), review: () => void startReview(), help: toggleHelp };
     }
-    const r = s.review;
-    if (r.open && r.drill && !r.result) {
-      return { pick: (l: Letter) => void answerReview(l), help: toggleHelp };
-    }
-    if (r.open && r.result) return { review: () => void nextReview(), help: toggleHelp };
+    if (s.tab !== "home") return { capture: () => host.capture?.(), help: toggleHelp };
     return {
       pick: (l: Letter) => host.pick?.(l),
       pickCorrect: () => host.pick?.("correct"),
@@ -397,6 +421,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     }
     s.review = { ...freshReview(), open: true, forced: ruleId ?? null };
     s.practice = null;
+    s.tab = "practice";
     await nextReview();
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -520,6 +545,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
   function openPractice(p: Practice) {
     s.review = freshReview();
     s.practice = p;
+    s.tab = "practice";
     ctx.rerender();
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -582,6 +608,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     s.review = freshReview();
     s.practice = null;
     s.quizEntry.open = false;
+    s.tab = "practice";
     setQuiz(createQuiz(parsed.questions, { now: Date.now(), shuffle: opts.shuffle, limit: opts.limit }));
     scrollTop();
   }
@@ -615,6 +642,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
   async function startWordQuiz(n: number) {
     s.wordQuizN = n;
     const record = await readWordRecord().catch(() => ({}));
+    s.tab = "words";
     setWordQuiz(createWordQuiz(collectWords(s.log), record, { now: Date.now(), n }));
     window.scrollTo({ top: 0 });
   }
@@ -691,6 +719,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     const qi = st.questions.findIndex((x) => x === q || (q.qbId !== null && x.qbId === q.qbId));
     s.quizBusy = true;
     s.quizPaused = true;
+    s.tab = "home";
     ctx.rerender();
     try {
       const image = await renderQuestionImage(toParsedQB(q));
@@ -721,7 +750,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
         h("button", {
           class: "btn small",
           disabled: s.quizBusy,
-          onclick: () => { s.quizPaused = false; setQuiz(done ? st : resumeQuiz(st, Date.now())); scrollTop(); },
+          onclick: () => { s.quizPaused = false; s.tab = "practice"; setQuiz(done ? st : resumeQuiz(st, Date.now())); scrollTop(); },
         }, done ? "Back to results" : "Back to quiz"));
     }
     const explain = (q: QuizQuestion, picked: Letter) => void explainQuizMiss(q, picked);
@@ -1030,8 +1059,8 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       ...[[0.9, "Small"], [1, "Normal"], [1.1, "Large"], [1.25, "Extra large"]].map(([v, l]) => h("option", { value: String(v), text: String(l) })));
     zoom.value = String(s.prefs.zoom || 1);
 
-    return h("details", { class: "card rc-settings", open: s.showSettings ? "" : null, ontoggle: (ev: Event) => { s.showSettings = (ev.target as HTMLDetailsElement).open; } },
-      h("summary", null, h("h2", { text: "Export & settings" })),
+    return h("div", { class: "card rc-settings" },
+      h("h2", { text: "Export & settings" }),
       h("section", null, h("h2", { text: "Export" }),
         h("div", { class: "row rc-wrap" }, exportScope),
         h("div", { class: "row rc-wrap" },
@@ -1093,14 +1122,41 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
         h("p", { class: "muted small", text: "Alt+Shift+R captures the tab from anywhere in Chrome. On any site, select a question, right-click and choose Explain this question with Rulecard." })));
   }
 
-  function renderBottom(): (Node | null)[] {
+  /** The tab bar. A count shows what is waiting; a dot marks a session still open on another tab. */
+  function renderTabBar(): HTMLElement {
+    const dueCount = due().length;
+    const live: Partial<Record<PanelTab, boolean>> = {
+      practice: Boolean(s.practice) || s.review.open || (Boolean(s.quiz) && !s.quizPaused),
+      words: Boolean(s.wordQuiz),
+    };
+    return h("nav", { class: "rc-tabbar", role: "tablist", "aria-label": "Rulecard sections" },
+      ...PANEL_TABS.map((t) => {
+        const active = s.tab === t.id;
+        const count = t.id === "practice" && dueCount && !live.practice ? dueCount : 0;
+        return h("button", {
+          class: `rc-tabbtn${active ? " active" : ""}`,
+          role: "tab",
+          "aria-selected": String(active),
+          title: t.id === "practice" && dueCount ? `${dueCount} rule${dueCount === 1 ? "" : "s"} due for review` : t.label,
+          onclick: () => showTab(t.id),
+        },
+        t.label,
+        count ? h("span", { class: "rc-tabcount", text: String(count) }) : null,
+        live[t.id] && !active ? h("span", { class: "rc-tabdot", "aria-label": "in progress" }) : null);
+      }));
+  }
+
+  /** Home, below the question flow: today's plan. */
+  function renderHomeBelow(): (Node | null)[] {
+    return [renderPlanCard()];
+  }
+
+  function renderProgressTab(): (Node | null)[] {
     const cd = s.summary ? countdown(s.prefs.testDate, s.summary) : null;
     return [
       s.summary ? renderProgress(s.summary, insights(s.summary, due().length), s.prefs.dailyGoal, (path) => void ctx.openWeb(path), { countdown: cd, onShare: () => void share() }) : null,
       s.prefs.activity && s.log.length ? renderCalendar(activityModel(s.log, { now: Date.now(), dailyGoal: s.prefs.dailyGoal })) : null,
-      renderQuizEntryCard(),
       s.prefs.skillMap ? renderSkillMap(skillMap(s.log)) : null,
-      s.prefs.wordBank ? renderWordBankCard() : null,
       renderTraps(trapReport(s.log)),
       s.prefs.badges ? renderBadges(badgeProgress(badgeInput(), s.badges)) : null,
       s.log.length
@@ -1111,10 +1167,45 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
           reviewRule: (ruleId) => void startReview(ruleId),
         }, ctx.rerender)
         : null,
-      renderSettings(),
-      renderHelp(),
-      s.toast ? h("div", { class: "rc-toast", role: "status", text: s.toast }) : null,
     ];
+  }
+
+  function renderPracticeTab(): (Node | null)[] {
+    if (s.quiz && !s.quizPaused) return [renderQuizSlot()];
+    if (s.practice) return [renderPractice()];
+    if (s.review.open) return [renderReview()];
+    const cards = [s.quiz ? renderQuizSlot() : null, renderReview(), renderPractice(), renderQuizEntryCard()].filter(Boolean);
+    if (!cards.length) cards.push(h("div", { class: "card" }, h("h2", { text: "Practice" }), h("p", { class: "small muted", text: "Explain a few questions on Home first. The rules you miss come back here for review and flashcards." })));
+    return cards;
+  }
+
+  function renderWordsTab(): (Node | null)[] {
+    if (s.wordQuiz) return [renderWordQuizSlot()];
+    if (!s.prefs.wordBank) return [h("div", { class: "card" }, h("h2", { text: "Word bank" }), h("p", { class: "small muted", text: "The word bank is switched off. Turn it on in Settings." }))];
+    return [renderWordBankCard()];
+  }
+
+  function renderSettingsTab(): (Node | null)[] {
+    return [
+      renderSettings(),
+      h("div", { class: "card" },
+        h("div", { class: "row between" }, h("h2", { text: "Keyboard shortcuts" }), h("button", { class: "btn small", text: "Show", onclick: toggleHelp })),
+        h("p", { class: "small muted", text: "Press ? anywhere in the panel. Alt+Shift+R captures the tab from anywhere in Chrome." })),
+    ];
+  }
+
+  /** One tab's content (Home's question flow is drawn by sidepanel.ts). */
+  function renderTab(tab: PanelTab): (Node | null)[] {
+    if (tab === "progress") return renderProgressTab();
+    if (tab === "practice") return renderPracticeTab();
+    if (tab === "words") return renderWordsTab();
+    if (tab === "settings") return renderSettingsTab();
+    return [];
+  }
+
+  /** Always on top of whichever tab is showing. */
+  function renderOverlays(): (Node | null)[] {
+    return [renderHelp(), s.toast ? h("div", { class: "rc-toast", role: "status", text: s.toast }) : null];
   }
 
   return {
@@ -1128,14 +1219,19 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     afterExplain,
     afterDrillCheck,
     startReview,
-    // render slots
-    renderAboveCapture: (): (Node | null)[] =>
-      s.wordQuiz ? [renderWordQuizSlot()] : s.practice ? [renderPractice()] : s.quiz ? [renderQuizSlot()] : [renderRecap(), renderPlanCard(), renderReview(), renderPractice()],
+    // tabs
+    tab: () => s.tab,
+    showTab,
+    renderTabBar,
+    renderTab,
+    renderHomeBelow,
+    renderOverlays,
+    // render slots (Home)
+    renderAboveCapture: (): (Node | null)[] => [s.quiz && s.quizPaused ? renderQuizSlot() : null, renderRecap()],
     renderInCapture: renderCaptureExtras,
     renderQuestionExtras,
     renderPickExtras,
     renderAfterRuleCard: (): (Node | null)[] => [renderCardTools()],
-    renderBottom,
     /** While a review is open, the host can hide the capture/question flow if it wants a focused screen. */
     isReviewing: () => s.review.open,
     /** True while the cropper is waiting on the user (capture() is still "in flight"). */

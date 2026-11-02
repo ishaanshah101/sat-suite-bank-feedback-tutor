@@ -19901,7 +19901,7 @@ function wordsToAnkiCsv(words) {
   }
   return rows.join("\n") + "\n";
 }
-var bankOpen = false;
+var bankOpen = true;
 var bankQuery = "";
 var PAGE = 30;
 function withWord(sentence, word) {
@@ -20852,8 +20852,17 @@ var CONFIDENCE = [
   { key: "unsure", label: "Unsure", hint: "50/50" },
   { key: "guess", label: "Guessed", hint: "no idea" }
 ];
+var PANEL_TABS = [
+  { id: "home", label: "Home" },
+  { id: "progress", label: "Progress" },
+  { id: "practice", label: "Practice" },
+  { id: "words", label: "Words" },
+  { id: "settings", label: "Settings" }
+];
 function createAddons(ctx, host) {
   const s = {
+    /** Which tab of the side panel is showing. */
+    tab: "home",
     prefs: { ...DEFAULT_PREFS },
     log: [],
     srs: {},
@@ -20870,7 +20879,6 @@ function createAddons(ctx, host) {
     confidence: null,
     journal: defaultFilter(),
     showHelp: false,
-    showSettings: false,
     strategyOpen: false,
     lastSeconds: null,
     toast: null,
@@ -20955,18 +20963,28 @@ function createAddons(ctx, host) {
     for (let i2 = 0; i2 < 30 && !ctx.settings?.token; i2++) await new Promise((r) => setTimeout(r, 100));
     await selection.start();
   });
+  function showTab(tab) {
+    if (s.tab === tab) return;
+    s.tab = tab;
+    ctx.rerender();
+    if (typeof window !== "undefined") window.scrollTo({ top: 0 });
+  }
   function hotkeyActions() {
-    if (s.wordQuiz) return { raw: pressWordQuizKey, help: toggleHelp };
-    if (s.quiz && !s.quizPaused) return { raw: pressQuizKey, help: toggleHelp };
-    if (s.practice && practiceView) {
-      const v = practiceView;
-      return { raw: (key) => pressPracticeKey(v.handlers, key, v.mode), help: toggleHelp };
+    if (s.tab === "words") return s.wordQuiz ? { raw: pressWordQuizKey, help: toggleHelp } : { capture: () => host.capture?.(), help: toggleHelp };
+    if (s.tab === "practice") {
+      if (s.quiz && !s.quizPaused) return { raw: pressQuizKey, help: toggleHelp };
+      if (s.practice && practiceView) {
+        const v = practiceView;
+        return { raw: (key) => pressPracticeKey(v.handlers, key, v.mode), help: toggleHelp };
+      }
+      const r = s.review;
+      if (r.open && r.drill && !r.result) {
+        return { pick: (l) => void answerReview(l), help: toggleHelp };
+      }
+      if (r.open && r.result) return { review: () => void nextReview(), help: toggleHelp };
+      return { capture: () => host.capture?.(), review: () => void startReview(), help: toggleHelp };
     }
-    const r = s.review;
-    if (r.open && r.drill && !r.result) {
-      return { pick: (l) => void answerReview(l), help: toggleHelp };
-    }
-    if (r.open && r.result) return { review: () => void nextReview(), help: toggleHelp };
+    if (s.tab !== "home") return { capture: () => host.capture?.(), help: toggleHelp };
     return {
       pick: (l) => host.pick?.(l),
       pickCorrect: () => host.pick?.("correct"),
@@ -21106,6 +21124,7 @@ function createAddons(ctx, host) {
     }
     s.review = { ...freshReview(), open: true, forced: ruleId ?? null };
     s.practice = null;
+    s.tab = "practice";
     await nextReview();
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -21228,6 +21247,7 @@ function createAddons(ctx, host) {
   function openPractice(p) {
     s.review = freshReview();
     s.practice = p;
+    s.tab = "practice";
     ctx.rerender();
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -21298,6 +21318,7 @@ function createAddons(ctx, host) {
     s.review = freshReview();
     s.practice = null;
     s.quizEntry.open = false;
+    s.tab = "practice";
     setQuiz(createQuiz(parsed.questions, { now: Date.now(), shuffle: opts.shuffle, limit: opts.limit }));
     scrollTop();
   }
@@ -21323,6 +21344,7 @@ function createAddons(ctx, host) {
   async function startWordQuiz(n) {
     s.wordQuizN = n;
     const record = await readWordRecord().catch(() => ({}));
+    s.tab = "words";
     setWordQuiz(createWordQuiz(collectWords(s.log), record, { now: Date.now(), n }));
     window.scrollTo({ top: 0 });
   }
@@ -21405,6 +21427,7 @@ function createAddons(ctx, host) {
     const qi = st.questions.findIndex((x) => x === q || q.qbId !== null && x.qbId === q.qbId);
     s.quizBusy = true;
     s.quizPaused = true;
+    s.tab = "home";
     ctx.rerender();
     try {
       const image = await renderQuestionImage(toParsedQB(q));
@@ -21441,6 +21464,7 @@ function createAddons(ctx, host) {
           disabled: s.quizBusy,
           onclick: () => {
             s.quizPaused = false;
+            s.tab = "practice";
             setQuiz(done ? st : resumeQuiz(st, Date.now()));
             scrollTop();
           }
@@ -21800,11 +21824,9 @@ function createAddons(ctx, host) {
     );
     zoom.value = String(s.prefs.zoom || 1);
     return h(
-      "details",
-      { class: "card rc-settings", open: s.showSettings ? "" : null, ontoggle: (ev) => {
-        s.showSettings = ev.target.open;
-      } },
-      h("summary", null, h("h2", { text: "Export & settings" })),
+      "div",
+      { class: "card rc-settings" },
+      h("h2", { text: "Export & settings" }),
       h(
         "section",
         null,
@@ -21913,14 +21935,43 @@ function createAddons(ctx, host) {
       )
     );
   }
-  function renderBottom() {
+  function renderTabBar() {
+    const dueCount = due().length;
+    const live = {
+      practice: Boolean(s.practice) || s.review.open || Boolean(s.quiz) && !s.quizPaused,
+      words: Boolean(s.wordQuiz)
+    };
+    return h(
+      "nav",
+      { class: "rc-tabbar", role: "tablist", "aria-label": "Rulecard sections" },
+      ...PANEL_TABS.map((t) => {
+        const active = s.tab === t.id;
+        const count2 = t.id === "practice" && dueCount && !live.practice ? dueCount : 0;
+        return h(
+          "button",
+          {
+            class: `rc-tabbtn${active ? " active" : ""}`,
+            role: "tab",
+            "aria-selected": String(active),
+            title: t.id === "practice" && dueCount ? `${dueCount} rule${dueCount === 1 ? "" : "s"} due for review` : t.label,
+            onclick: () => showTab(t.id)
+          },
+          t.label,
+          count2 ? h("span", { class: "rc-tabcount", text: String(count2) }) : null,
+          live[t.id] && !active ? h("span", { class: "rc-tabdot", "aria-label": "in progress" }) : null
+        );
+      })
+    );
+  }
+  function renderHomeBelow() {
+    return [renderPlanCard()];
+  }
+  function renderProgressTab() {
     const cd = s.summary ? countdown(s.prefs.testDate, s.summary) : null;
     return [
       s.summary ? renderProgress(s.summary, insights(s.summary, due().length), s.prefs.dailyGoal, (path2) => void ctx.openWeb(path2), { countdown: cd, onShare: () => void share() }) : null,
       s.prefs.activity && s.log.length ? renderCalendar(activityModel(s.log, { now: Date.now(), dailyGoal: s.prefs.dailyGoal })) : null,
-      renderQuizEntryCard(),
       s.prefs.skillMap ? renderSkillMap(skillMap(s.log)) : null,
-      s.prefs.wordBank ? renderWordBankCard() : null,
       renderTraps(trapReport(s.log)),
       s.prefs.badges ? renderBadges(badgeProgress(badgeInput(), s.badges)) : null,
       s.log.length ? renderJournal(s.log, s.journal, {
@@ -21935,11 +21986,42 @@ function createAddons(ctx, host) {
           ctx.rerender();
         },
         reviewRule: (ruleId) => void startReview(ruleId)
-      }, ctx.rerender) : null,
-      renderSettings(),
-      renderHelp(),
-      s.toast ? h("div", { class: "rc-toast", role: "status", text: s.toast }) : null
+      }, ctx.rerender) : null
     ];
+  }
+  function renderPracticeTab() {
+    if (s.quiz && !s.quizPaused) return [renderQuizSlot()];
+    if (s.practice) return [renderPractice()];
+    if (s.review.open) return [renderReview()];
+    const cards = [s.quiz ? renderQuizSlot() : null, renderReview(), renderPractice(), renderQuizEntryCard()].filter(Boolean);
+    if (!cards.length) cards.push(h("div", { class: "card" }, h("h2", { text: "Practice" }), h("p", { class: "small muted", text: "Explain a few questions on Home first. The rules you miss come back here for review and flashcards." })));
+    return cards;
+  }
+  function renderWordsTab() {
+    if (s.wordQuiz) return [renderWordQuizSlot()];
+    if (!s.prefs.wordBank) return [h("div", { class: "card" }, h("h2", { text: "Word bank" }), h("p", { class: "small muted", text: "The word bank is switched off. Turn it on in Settings." }))];
+    return [renderWordBankCard()];
+  }
+  function renderSettingsTab() {
+    return [
+      renderSettings(),
+      h(
+        "div",
+        { class: "card" },
+        h("div", { class: "row between" }, h("h2", { text: "Keyboard shortcuts" }), h("button", { class: "btn small", text: "Show", onclick: toggleHelp })),
+        h("p", { class: "small muted", text: "Press ? anywhere in the panel. Alt+Shift+R captures the tab from anywhere in Chrome." })
+      )
+    ];
+  }
+  function renderTab(tab) {
+    if (tab === "progress") return renderProgressTab();
+    if (tab === "practice") return renderPracticeTab();
+    if (tab === "words") return renderWordsTab();
+    if (tab === "settings") return renderSettingsTab();
+    return [];
+  }
+  function renderOverlays() {
+    return [renderHelp(), s.toast ? h("div", { class: "rc-toast", role: "status", text: s.toast }) : null];
   }
   return {
     ready,
@@ -21952,13 +22034,19 @@ function createAddons(ctx, host) {
     afterExplain,
     afterDrillCheck,
     startReview,
-    // render slots
-    renderAboveCapture: () => s.wordQuiz ? [renderWordQuizSlot()] : s.practice ? [renderPractice()] : s.quiz ? [renderQuizSlot()] : [renderRecap(), renderPlanCard(), renderReview(), renderPractice()],
+    // tabs
+    tab: () => s.tab,
+    showTab,
+    renderTabBar,
+    renderTab,
+    renderHomeBelow,
+    renderOverlays,
+    // render slots (Home)
+    renderAboveCapture: () => [s.quiz && s.quizPaused ? renderQuizSlot() : null, renderRecap()],
     renderInCapture: renderCaptureExtras,
     renderQuestionExtras,
     renderPickExtras,
     renderAfterRuleCard: () => [renderCardTools()],
-    renderBottom,
     /** While a review is open, the host can hide the capture/question flow if it wants a focused screen. */
     isReviewing: () => s.review.open,
     /** True while the cropper is waiting on the user (capture() is still "in flight"). */
@@ -22176,16 +22264,23 @@ async function signOut() {
   render3();
 }
 function renderMain() {
-  const nodes = [renderHeader(), ...addons.renderAboveCapture(), renderCapture()];
-  if (state.question) nodes.push(renderQuestion(state.question));
-  else nodes.push(renderHowTo());
-  if (!state.question && state.recent?.length) nodes.push(renderRecent(state.recent));
-  if (state.explained) {
-    nodes.push(renderRuleCard(state.explained.card, state.explained.picked, state.explained.ruleName));
-    nodes.push(...addons.renderAfterRuleCard());
-    nodes.push(renderChat());
+  const tab = addons.tab();
+  const nodes = [h2("div", { class: "rc-top" }, renderHeader(), addons.renderTabBar())];
+  if (tab === "home") {
+    nodes.push(...addons.renderAboveCapture(), renderCapture());
+    if (state.question) nodes.push(renderQuestion(state.question));
+    if (state.explained) {
+      nodes.push(renderRuleCard(state.explained.card, state.explained.picked, state.explained.ruleName));
+      nodes.push(...addons.renderAfterRuleCard());
+      nodes.push(renderChat());
+    }
+    nodes.push(...addons.renderHomeBelow());
+  } else {
+    if (tab === "progress" && state.recent?.length) nodes.push(renderRecent(state.recent));
+    if (tab === "settings") nodes.push(renderHowTo());
+    nodes.push(...addons.renderTab(tab));
   }
-  nodes.push(...addons.renderBottom());
+  nodes.push(...addons.renderOverlays());
   nodes.push(renderFooter());
   return nodes.filter((n) => Boolean(n));
 }
@@ -22652,6 +22747,7 @@ async function activeTab() {
 }
 async function capture() {
   if (state.capturing) return;
+  addons.showTab("home");
   state.capturing = true;
   state.captureError = null;
   state.needsAllSites = false;
@@ -22692,6 +22788,7 @@ async function processImage(image) {
   const data = await request(state.settings, "/api/extract", { body: { image, source: "capture" } });
   resetQuestion();
   state.question = data.question;
+  addons.showTab("home");
   void addons.afterExtract(normalizeQuestion(data.question));
 }
 async function allowAllSites() {
@@ -22834,6 +22931,7 @@ async function consumePendingCapture() {
   await chrome.storage.session.remove("pendingCapture");
   if (Date.now() - pending.at > 12e4) return;
   if (state.view !== "main") return;
+  addons.showTab("home");
   state.capturing = true;
   state.captureError = null;
   render3();
@@ -22857,6 +22955,7 @@ async function consumePendingQuestion() {
   if (!pending) return;
   await chrome.storage.session.remove("pendingQuestion");
   if (state.view !== "main" || !pending.id || !pending.stem) return;
+  addons.showTab("home");
   resetQuestion();
   state.question = pending;
   void addons.afterExtract(normalizeQuestion(pending));

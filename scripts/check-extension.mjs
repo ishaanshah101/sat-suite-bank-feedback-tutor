@@ -102,14 +102,22 @@ try {
   await panel.locator(".banner.good, .banner.danger").last().waitFor({ timeout: 30000 });
   ok("drill answers and grades", (await panel.locator(".banner.good, .banner.danger").last().innerText()).length > 0);
 
-  // Shortcut path: the service worker stores a capture, the panel picks it up.
+  // Tabs: Home holds only the capture flow; the study tools live one tap away, and a capture brings you back Home.
+  ok("tab bar has Home, Progress, Practice, Words, Settings", (await panel.locator(".rc-tabbtn").allInnerTexts()).map((t) => t.replace(/\d+/g, "").trim()).join(",") === "Home,Progress,Practice,Words,Settings");
+  await panel.getByRole("tab", { name: /^Progress/ }).click();
+  await panel.locator(".recent").first().waitFor({ timeout: 15000 });
+  ok("Progress tab shows recent reviews and hides the capture flow", (await panel.getByRole("button", { name: "Capture again" }).count()) === 0 && (await panel.locator(".recent").count()) >= 1);
+  await panel.getByRole("tab", { name: /^Settings/ }).click();
+  ok("Settings tab holds How it works and settings", (await panel.getByText("How it works").count()) === 1 && (await panel.getByText("Export & settings").count()) === 1);
+
+  // Shortcut path: the service worker stores a capture, the panel picks it up (and switches back to Home).
   await worker.evaluate(async ({ id, windowId }) => {
     await chrome.tabs.update(id, { active: true });
     const image = await chrome.tabs.captureVisibleTab(windowId, { format: "png" });
     await chrome.storage.session.set({ pendingCapture: { image, at: Date.now(), tabTitle: "test" } });
   }, pageTab);
   await panel.getByText("Which did you pick?").waitFor({ timeout: 60000 });
-  ok("pending capture from the shortcut path is consumed", true);
+  ok("pending capture from the shortcut path is consumed and shows Home", (await panel.locator(".rc-tabbtn.active").innerText()) === "Home");
 
   // Recent list and the signed-in link into the web app.
   await panel.locator(".recent").first().waitFor({ timeout: 15000 }).catch(() => undefined);

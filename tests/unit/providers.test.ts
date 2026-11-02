@@ -116,7 +116,16 @@ describe("gateway fallback", () => {
       process.env.AI_PROVIDER_ORDER = "gateway,openai";
       mod = await freshProviders();
       expect(mod.providerOrder()).toEqual(["gateway", "openai", "anthropic"]);
+
+      // A stored paid key stays unused when its provider is switched off.
+      process.env.ANTHROPIC_API_KEY = "test-anthropic";
+      process.env.AI_DISABLED_PROVIDERS = "openai, Anthropic";
+      mod = await freshProviders();
+      expect(mod.providerOrder()).toEqual(["gateway"]);
+      expect((await mod.availableProviders()).map((h) => h.name)).toEqual(["gateway"]);
     } finally {
+      delete process.env.AI_DISABLED_PROVIDERS;
+      process.env.ANTHROPIC_API_KEY = "";
       for (const [k, v] of Object.entries(saved)) {
         if (v === undefined) delete process.env[k];
         else process.env[k] = v;
