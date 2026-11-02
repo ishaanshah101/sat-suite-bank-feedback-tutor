@@ -43,7 +43,7 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
     2. `screenshot-2-math.png`
     3. `screenshot-3-grid-ins.png`
     4. `screenshot-4-test-me.png`
-    5. `screenshot-5-coach.png`
+    5. `screenshot-5-study-coach.png`
   - Small promo tile (440x280): `small-promo-tile-440x280.png`
   - Marquee promo tile (1400x560): `marquee-promo-tile-1400x560.png`
   - Global promo video: optional, leave blank until there is a YouTube demo.
