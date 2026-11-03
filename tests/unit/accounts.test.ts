@@ -59,7 +59,9 @@ describe("accounts", () => {
     for (let i = 0; i < SIGNIN_MAX_ATTEMPTS - 1; i++) {
       expect(await signIn("10.0.5.1", { email: "student@example.com", password: "nope-nope" })).toMatchObject({ status: 401 });
     }
+    // The attacker's own right password is not a guess, and buys no guesses at others: one more wrong try fits, the next is refused.
     expect(await signIn("10.0.5.1", { email: "attacker@example.com", password: "longenough1" })).toMatchObject({ ok: true });
+    expect(await signIn("10.0.5.1", { email: "student@example.com", password: "nope-nope" })).toMatchObject({ status: 401 });
     expect(await signIn("10.0.5.1", { email: "student@example.com", password: "nope-nope" })).toMatchObject({ ok: false, status: 429 });
   });
 
@@ -88,6 +90,43 @@ describe("accounts", () => {
       .setExpirationTime("1h")
       .sign(key);
     await expect(requireSession()).rejects.toBeInstanceOf(UnauthorizedError);
+    request.bearer = null;
+  });
+
+  it("right passwords never use up the address's budget", async () => {
+    const { signUp, signIn, SIGNIN_MAX_ATTEMPTS } = await import("@/lib/auth/accounts");
+    const made = await signUp("10.0.10.1", { email: "class@example.com", password: "longenough1" });
+    if (!made.ok) throw new Error("signup failed");
+    for (let i = 0; i < SIGNIN_MAX_ATTEMPTS + 3; i++) {
+      expect(await signIn("10.0.10.1", { email: "class@example.com", password: "longenough1" })).toMatchObject({ ok: true });
+    }
+  });
+
+  it("signing out revokes that token, and signing out everywhere refuses every earlier token", async () => {
+    const { signUp, signIn } = await import("@/lib/auth/accounts");
+    const { requireSession, UnauthorizedError } = await import("@/lib/auth/session");
+    const { verifySessionToken } = await import("@/lib/auth/token");
+    const { invalidateAllSessions, revokeSession } = await import("@/db/queries");
+    const made = await signUp("10.0.9.1", { email: "revoke@example.com", password: "longenough1" });
+    if (!made.ok) throw new Error("signup failed");
+    const other = await signIn("10.0.9.2", { email: "revoke@example.com", password: "longenough1" });
+    if (!other.ok) throw new Error("signin failed");
+    const first = await verifySessionToken(made.token);
+    expect(first?.jti).toMatch(/^[0-9a-f-]{36}$/);
+    // Revoking one token leaves the other working.
+    await revokeSession(first!.jti!, made.user.id, new Date(Date.now() + 60_000));
+    request.bearer = made.token;
+    await expect(requireSession()).rejects.toBeInstanceOf(UnauthorizedError);
+    request.bearer = other.token;
+    expect(await requireSession()).toMatchObject({ userId: made.user.id });
+    // Signing out everywhere refuses it too, and a token signed afterwards works.
+    await new Promise((r) => setTimeout(r, 1600));
+    await invalidateAllSessions(made.user.id);
+    await expect(requireSession()).rejects.toBeInstanceOf(UnauthorizedError);
+    const fresh = await signIn("10.0.9.3", { email: "revoke@example.com", password: "longenough1" });
+    if (!fresh.ok) throw new Error("signin failed");
+    request.bearer = fresh.token;
+    expect(await requireSession()).toMatchObject({ userId: made.user.id });
     request.bearer = null;
   });
 

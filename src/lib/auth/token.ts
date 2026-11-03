@@ -15,16 +15,27 @@ export interface Session {
   userId: string;
   /** Unix seconds the token was signed; lets a session be refused when its account was created later (id reuse). */
   issuedAt?: number;
+  /** Unique id of this token, so signing out can revoke exactly this one. Tokens from before 0.6.1 have none. */
+  jti?: string;
+  /** Unix seconds the token expires; a revocation row only needs to live that long. */
+  expiresAt?: number;
 }
 
 /** Marks tokens issued to accounts. Tokens from the old single-passcode gate lack it and stop working. */
 const TOKEN_KIND = "account";
 
-export async function createSessionToken(userId: string): Promise<string> {
+/**
+ * `notBefore` is the account's creation time from the database clock: the token is never dated before it,
+ * so a sign-up's first request cannot fail the "issued before the account" check if this clock runs behind.
+ */
+export async function createSessionToken(userId: string, notBefore?: Date): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const iat = notBefore ? Math.max(now, Math.floor(notBefore.getTime() / 1000)) : now;
   return new SignJWT({ kind: TOKEN_KIND })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)
-    .setIssuedAt()
+    .setJti(crypto.randomUUID())
+    .setIssuedAt(iat)
     .setExpirationTime(`${SESSION_MAX_AGE_SECONDS}s`)
     .sign(secretKey());
 }
@@ -35,16 +46,29 @@ export async function verifySessionToken(token: string): Promise<Session | null>
     if (typeof payload.sub !== "string" || payload.sub.length === 0) return null;
     if (payload.kind !== TOKEN_KIND) return null;
     if (typeof payload.iat !== "number") return null;
-    return { userId: payload.sub, issuedAt: payload.iat };
+    return {
+      userId: payload.sub,
+      issuedAt: payload.iat,
+      jti: typeof payload.jti === "string" && payload.jti ? payload.jti : undefined,
+      expiresAt: typeof payload.exp === "number" ? payload.exp : undefined,
+    };
   } catch {
     return null;
   }
 }
 
 /** True when the token was signed before the account existed: a token kept from a deleted account whose id was reclaimed. */
-export function issuedBeforeAccount(session: Session, createdAt: Date): boolean {
+/**
+ * True when the token was signed before `at`. A token without iat never passes. The slack covers iat's
+ * whole-second rounding (1.5 s is enough when `at` came from this server's clock) or database clock skew (5 s).
+ */
+export function issuedBefore(session: Session, at: Date, slackMs = 5000): boolean {
   if (session.issuedAt === undefined) return true;
-  return session.issuedAt * 1000 < createdAt.getTime() - 5000;
+  return session.issuedAt * 1000 < at.getTime() - slackMs;
+}
+
+export function issuedBeforeAccount(session: Session, createdAt: Date): boolean {
+  return issuedBefore(session, createdAt);
 }
 
 export function sessionCookieOptions() {

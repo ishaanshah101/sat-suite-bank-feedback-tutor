@@ -255,3 +255,65 @@ test("browser extension: token endpoint, bearer auth and CORS for extension orig
   expect(chat.status()).toBe(200);
   expect(await chat.text()).toContain("text-delta");
 });
+
+test("pages carry a nonce-based CSP with no console violations, and signing out revokes the token", async ({ page, request }) => {
+  const violations: string[] = [];
+  page.on("console", (m) => {
+    if (/content security policy/i.test(m.text())) violations.push(m.text());
+  });
+  const signin = await page.goto("/signin");
+  const csp = signin?.headers()["content-security-policy"] ?? "";
+  expect(csp).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'/);
+  expect(csp).not.toContain("script-src 'self' 'unsafe-inline'");
+  const second = await page.goto("/privacy");
+  expect(second?.headers()["content-security-policy"]).not.toBe(csp);
+  await signUp(page);
+  await page.goto("/account");
+  await expect(page.getByTestId("account-email")).toBeVisible();
+  expect(violations).toEqual([]);
+
+  const email = newEmail();
+  const up = await request.post("/api/auth/signup", { data: { email, password: PASSWORD } });
+  const { token } = (await up.json()) as { token: string };
+  const me = await request.get("/api/me", { headers: { authorization: `Bearer ${token}` } });
+  expect(me.status()).toBe(200);
+  const out = await request.post("/api/logout", { headers: { authorization: `Bearer ${token}` }, data: {} });
+  expect(out.status()).toBe(200);
+  const after = await request.get("/api/me", { headers: { authorization: `Bearer ${token}` } });
+  expect(after.status()).toBe(401);
+});
+
+test("an extension handoff link needs one click on this site and works once", async ({ browser, request }) => {
+  const email = newEmail();
+  const up = await request.post("/api/auth/signup", { data: { email, password: PASSWORD } });
+  const { token } = (await up.json()) as { token: string };
+  const minted = await request.post("/api/auth/handoff", { headers: { authorization: `Bearer ${token}` }, data: {} });
+  const { code } = (await minted.json()) as { code: string };
+  const link = `/api/auth/handoff?code=${encodeURIComponent(code)}&next=%2Fhistory`;
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto(link);
+  await expect(page).toHaveURL(/\/handoff\?code=/);
+  // Nothing is signed in yet.
+  expect((await context.request.get("/api/me")).status()).toBe(401);
+  await page.getByTestId("handoff-continue").click();
+  await expect(page).toHaveURL(/\/history$/);
+  const me = (await (await context.request.get("/api/me")).json()) as { user: { email: string } };
+  expect(me.user.email).toBe(email);
+
+  // The same code is spent: a second browser gets the sign-in page instead.
+  const again = await browser.newContext();
+  const page2 = await again.newPage();
+  await page2.goto(link);
+  await page2.getByTestId("handoff-continue").click();
+  await expect(page2).toHaveURL(/\/signin$/);
+  // A cross-site form post of a fresh code is refused.
+  const minted2 = await request.post("/api/auth/handoff", { headers: { authorization: `Bearer ${token}` }, data: {} });
+  const { code: code2 } = (await minted2.json()) as { code: string };
+  const forged = await again.request.post("/api/auth/handoff/continue", { headers: { origin: "https://evil.example", "sec-fetch-site": "cross-site" }, form: { code: code2, next: "/" }, maxRedirects: 0 });
+  expect(forged.headers()["location"]).toMatch(/\/signin$/);
+  expect((await again.request.get("/api/me")).status()).toBe(401);
+  await context.close();
+  await again.close();
+});

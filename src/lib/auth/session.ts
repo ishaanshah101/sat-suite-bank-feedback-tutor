@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries";
-import { bearerToken, issuedBeforeAccount, SESSION_COOKIE, verifySessionToken, type Session } from "./token";
+import { getUser, isSessionRevoked } from "@/db/queries";
+import { bearerToken, issuedBefore, SESSION_COOKIE, verifySessionToken, type Session } from "./token";
 
 export class UnauthorizedError extends Error {
   constructor() {
@@ -28,7 +28,9 @@ export async function requireSession(): Promise<Session> {
   const session = await getSession();
   if (!session) throw new UnauthorizedError();
   const user = await getUser(session.userId);
-  if (!user || issuedBeforeAccount(session, user.createdAt)) throw new UnauthorizedError();
+  // The account must exist, must not predate the token (id reuse), and must not have signed out everywhere since.
+  if (!user || issuedBefore(session, user.createdAt) || issuedBefore(session, user.sessionsValidFrom, 1500)) throw new UnauthorizedError();
+  if (session.jti && (await isSessionRevoked(session.jti))) throw new UnauthorizedError();
   return session;
 }
 

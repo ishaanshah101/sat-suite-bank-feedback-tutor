@@ -16,6 +16,7 @@ import {
   type Letter,
   type QuestionRow,
   type UserRow,
+  revokedSessions,
 } from "./schema";
 import type { ParsedQuestionInput } from "@/lib/ai/schemas";
 
@@ -275,9 +276,16 @@ export async function countUnlockAttempts(ip: string, since: Date): Promise<numb
   return Number(rows[0]?.n ?? 0);
 }
 
-export async function recordUnlockAttempt(ip: string): Promise<void> {
+export async function recordUnlockAttempt(ip: string): Promise<string> {
   const db = await getDb();
-  await db.insert(unlockAttempts).values({ ip });
+  const rows = await db.insert(unlockAttempts).values({ ip }).returning({ id: unlockAttempts.id });
+  return rows[0]!.id;
+}
+
+/** Forget one recorded try (a right password should not count against the address). */
+export async function deleteUnlockAttempt(id: string): Promise<void> {
+  const db = await getDb();
+  await db.delete(unlockAttempts).where(eq(unlockAttempts.id, id));
 }
 
 export async function clearUnlockAttempts(ip: string): Promise<void> {
@@ -332,10 +340,31 @@ export async function countAiUse(userId: string, since: Date): Promise<number> {
 }
 
 /** Drop rate-limit and usage rows older than any window that reads them (sign-in: 1 hour, AI: 24 hours). */
-export async function pruneCounters(): Promise<{ attempts: number; usage: number }> {
+export async function pruneCounters(): Promise<{ attempts: number; usage: number; revoked: number }> {
   const db = await getDb();
   const day = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   const a = await db.delete(unlockAttempts).where(lt(unlockAttempts.createdAt, day)).returning({ id: unlockAttempts.id });
   const u = await db.delete(aiUsage).where(lt(aiUsage.createdAt, day)).returning({ id: aiUsage.id });
-  return { attempts: a.length, usage: u.length };
+  const r = await db.delete(revokedSessions).where(lt(revokedSessions.expiresAt, new Date())).returning({ jti: revokedSessions.jti });
+  return { attempts: a.length, usage: u.length, revoked: r.length };
+}
+
+// ---------------------------------------------------------------- session revocation
+
+/** Sign-out: this exact token stops working now. Kept until it would have expired anyway, then pruned. */
+export async function revokeSession(jti: string, userId: string, expiresAt: Date): Promise<void> {
+  const db = await getDb();
+  await db.insert(revokedSessions).values({ jti, userId, expiresAt }).onConflictDoNothing();
+}
+
+export async function isSessionRevoked(jti: string): Promise<boolean> {
+  const db = await getDb();
+  const rows = await db.select({ jti: revokedSessions.jti }).from(revokedSessions).where(eq(revokedSessions.jti, jti)).limit(1);
+  return rows.length > 0;
+}
+
+/** "Sign out of all devices": every token signed before now is refused from here on. */
+export async function invalidateAllSessions(userId: string): Promise<void> {
+  const db = await getDb();
+  await db.update(users).set({ sessionsValidFrom: new Date() }).where(eq(users.id, userId));
 }

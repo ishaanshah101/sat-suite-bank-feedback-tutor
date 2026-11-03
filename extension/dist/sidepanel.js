@@ -16796,7 +16796,7 @@ function parseQuestionBankText(text2) {
   if (ratIdx >= 0) {
     const after = text2.slice(ratIdx).replace(RE_RATIONALE, "");
     const rationale = after.split(/\n\s*Question\s*ID/i)[0]?.trim();
-    out.rationale = rationale ? tidy(rationale.replace(/\s*\n\s*/g, " ")) : null;
+    out.rationale = rationale ? tidy(rationale.replace(/\s+/g, " ")) : null;
   }
   const headEnd = (() => {
     const m = text2.search(/\n\s*Q\s*u\s*e\s*s\s*t\s*i\s*o\s*n\s*\n/i);
@@ -22240,6 +22240,7 @@ async function dropServerPermission(server) {
   }
 }
 async function signOut() {
+  if (state.settings.token) await request(state.settings, "/api/logout", { body: {} }).catch(() => void 0);
   state.settings = { ...state.settings, token: null };
   await saveSettings(state.settings);
   await dropServerPermission(state.settings.server);

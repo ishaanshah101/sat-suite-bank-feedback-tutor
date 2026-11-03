@@ -30,11 +30,18 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </div>
           <div className="mt-4 text-sm text-muted">AI requests in the last 24 hours</div>
           <div className="mt-1 font-medium">{unlimited ? `${used} (no limit on this account)` : `${used} of ${dailyAiLimit()}`}</div>
-          <form action="/api/logout" method="post" className="mt-5">
-            <button type="submit" className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-bg">
-              Sign out
-            </button>
-          </form>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <form action="/api/logout" method="post">
+              <button type="submit" className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-bg">
+                Sign out
+              </button>
+            </form>
+            <form action="/api/auth/signout-all" method="post">
+              <button type="submit" className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-bg" title="Signs out every browser and the extension, including this one">
+                Sign out of all devices
+              </button>
+            </form>
+          </div>
         </Card>
         <Card>
           <h2 className="font-semibold">Delete account</h2>

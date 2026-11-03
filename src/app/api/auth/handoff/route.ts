@@ -1,16 +1,7 @@
 import { cookies } from "next/headers";
 import { HttpError, json, withApi } from "@/lib/api";
-import { takeAttempt } from "@/lib/auth/limit";
-import {
-  bearerToken,
-  createHandoffCode,
-  createSessionToken,
-  HANDOFF_SECONDS,
-  SESSION_COOKIE,
-  sessionCookieOptions,
-  verifyHandoffCode,
-  verifySessionToken,
-} from "@/lib/auth/token";
+import { resolveHandoff, safeNextPath } from "@/lib/auth/handoff";
+import { bearerToken, createHandoffCode, HANDOFF_SECONDS, SESSION_COOKIE, verifySessionToken } from "@/lib/auth/token";
 import { getUser } from "@/db/queries";
 
 export const runtime = "nodejs";
@@ -27,26 +18,24 @@ function redirectTo(url: URL, path: string): Response {
   return new Response(null, { status: 303, headers: { location: new URL(path, url).toString(), "cache-control": "no-store", "referrer-policy": "no-referrer" } });
 }
 
-/** Opening `/api/auth/handoff?code=...&next=/history` signs this browser in and goes to `next` (same-site paths only). Each code works once. */
+/**
+ * Opening `/api/auth/handoff?code=...&next=/history` leads to the confirmation page, where one click signs this
+ * browser in (a link alone never signs anyone in: that would let a stranger's link plant their account here).
+ * A browser already signed in as the same account goes straight to `next`.
+ */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const nextParam = url.searchParams.get("next") ?? "/";
-  const next = /^\/(?![/\\])[\w\-/#?=&.%]*$/.test(nextParam) ? nextParam : "/";
-  const handoff = await verifyHandoffCode(url.searchParams.get("code") ?? "");
-  if (!handoff || !(await getUser(handoff.userId))) return redirectTo(url, "/signin");
-  // Already signed in as someone else: a link cannot swap this browser's account (login CSRF). Sign out first.
+  const next = safeNextPath(url.searchParams.get("next"));
+  const code = url.searchParams.get("code") ?? "";
+  const handoff = await resolveHandoff(code);
+  if (!handoff) return redirectTo(url, "/signin");
   const store = await cookies();
   const current = store.get(SESSION_COOKIE)?.value;
   if (current) {
     const existing = await verifySessionToken(current);
-    if (existing && existing.userId !== handoff.userId && (await getUser(existing.userId))) return redirectTo(url, "/account?handoff=mismatch");
+    if (existing && (await getUser(existing.userId))) {
+      return redirectTo(url, existing.userId === handoff.userId ? next : "/account?handoff=mismatch");
+    }
   }
-  // The first redemption records the code's id; a replay is the second row and is refused.
-  try {
-    await takeAttempt(`handoff:${handoff.jti}`, 1, 2 * 60_000, "This link was already used.");
-  } catch {
-    return redirectTo(url, "/signin");
-  }
-  store.set(SESSION_COOKIE, await createSessionToken(handoff.userId), sessionCookieOptions());
-  return redirectTo(url, next);
+  return redirectTo(url, `/handoff?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`);
 }

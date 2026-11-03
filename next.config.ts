@@ -1,22 +1,5 @@
 import type { NextConfig } from "next";
 
-/** Next.js needs inline scripts and styles for hydration; everything else stays on this origin. */
-const CSP = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "connect-src 'self'",
-  "worker-src 'self' blob:",
-  "media-src 'self' blob:",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  "upgrade-insecure-requests",
-].join("; ");
-
 const nextConfig: NextConfig = {
   // Fully dynamic single-user app: keep the classic rendering model.
   cacheComponents: false,
@@ -34,14 +17,17 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        headers: [{ key: "Cache-Control", value: "no-store" }],
+        headers: [
+          { key: "Cache-Control", value: "no-store" },
+          // JSON only; nothing should ever render it.
+          { key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'none'" },
+        ],
       },
       {
-        // Browser hardening for every page and API response. Nothing is loaded from other origins: the PDF
-        // worker is a same-origin module, capture previews are blob: and data: images, math renders as MathML.
+        // Browser hardening for every response. The page Content-Security-Policy is set per request by
+        // src/proxy.ts, with a fresh script nonce each time.
         source: "/:path*",
         headers: [
-          { key: "Content-Security-Policy", value: CSP },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

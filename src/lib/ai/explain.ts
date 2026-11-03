@@ -74,7 +74,8 @@ export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: 
     next.shortcut = next.shortcut?.trim() || null;
   }
 
-  const right = picked === "correct" || gotItRight === true || (!isGridIn(question) && picked === next.correct_letter);
+  // "I got it right" is only right once an answer is known: the route grades it, and null means nobody knows yet.
+  const right = gotItRight === true || (gotItRight !== false && !isGridIn(question) && picked === next.correct_letter);
   if (right) {
     next.diagnosis = "got_it_right";
     next.why_pick_fails = null;

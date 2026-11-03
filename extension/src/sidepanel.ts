@@ -290,6 +290,8 @@ async function dropServerPermission(server: string) {
 }
 
 async function signOut() {
+  // Revoke the token on the server first, so a copy of it elsewhere stops working too.
+  if (state.settings.token) await request(state.settings, "/api/logout", { body: {} }).catch(() => undefined);
   state.settings = { ...state.settings, token: null };
   await saveSettings(state.settings);
   await dropServerPermission(state.settings.server);
