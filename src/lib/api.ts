@@ -1,3 +1,4 @@
+import { APICallError, RetryError } from "ai";
 import { ZodError } from "zod";
 import { requireSession, UnauthorizedError, unauthorizedResponse } from "@/lib/auth/session";
 import type { Session } from "@/lib/auth/token";
@@ -33,9 +34,17 @@ export async function withApi(handler: (session: Session) => Promise<Response>):
     if (error instanceof ExtractionError) return json({ error: error.message, code: "extraction_failed" }, { status: 422 });
     if (error instanceof QuotaError) return json({ error: error.message, code: "daily_limit" }, { status: 429 });
     if (error instanceof NeedsAnswerError) return json({ error: error.message, code: "needs_answer" }, { status: 409 });
+    const upstream = RetryError.isInstance(error) ? error.lastError : error;
+    if (APICallError.isInstance(upstream)) {
+      // Every provider refused. Say so with the status, never the provider's body (it can carry account details).
+      console.error("[api] ai upstream", upstream.statusCode, upstream.message.slice(0, 400));
+      const status = upstream.statusCode;
+      const why = status === 429 || status === 402 ? "The AI service is over its limit right now." : "The AI service is unavailable right now.";
+      return json({ error: `${why} Try again in a minute.${status ? ` (${status})` : ""}`, code: "ai_unavailable" }, { status: 502 });
+    }
+    // Unknown errors are logged in full but never echoed: upstream and database messages can carry internals.
     console.error("[api]", error);
-    const message = error instanceof Error ? error.message : "Something went wrong";
-    return json({ error: message }, { status: 500 });
+    return json({ error: "Something went wrong on the server. Try again in a moment.", code: "internal" }, { status: 500 });
   }
 }
 
