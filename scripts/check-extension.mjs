@@ -134,6 +134,8 @@ try {
   await panel.getByRole("button", { name: "History", exact: true }).click();
   const web = await opened;
   await web.waitForLoadState("domcontentloaded");
+  // A link never signs a browser in by itself: the handoff page asks for one click first.
+  await web.getByTestId("handoff-continue").click({ timeout: 15000 });
   await web.waitForURL(/\/history$/, { timeout: 15000 }).catch(() => undefined);
   const missedRow = await web.getByRole("cell", { name: "missed" }).first().waitFor({ timeout: 30000 }).then(() => true, () => false);
   ok("History opens the web app signed in as the same account", /\/history$/.test(web.url()) && missedRow, `${web.url()} ${(await web.locator("main").innerText().catch(() => "")).slice(0, 150)}`);

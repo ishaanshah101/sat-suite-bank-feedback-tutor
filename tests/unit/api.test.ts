@@ -46,14 +46,20 @@ describe("withApi error mapping", () => {
 });
 
 describe("proxy matcher", () => {
-  it("excludes whole public segments only", async () => {
+  it("covers every page and API route and skips only static assets", async () => {
     const { config } = await import("@/proxy");
     // Compiled the way `next build` compiles it.
     const { tryToParsePath } = await import("next/dist/lib/try-to-parse-path");
     const parsed = tryToParsePath(config.matcher[0]);
     expect(parsed.error).toBeUndefined();
     const regex = new RegExp(parsed.regexStr!);
-    for (const path of ["/", "/history", "/api/explain", "/signin-help", "/api/cron-ish"]) expect(regex.test(path), path).toBe(true);
-    for (const path of ["/signin", "/signin/", "/unlock", "/privacy", "/api/ping", "/api/cron/keepalive", "/_next/static/x", "/favicon.ico", "/robots.txt"]) expect(regex.test(path), path).toBe(false);
+    for (const path of ["/", "/history", "/api/explain", "/signin", "/privacy", "/api/ping", "/api/cron/keepalive", "/signin-help"]) expect(regex.test(path), path).toBe(true);
+    for (const path of ["/_next/static/x", "/_next/image", "/favicon.ico", "/icon.svg", "/robots.txt"]) expect(regex.test(path), path).toBe(false);
+  });
+
+  it("treats only whole public segments as public pages", async () => {
+    const { isPublicPage } = await import("@/proxy");
+    for (const path of ["/signin", "/signin/", "/unlock", "/privacy", "/privacy/x"]) expect(isPublicPage(path), path).toBe(true);
+    for (const path of ["/", "/history", "/signin-help", "/privacy-settings", "/account"]) expect(isPublicPage(path), path).toBe(false);
   });
 });

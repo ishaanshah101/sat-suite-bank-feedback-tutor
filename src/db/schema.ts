@@ -109,7 +109,20 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  /** "Sign out of all devices" moves this forward; tokens signed before it are refused. */
+  sessionsValidFrom: timestamp("sessions_valid_from", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
+
+/** Session tokens revoked by signing out, kept until they would have expired anyway. */
+export const revokedSessions = pgTable(
+  "revoked_sessions",
+  {
+    jti: text("jti").primaryKey(),
+    userId: uuid("user_id").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+  },
+  (t) => [index("revoked_sessions_expires_idx").on(t.expiresAt)],
+);
 
 export const aiUsage = pgTable(
   "ai_usage",

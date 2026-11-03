@@ -3,7 +3,46 @@ import { bearerToken, SESSION_COOKIE, verifySessionToken } from "@/lib/auth/toke
 import { env } from "@/lib/env";
 
 /** API routes that need no session (sign in, create an account, sign out: it only clears the cookie, expired or not). */
-const PUBLIC_API = new Set(["/api/token", "/api/auth/signin", "/api/auth/signup", "/api/logout"]);
+const PUBLIC_API = new Set(["/api/token", "/api/auth/signin", "/api/auth/signup", "/api/auth/handoff/continue", "/api/logout", "/api/ping"]);
+/** Pages anyone may open. Whole segments only: "/signin" and "/signin/x", never "/signin-help". */
+const PUBLIC_PAGE = /^\/(signin|unlock|privacy|handoff)(\/|$)/;
+export const isPublicPage = (pathname: string) => PUBLIC_PAGE.test(pathname);
+
+/**
+ * Page policy with a per-request script nonce. Next.js reads the nonce from this header on the request and
+ * puts it on every script it emits, so no inline script without it can run (an XSS backstop). Styles stay
+ * inline-friendly: Tailwind and React set style attributes, which a nonce cannot cover.
+ */
+function pageCsp(nonce: string): string {
+  const dev = process.env.NODE_ENV === "development";
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "worker-src 'self' blob:",
+    "media-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
+
+/** Let the request through to a page, carrying a fresh nonce in and the matching policy out. */
+function pageNext(request: NextRequest): NextResponse {
+  const nonce = btoa(crypto.randomUUID());
+  const csp = pageCsp(nonce);
+  const headers = new Headers(request.headers);
+  headers.set("x-nonce", nonce);
+  headers.set("content-security-policy", csp);
+  const response = NextResponse.next({ request: { headers } });
+  response.headers.set("content-security-policy", csp);
+  return response;
+}
 
 /** Browser extension pages; the bearer token is the real protection, this only lets the browser read the response. */
 const EXTENSION_ORIGIN = /^(chrome|moz|safari-web)-extension:\/\/([a-z0-9-]+)$/i;
@@ -42,13 +81,14 @@ export async function proxy(request: NextRequest) {
   if (extensionOrigin && request.method === "OPTIONS") {
     return new NextResponse(null, { status: 204, headers: corsHeaders(extensionOrigin) });
   }
-  if (isApi && PUBLIC_API.has(pathname)) return withCors(NextResponse.next());
+  if (isApi && (PUBLIC_API.has(pathname) || pathname.startsWith("/api/cron/"))) return withCors(NextResponse.next());
   // Following a handoff link needs no session; asking for a code (POST) does.
   if (pathname === "/api/auth/handoff" && request.method === "GET") return NextResponse.next();
+  if (!isApi && isPublicPage(pathname)) return pageNext(request);
 
   const token = (isApi ? bearerToken(request.headers) : null) ?? request.cookies.get(SESSION_COOKIE)?.value;
   if (token && (await verifySessionToken(token))) {
-    return withCors(NextResponse.next());
+    return isApi ? withCors(NextResponse.next()) : pageNext(request);
   }
   if (isApi) {
     return withCors(NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } }));
@@ -60,6 +100,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Whole segments only: "/signin" and "/signin/x" are public, "/signin-help" is not.
-  matcher: ["/((?!signin(?:/|$)|unlock(?:/|$)|privacy(?:/|$)|api/cron(?:/|$)|api/ping(?:/|$)|_next/|favicon\\.ico$|icon\\.svg$|robots\\.txt$).*)"],
+  // Everything except static assets, so every page gets its nonce and every API route its auth check.
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico$|icon\\.svg$|robots\\.txt$).*)"],
 };

@@ -217,7 +217,7 @@ function answersFromAnswerBlock(rest: string[]): string[] {
     if (/^\s*(rationale|question\s*difficulty|id:|question\s*id)/i.test(t) || squash(t) === "rationale") break;
     parts.push(t);
   }
-  const text = parts.join(" ").replace(/\s+/g, " ").replace(/\s*([./])\s*/g, "$1").trim();
+  const text = parts.join(" ").replace(/\s+/g, " ").replace(/ ?([./]) ?/g, "$1").trim();
   return splitAcceptedAnswers(text);
 }
 

@@ -1,4 +1,4 @@
-# Publishing Rulecard 0.6.0: your checklist
+# Publishing Rulecard 0.6.1: your checklist
 
 Everything else is done: the web app is live at https://rulecard.vercel.app, the server uses only the free
 Vercel AI Gateway, and every file below is in this `store/` folder.
@@ -15,13 +15,13 @@ but revoking it guarantees nothing anywhere can be billed.
 
 ## 2. Upload the extension (10 minutes)
 
-Material: `rulecard-extension-0.6.0.zip`
+Material: `rulecard-extension-0.6.1.zip`
 
 1. Go to https://chrome.google.com/webstore/devconsole and sign in with your Google account.
    - First time only: accept the developer agreement and pay the one-time $5 registration fee.
 2. **If Rulecard is already listed (any status):** click **Rulecard → Package → Upload new package**, choose
-   `rulecard-extension-0.6.0.zip`, and confirm. The version must read 0.6.0.
-3. **If this is the first upload:** click **+ New item**, choose `rulecard-extension-0.6.0.zip`, then fill the
+   `rulecard-extension-0.6.1.zip`, and confirm. The version must read 0.6.1.
+3. **If this is the first upload:** click **+ New item**, choose `rulecard-extension-0.6.1.zip`, then fill the
    tabs in steps 3 to 5.
 
 ## 3. Store listing tab
@@ -66,7 +66,7 @@ that a public listing is fine, or keep it Unlisted.
 
 ## Optional
 
-- Try 0.6.0 before Google approves it: unzip `rulecard-extension-0.6.0.zip`, open `chrome://extensions`,
+- Try 0.6.1 before Google approves it: unzip `rulecard-extension-0.6.1.zip`, open `chrome://extensions`,
   turn on **Developer mode**, click **Load unpacked**, pick the unzipped folder.
 - Claim your pre-accounts history: create your account with the old passcode (the `APP_PASSCODE` value in
   Vercel → rulecard → Settings → Environment Variables) in the "Used Rulecard with a passcode before?" box.

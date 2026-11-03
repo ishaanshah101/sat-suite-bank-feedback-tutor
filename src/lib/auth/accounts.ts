@@ -4,13 +4,14 @@ import { env, ownerUserId } from "@/lib/env";
 import { findUserByEmail, getUser, insertUser } from "@/db/queries";
 import { passcodeMatches } from "./passcode";
 import { dummyPasswordHash, hashPassword, verifyPassword } from "./password";
-import { clearAttempts, RateLimitError, takeAttempt } from "./limit";
+import { clearAttempts, forgiveAttempt, RateLimitError, takeAttempt } from "./limit";
 import { createSessionToken, SESSION_MAX_AGE_SECONDS } from "./token";
 
 export const SIGNIN_WINDOW_MS = 15 * 60 * 1000;
 export const SIGNIN_MAX_ATTEMPTS = 10;
 /** Wrong guesses at one account across every address; a right password clears only this bucket. */
-export const SIGNIN_MAX_PER_ACCOUNT = 20;
+/** Wrong guesses at one account from anywhere; high enough that a stranger cannot lock the real owner out cheaply. */
+export const SIGNIN_MAX_PER_ACCOUNT = 60;
 export const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
 /** New accounts per network address per hour. Generous because a whole school can share one address. */
 export function signupMaxPerHour(): number {
@@ -37,8 +38,8 @@ function fail(status: 400 | 401 | 403 | 409 | 429 | 503, code: string, error: st
   return { ok: false, status, code, error };
 }
 
-async function issue(user: { id: string; email: string }): Promise<AuthResult> {
-  return { ok: true, token: await createSessionToken(user.id), expiresIn: SESSION_MAX_AGE_SECONDS, user: { id: user.id, email: user.email } };
+async function issue(user: { id: string; email: string; createdAt?: Date }): Promise<AuthResult> {
+  return { ok: true, token: await createSessionToken(user.id, user.createdAt), expiresIn: SESSION_MAX_AGE_SECONDS, user: { id: user.id, email: user.email } };
 }
 
 function limited(error: unknown): AuthResult {
@@ -52,8 +53,9 @@ export async function signIn(ip: string, input: { email: unknown; password: unkn
   if (!email.success || !password) return fail(400, "invalid", "Enter your email and password.");
   const tooMany = "Too many tries. Wait 15 minutes and try again.";
   const accountKey = `signin:acct:${email.data}`;
+  let ipTry: string;
   try {
-    await takeAttempt(`signin:${ip}`, SIGNIN_MAX_ATTEMPTS, SIGNIN_WINDOW_MS, tooMany);
+    ipTry = await takeAttempt(`signin:${ip}`, SIGNIN_MAX_ATTEMPTS, SIGNIN_WINDOW_MS, tooMany);
     await takeAttempt(accountKey, SIGNIN_MAX_PER_ACCOUNT, SIGNIN_WINDOW_MS, tooMany);
   } catch (error) {
     return limited(error);
@@ -61,7 +63,9 @@ export async function signIn(ip: string, input: { email: unknown; password: unkn
   const user = await findUserByEmail(email.data);
   const matches = await verifyPassword(password, user?.passwordHash ?? (await dummyPasswordHash()));
   if (!user || !matches) return fail(401, "bad_credentials", "That email and password do not match an account.");
-  // Only the account's bucket resets: a right password for one account must not buy more guesses at others from this address.
+  // A right password is not a guess: give this try back to the address (a whole class may share one), and
+  // reset only this account's bucket, never the address's, so one valid login buys no guesses at other accounts.
+  await forgiveAttempt(ipTry);
   await clearAttempts(accountKey);
   return issue(user);
 }

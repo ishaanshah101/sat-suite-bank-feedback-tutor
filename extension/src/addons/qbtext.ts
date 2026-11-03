@@ -74,7 +74,7 @@ export function parseQuestionBankText(text: string): ParsedQB {
   if (ratIdx >= 0) {
     const after = text.slice(ratIdx).replace(RE_RATIONALE, "");
     const rationale = after.split(/\n\s*Question\s*ID/i)[0]?.trim();
-    out.rationale = rationale ? tidy(rationale.replace(/\s*\n\s*/g, " ")) : null;
+    out.rationale = rationale ? tidy(rationale.replace(/\s+/g, " ")) : null;
   }
 
   // Metadata: compare whitespace-free so "F orm, Structur e, and Sense" still matches.

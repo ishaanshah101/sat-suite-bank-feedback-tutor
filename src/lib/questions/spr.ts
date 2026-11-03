@@ -145,7 +145,7 @@ export function isSprCorrect(entry: string, accepted: readonly string[]): boolea
 export function splitAcceptedAnswers(text: string): string[] {
   return text
     .replace(/^\s*(correct answers?|answers?)\s*:?\s*/i, "")
-    .split(/\s*(?:,|;|\bor\b)\s*/i)
+    .split(/[,;]|\bor\b/i)
     .map((s) => normalizeDashes(s.trim()))
     .filter((s) => s.length > 0 && parseNumber(s) !== null);
 }
