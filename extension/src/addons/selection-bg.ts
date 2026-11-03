@@ -4,7 +4,7 @@
 //
 // Flow: the click opens the side panel straight away. chrome.sidePanel.open() only works inside
 // the click's user gesture, so nothing is awaited before it. Then we save
-// { text, url, title, at, windowId } to chrome.storage.session under PENDING_SELECTION_KEY, and
+// { text, url, at, windowId } to chrome.storage.session under PENDING_SELECTION_KEY, and
 // the panel picks it up with consumePendingSelection() / watchSelections() (selection.ts).
 //
 // Hook in: call installSelectionCapture() once, at the top level of extension/src/background.ts,
@@ -28,7 +28,6 @@ export interface PendingSelection {
   text: string;
   /** Page the text was selected on (the PDF's own URL for PDFs). */
   url: string | null;
-  title: string | null;
   at: number;
   /** Window whose side panel should take it, so a panel open in another window ignores it. */
   windowId?: number | null;
@@ -55,14 +54,13 @@ export function pickSelectionText(menuText: string | null | undefined, pageText:
 export function pendingFromClick(
   text: string,
   info: { pageUrl?: string; frameUrl?: string },
-  tab: { url?: string; title?: string; windowId?: number } | undefined,
+  tab: { url?: string; windowId?: number } | undefined,
   now: number,
 ): PendingSelection {
   const clean = text.replace(/\r\n?/g, "\n").trim();
   return {
     text: clean.length > SELECTION_MAX_CHARS ? clean.slice(0, SELECTION_MAX_CHARS) : clean,
     url: info.pageUrl || tab?.url || info.frameUrl || null,
-    title: tab?.title?.trim() || null,
     at: now,
     windowId: typeof tab?.windowId === "number" && tab.windowId >= 0 ? tab.windowId : null,
   };

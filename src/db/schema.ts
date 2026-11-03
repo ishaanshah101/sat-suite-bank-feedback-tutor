@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { DEFAULT_OWNER_USER_ID } from "@/lib/env";
 
 export type Letter = "A" | "B" | "C" | "D";
 export type Section = "rw" | "math";
@@ -9,7 +8,7 @@ export type Choices = Record<Letter, string>;
 
 const base = {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id").notNull().default(DEFAULT_OWNER_USER_ID),
+  userId: uuid("user_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }),
 };

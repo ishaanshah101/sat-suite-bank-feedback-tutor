@@ -524,10 +524,27 @@ async function rawWrite(s: QuizStore): Promise<QuizStore> {
 export const readQuizStore = (): Promise<QuizStore> => queued(rawRead);
 export const writeQuizStore = (s: QuizStore): Promise<QuizStore> => queued(() => rawWrite(s));
 
+/** Rationales longer than this are cut when the quiz is saved. */
+export const RATIONALE_STORE_MAX = 1500;
+/** Past this many questions the saved quiz keeps no rationales at all, so a giant paste can't fill storage. */
+export const RATIONALE_STORE_LIMIT = 150;
+
+/** The quiz as stored: rationales clipped, or dropped for a very long quiz. The quiz on screen keeps them. */
+export function slimForStorage(state: QuizState): QuizState {
+  const drop = state.questions.length > RATIONALE_STORE_LIMIT;
+  return {
+    ...state,
+    questions: state.questions.map((q) => ({
+      ...q,
+      rationale: drop || !q.rationale ? null : q.rationale.length > RATIONALE_STORE_MAX ? `${q.rationale.slice(0, RATIONALE_STORE_MAX - 1)}…` : q.rationale,
+    })),
+  };
+}
+
 /** Save the quiz in progress (null clears it). Keep the finished quiz here until Done, so the results
  *  screen survives closing the panel or explaining a miss. */
 export const saveActive = (state: QuizState | null): Promise<QuizStore> =>
-  queued(async () => rawWrite({ ...(await rawRead()), active: state }));
+  queued(async () => rawWrite({ ...(await rawRead()), active: state ? slimForStorage(state) : null }));
 
 /** Add a finished quiz to the history (newest first, 20 kept). Saving the same quiz again replaces its
  *  row. A quiz that isn't finished or has no answers is not recorded. */

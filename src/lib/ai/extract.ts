@@ -1,6 +1,6 @@
 import { generateText, Output } from "ai";
 import { EXTRACT_INSTRUCTIONS } from "./prompts";
-import { ExtractionOutputSchema, type ExtractionOutput, type ParsedQuestion } from "./schemas";
+import { ExtractionOutputSchema, ParsedQuestionSchema, QUESTION_LIMITS, type ExtractionOutput, type ParsedQuestion } from "./schemas";
 import { abortAfter, isNoOutputError, retryOnNoOutput, withFailover, type FailoverResult } from "./providers";
 import { SECTION_TEST_NAME, domainForSkill, inferSection, normalizeDifficulty, normalizeDomain, normalizeSkill } from "@/lib/questions/taxonomy";
 import { splitAcceptedAnswers } from "@/lib/questions/spr";
@@ -23,16 +23,22 @@ export function parseDataUrl(dataUrl: string): { mediaType: string; base64: stri
   return { mediaType, base64: match[2] };
 }
 
-export function normalizeExtraction(output: ExtractionOutput): ParsedQuestion {
-  const stem = output.stem?.trim() ?? "";
+const cut = (text: string | null | undefined, max: number): string => (text ?? "").trim().slice(0, max);
+
+/**
+ * Turn the model's reply into a stored question. `sourceText` is the pasted text when there was one:
+ * the model's answer fields only count as official when that text really shows an answer line.
+ */
+export function normalizeExtraction(output: ExtractionOutput, sourceText?: string): ParsedQuestion {
+  const stem = cut(output.stem, QUESTION_LIMITS.stem);
   const skill = normalizeSkill(output.skill);
   const domain = normalizeDomain(output.domain) ?? domainForSkill(skill);
   const section = inferSection({ section: output.section, test: output.test, skill: output.skill, domain: output.domain });
   const choices = {
-    A: output.choices?.A?.trim() ?? "",
-    B: output.choices?.B?.trim() ?? "",
-    C: output.choices?.C?.trim() ?? "",
-    D: output.choices?.D?.trim() ?? "",
+    A: cut(output.choices?.A, QUESTION_LIMITS.choice),
+    B: cut(output.choices?.B, QUESTION_LIMITS.choice),
+    C: cut(output.choices?.C, QUESTION_LIMITS.choice),
+    D: cut(output.choices?.D, QUESTION_LIMITS.choice),
   };
   const hasChoices = Object.values(choices).every((c) => c.length > 0);
   // Only Math has grid-ins; a Math question without four choices is one.
@@ -46,26 +52,29 @@ export function normalizeExtraction(output: ExtractionOutput): ParsedQuestion {
   const qbIdRaw = output.qb_id?.trim().toLowerCase() ?? "";
   const qb_id = /^[0-9a-f]{8}$/.test(qbIdRaw) ? qbIdRaw : null;
   const difficulty = normalizeDifficulty(output.difficulty);
+  const official = output.visible_answer_panel && (sourceText === undefined || /correct answer|\banswer\s*:/i.test(sourceText));
   const answers =
-    format === "spr" && output.visible_answer_panel
+    format === "spr" && official
       ? [...new Set((output.accepted_answers ?? []).flatMap((a) => splitAcceptedAnswers(a)))].slice(0, 12)
       : [];
-  return {
+  const parsed = ParsedQuestionSchema.safeParse({
     qb_id,
     section,
     format,
-    test: output.test?.trim() || (skill || section === "math" ? SECTION_TEST_NAME[section] : null),
+    test: cut(output.test, QUESTION_LIMITS.label) || (skill || section === "math" ? SECTION_TEST_NAME[section] : null),
     domain,
     skill,
     difficulty,
-    passage: output.passage?.trim() || null,
+    passage: cut(output.passage, QUESTION_LIMITS.passage) || null,
     stem,
     choices: format === "mcq" ? choices : null,
-    correct: format === "mcq" && output.visible_answer_panel ? output.correct : null,
+    correct: format === "mcq" && official ? output.correct : null,
     answers: answers.length ? answers : null,
-    figure: output.figure?.trim() || null,
-    rationale: output.rationale?.trim() || null,
-  };
+    figure: cut(output.figure, QUESTION_LIMITS.figure) || null,
+    rationale: cut(output.rationale, QUESTION_LIMITS.rationale) || null,
+  });
+  if (!parsed.success) throw new ExtractionError("The extracted question was malformed. Try again with a clearer capture.");
+  return parsed.data;
 }
 
 export async function extractQuestion(input: ExtractInput): Promise<FailoverResult<ParsedQuestion>> {
@@ -80,20 +89,26 @@ export async function extractQuestion(input: ExtractInput): Promise<FailoverResu
     }
     let output: ExtractionOutput;
     try {
-      const result = await retryOnNoOutput(() => generateText({
-        model: provider.model("extract"),
-        instructions: EXTRACT_INSTRUCTIONS,
-        messages: [{ role: "user", content }],
-        output: Output.object({ schema: ExtractionOutputSchema, name: "parsed_question" }),
-        providerOptions: provider.providerOptions("extract"),
-        maxOutputTokens: 6000,
-        abortSignal: abortAfter(35_000),
-      }));
-      output = result.output;
+      // `.output` is where an off-schema reply throws, so it stays inside the retry.
+      output = await retryOnNoOutput(
+        async () =>
+          (
+            await generateText({
+              model: provider.model("extract"),
+              instructions: EXTRACT_INSTRUCTIONS,
+              messages: [{ role: "user", content }],
+              output: Output.object({ schema: ExtractionOutputSchema, name: "parsed_question" }),
+              providerOptions: provider.providerOptions("extract"),
+              maxOutputTokens: 6000,
+              maxRetries: 1,
+              abortSignal: abortAfter(35_000),
+            })
+          ).output as ExtractionOutput,
+      );
     } catch (error) {
       if (isNoOutputError(error)) throw new ExtractionError("The model could not read a complete question. Try a clearer or closer screenshot.");
       throw error;
     }
-    return normalizeExtraction(output);
+    return normalizeExtraction(output, input.text);
   });
 }

@@ -22,12 +22,29 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await chrome.storage.local.set({ settings });
 }
 
+/** The custom server's origin. Plain http is only allowed for a server on this machine. */
 export function normalizeServer(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return DEFAULT_SERVER;
   const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  return new URL(withScheme).origin;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    throw new Error("That server address does not look right.");
+  }
+  const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) {
+    throw new Error("The server address must start with https:// (http:// only works for localhost).");
+  }
+  return url.origin;
 }
+
+/** A plain request gives up after this long. */
+const REQUEST_TIMEOUT_MS = 90_000;
+/** A chat stream gives up when nothing arrives for this long. */
+const STREAM_IDLE_MS = 120_000;
+const timedOut = () => new ApiError(0, "The request timed out. Try again.");
 
 interface RequestInitLite {
   method?: string;
@@ -39,17 +56,24 @@ export async function request<T>(settings: Settings, path: string, init: Request
   const headers: Record<string, string> = { accept: "application/json" };
   if (init.body !== undefined) headers["content-type"] = "application/json";
   if (init.auth !== false && settings.token) headers.authorization = `Bearer ${settings.token}`;
+  const control = new AbortController();
+  const timer = setTimeout(() => control.abort(), REQUEST_TIMEOUT_MS);
   let response: Response;
+  let text: string;
   try {
     response = await fetch(settings.server + path, {
       method: init.method ?? (init.body !== undefined ? "POST" : "GET"),
       headers,
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      signal: control.signal,
     });
+    text = await response.text();
   } catch {
+    if (control.signal.aborted) throw timedOut();
     throw new ApiError(0, `Could not reach ${settings.server}. Check the server address and your connection.`);
+  } finally {
+    clearTimeout(timer);
   }
-  const text = await response.text();
   let data: ({ error?: string; code?: string } & T) | null = null;
   try {
     data = text ? (JSON.parse(text) as { error?: string; code?: string } & T) : null;
@@ -83,17 +107,27 @@ export async function streamChat(
   onDelta: (delta: string) => void,
 ): Promise<string> {
   const messages = history.map((m) => ({ id: m.id, role: m.role, parts: [{ type: "text", text: m.text }] }));
+  const control = new AbortController();
+  let timer = setTimeout(() => control.abort(), STREAM_IDLE_MS);
+  const touch = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => control.abort(), STREAM_IDLE_MS);
+  };
   let response: Response;
   try {
     response = await fetch(settings.server + "/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${settings.token ?? ""}` },
       body: JSON.stringify({ attemptId, messages }),
+      signal: control.signal,
     });
   } catch {
+    clearTimeout(timer);
+    if (control.signal.aborted) throw timedOut();
     throw new ApiError(0, `Could not reach ${settings.server}.`);
   }
   if (!response.ok || !response.body) {
+    clearTimeout(timer);
     const text = await response.text();
     let message = response.statusText;
     let code: string | undefined;
@@ -110,31 +144,55 @@ export async function streamChat(
   const decoder = new TextDecoder();
   let buffer = "";
   let full = "";
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let newline = buffer.indexOf("\n");
-    while (newline >= 0) {
-      const line = buffer.slice(0, newline).trim();
-      buffer = buffer.slice(newline + 1);
-      newline = buffer.indexOf("\n");
-      if (!line.startsWith("data:")) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      let part: { type?: string; delta?: string; errorText?: string };
+  const parsePart = (line: string): { type?: string; delta?: string; errorText?: string } | null => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) return null;
+    const payload = trimmed.slice(5).trim();
+    if (!payload || payload === "[DONE]") return null;
+    try {
+      return JSON.parse(payload) as { type?: string; delta?: string; errorText?: string };
+    } catch {
+      return null;
+    }
+  };
+  const take = async (line: string) => {
+    const part = parsePart(line);
+    if (!part) return;
+    if (part.type === "text-delta" && typeof part.delta === "string") {
+      full += part.delta;
+      onDelta(part.delta);
+    } else if (part.type === "error") {
+      await reader.cancel().catch(() => undefined);
+      throw new ApiError(502, part.errorText ?? "The tutor hit an error mid-reply.");
+    }
+  };
+  try {
+    for (;;) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
       try {
-        part = JSON.parse(payload) as typeof part;
+        chunk = await reader.read();
       } catch {
-        continue;
+        if (control.signal.aborted) throw timedOut();
+        throw new ApiError(0, "The connection dropped mid-reply. Try again.");
       }
-      if (part.type === "text-delta" && typeof part.delta === "string") {
-        full += part.delta;
-        onDelta(part.delta);
-      } else if (part.type === "error") {
-        throw new ApiError(502, part.errorText ?? "The tutor hit an error mid-reply.");
+      touch();
+      if (chunk.done) {
+        // The last line may arrive without a newline.
+        buffer += decoder.decode();
+        if (buffer.trim()) await take(buffer);
+        break;
+      }
+      buffer += decoder.decode(chunk.value, { stream: true });
+      let newline = buffer.indexOf("\n");
+      while (newline >= 0) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
+        newline = buffer.indexOf("\n");
+        await take(line);
       }
     }
+  } finally {
+    clearTimeout(timer);
   }
   return full;
 }

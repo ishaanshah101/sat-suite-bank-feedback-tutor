@@ -1,6 +1,6 @@
 # Chrome Web Store listing for Rulecard
 
-Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.5.0.zip`
+Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.6.0.zip`
 from this folder (rebuild it with `pnpm package:extension` after changing `extension/`).
 
 ## Store listing tab

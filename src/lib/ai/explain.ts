@@ -85,10 +85,15 @@ export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: 
   return next;
 }
 
-/** A model-solved grid-in answer is only usable when it is a number. */
+/**
+ * A model-solved grid-in answer is only usable when it is a number, and not a decimal of four or more
+ * places: that is almost always a rounded value, and a stored answer must be exact.
+ */
 export function usableModelAnswer(card: RuleCard): string | null {
   const value = card.correct_answer?.trim();
-  return value && parseNumber(value) ? value : null;
+  if (!value || !parseNumber(value)) return null;
+  const places = /\.(\d+)$/.exec(value)?.[1].length ?? 0;
+  return places >= 4 ? null : value;
 }
 
 export async function generateRuleCard(input: {
@@ -111,22 +116,26 @@ export async function generateRuleCard(input: {
   const kind = math ? "math" : "explain";
   const result = await withFailover(kind, async (provider) => {
     try {
-      const res = await retryOnNoOutput(() =>
-        generateText({
-          model: provider.model(kind),
-          instructions: explainInstructions(slice, !known, question),
-          messages: [{ role: "user", content: explainUserMessage(question, picked, response, reasoning) }],
-          output: Output.object({ schema: RuleCardOutputSchema, name: "rule_card" }),
-          providerOptions: provider.providerOptions(kind),
-          maxOutputTokens: math ? 14000 : 6000,
-          abortSignal: abortAfter(math ? 80_000 : 40_000),
-        }),
+      // `.output` is where an off-schema reply throws, so it stays inside the retry.
+      return await retryOnNoOutput(
+        async () =>
+          (
+            await generateText({
+              model: provider.model(kind),
+              instructions: explainInstructions(slice, !known, question),
+              messages: [{ role: "user", content: explainUserMessage(question, picked, response, reasoning) }],
+              output: Output.object({ schema: RuleCardOutputSchema, name: "rule_card" }),
+              providerOptions: provider.providerOptions(kind),
+              maxOutputTokens: math ? 14000 : 6000,
+              maxRetries: 1,
+              abortSignal: abortAfter(math ? 80_000 : 40_000),
+            })
+          ).output as RuleCard,
       );
-      return res.output;
     } catch (error) {
       if (isNoOutputError(error)) throw new HttpError(502, "The model did not return a complete rule card. Try Explain again.", "no_output");
       throw error;
     }
   });
-  return { ...result, result: sanitizeRuleCard(result.result as RuleCard, question, picked, gotItRight) };
+  return { ...result, result: sanitizeRuleCard(result.result, question, picked, gotItRight) };
 }

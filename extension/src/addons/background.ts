@@ -100,7 +100,8 @@ export function installBackgroundAddons(host: BackgroundHost): void {
 
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === BADGE_ALARM) void refreshBadge();
-    if (alarm.name === REMINDER_ALARM) void maybeRemind();
+    // Re-plan from the clock each time: a fixed 24 h period drifts an hour across a DST change.
+    if (alarm.name === REMINDER_ALARM) void maybeRemind().finally(() => scheduleReminder());
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {

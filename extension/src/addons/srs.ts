@@ -2,7 +2,7 @@
 // every miss", so what we schedule is the rule. Leitner boxes, pure functions, `now` injected.
 
 import type { LogEntry } from "./log";
-import { KEYS, kv } from "./store";
+import { isSafeKey, KEYS, kv } from "./store";
 
 export const DAY = 86_400_000;
 /** Box -> days until next review. Box 0 is unused (never scheduled). */
@@ -26,10 +26,14 @@ export type SrsState = Record<string, RuleSrs>;
 
 const intervalFor = (box: number) => (INTERVAL_DAYS[Math.min(Math.max(box, 1), MAX_BOX)] ?? 1) * DAY;
 
+/** Own entries only: a rule id like "constructor" must not read Object.prototype. */
+export const ruleOf = (state: SrsState, ruleId: string): RuleSrs | undefined => (Object.hasOwn(state, ruleId) ? state[ruleId] : undefined);
+
 /** A real Question Bank attempt was explained. */
 export function applyAttempt(state: SrsState, entry: Pick<LogEntry, "ruleId" | "ruleName" | "attemptId" | "result">, now: number): SrsState {
+  if (!isSafeKey(entry.ruleId)) return state;
   const next = { ...state };
-  const prev = state[entry.ruleId];
+  const prev = ruleOf(state, entry.ruleId);
   if (entry.result === "missed") {
     next[entry.ruleId] = {
       ruleId: entry.ruleId,
@@ -69,8 +73,8 @@ export function applyAttempt(state: SrsState, entry: Pick<LogEntry, "ruleId" | "
 
 /** A review drill on this rule was answered. */
 export function applyReview(state: SrsState, ruleId: string, correct: boolean, now: number): SrsState {
-  const prev = state[ruleId];
-  if (!prev) return state;
+  const prev = ruleOf(state, ruleId);
+  if (!prev || !isSafeKey(ruleId)) return state;
   const box = correct ? Math.min(prev.box + 1, MAX_BOX) : 1;
   return {
     ...state,
@@ -119,7 +123,16 @@ export function rebuildFromLog(entries: LogEntry[]): SrsState {
 }
 
 export async function readSrs(): Promise<SrsState> {
-  return (await kv().get<SrsState>(KEYS.srs)) ?? {};
+  const raw = await kv().get<unknown>(KEYS.srs);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: SrsState = {};
+  for (const [id, r] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isSafeKey(id) || !r || typeof r !== "object") continue;
+    const rule = r as RuleSrs;
+    if (typeof rule.box !== "number" || typeof rule.due !== "number" || typeof rule.attemptId !== "string") continue;
+    out[id] = { ...rule, ruleId: id };
+  }
+  return out;
 }
 export async function writeSrs(state: SrsState): Promise<void> {
   await kv().set(KEYS.srs, state);

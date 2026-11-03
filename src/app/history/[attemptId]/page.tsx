@@ -19,7 +19,7 @@ export default async function AttemptPage({ params }: { params: Promise<{ attemp
   if (!data) notFound();
   const { attempt, question } = data;
   const card = RuleCardSchema.safeParse(attempt.explanation);
-  const chat = await listChatMessages(attempt.id);
+  const chat = await listChatMessages(session.userId, attempt.id);
   const initial: UIMessage[] = chat.map((m) => ({ id: m.id, role: m.role, parts: [{ type: "text", text: m.content }] }));
   return (
     <Shell>

@@ -38,7 +38,17 @@ function sameNumber(a: string, b: string): boolean {
   if (x.value.num * y.value.den === y.value.num * x.value.den) return true;
   const dx = Number(x.value.num) / Number(x.value.den);
   const dy = Number(y.value.num) / Number(y.value.den);
-  return Math.abs(dx - dy) <= 1e-4 * Math.max(1, Math.abs(dx));
+  // Relative tolerance with a small floor, so tiny values are not matched loosely.
+  return Math.abs(dx - dy) <= 1e-4 * Math.max(Math.abs(dx), 1e-2);
+}
+
+// Math drills are written and solved again; the route's maxDuration is 120 s, so the whole loop stops well before.
+const TOTAL_BUDGET_MS = 100_000;
+const RETRY_UNTIL_MS = 45_000;
+
+/** A per-call limit that also respects what is left of the whole drill's budget. */
+function budgetSignal(perCallMs: number, start: number): AbortSignal {
+  return AbortSignal.any([abortAfter(perCallMs), AbortSignal.timeout(Math.max(1000, TOTAL_BUDGET_MS - (Date.now() - start)))]);
 }
 
 function describeDrill(drill: Drill): string {
@@ -51,21 +61,26 @@ function describeDrill(drill: Drill): string {
   return lines.join("\n\n");
 }
 
-async function writeDrill(kind: TaskKind, rule: Rule, question: QuestionRow) {
+async function writeDrill(kind: TaskKind, rule: Rule, question: QuestionRow, start: number) {
   return withFailover(kind, async (provider) => {
     try {
-      const res = await retryOnNoOutput(() =>
-        generateText({
-          model: provider.model(kind),
-          instructions: drillInstructions(rule, question),
-          messages: [{ role: "user", content: `Write one new question that tests ${rule.id} (${rule.name}).` }],
-          output: Output.object({ schema: DrillOutputSchema, name: "drill_question" }),
-          providerOptions: provider.providerOptions(kind),
-          maxOutputTokens: kind === "math" ? 14000 : 6000,
-          abortSignal: abortAfter(kind === "math" ? 50_000 : 25_000),
-        }),
+      // `.output` is where an off-schema reply throws, so it stays inside the retry.
+      const raw = await retryOnNoOutput(
+        async () =>
+          (
+            await generateText({
+              model: provider.model(kind),
+              instructions: drillInstructions(rule, question),
+              messages: [{ role: "user", content: `Write one new question that tests ${rule.id} (${rule.name}).` }],
+              output: Output.object({ schema: DrillOutputSchema, name: "drill_question" }),
+              providerOptions: provider.providerOptions(kind),
+              maxOutputTokens: kind === "math" ? 14000 : 6000,
+              maxRetries: 1,
+              abortSignal: budgetSignal(kind === "math" ? 50_000 : 25_000, start),
+            })
+          ).output as Drill,
       );
-      return normalizeDrill(res.output as Drill, rule);
+      return normalizeDrill(raw, rule);
     } catch (error) {
       if (isNoOutputError(error)) throw new HttpError(502, "The model did not return a complete drill. Try again.", "no_output");
       throw error;
@@ -73,35 +88,46 @@ async function writeDrill(kind: TaskKind, rule: Rule, question: QuestionRow) {
   });
 }
 
-async function solveIndependently(drill: Drill): Promise<DrillCheck> {
+async function solveIndependently(drill: Drill, start: number): Promise<DrillCheck> {
   const { result } = await withFailover("math", async (provider) => {
-    const res = await retryOnNoOutput(() =>
-      generateText({
-        model: provider.model("math"),
-        instructions: DRILL_CHECK_INSTRUCTIONS,
-        messages: [{ role: "user", content: describeDrill(drill) }],
-        output: Output.object({ schema: DrillCheckSchema, name: "drill_check" }),
-        providerOptions: provider.providerOptions("math"),
-        maxOutputTokens: 10000,
-        abortSignal: abortAfter(40_000),
-      }),
-    );
-    return res.output as DrillCheck;
+    try {
+      return await retryOnNoOutput(
+        async () =>
+          (
+            await generateText({
+              model: provider.model("math"),
+              instructions: DRILL_CHECK_INSTRUCTIONS,
+              messages: [{ role: "user", content: describeDrill(drill) }],
+              output: Output.object({ schema: DrillCheckSchema, name: "drill_check" }),
+              providerOptions: provider.providerOptions("math"),
+              maxOutputTokens: 10000,
+              maxRetries: 1,
+              abortSignal: budgetSignal(40_000, start),
+            })
+          ).output as DrillCheck,
+      );
+    } catch (error) {
+      if (isNoOutputError(error)) throw new HttpError(502, "Could not double-check that question. Try again.", "unverified");
+      throw error;
+    }
   });
   return result;
 }
 
 /**
  * Write one practice question on the rule. Math drills are solved again from scratch by a separate call
- * and only returned when that solve agrees with the drill's answer (one rewrite is allowed).
+ * and only returned when that solve agrees with the drill's answer. One rewrite is allowed, and only
+ * while enough of the time budget is left for it.
  */
 export async function generateDrill(rule: Rule, question: QuestionRow): Promise<FailoverResult<Drill>> {
-  if (rule.section !== "math") return writeDrill("drill", rule, question);
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const written = await writeDrill("math", rule, question);
-    const check = await solveIndependently(written.result);
+  const start = Date.now();
+  if (rule.section !== "math") return writeDrill("drill", rule, question, start);
+  for (let attempt = 0; ; attempt++) {
+    const written = await writeDrill("math", rule, question, start);
+    const check = await solveIndependently(written.result, start);
     if (checkAgrees(written.result, check)) return written;
     console.warn("[drill] verification disagreed", { rule: rule.id, attempt, expected: written.result.correct ?? written.result.accepted_answers, got: check });
+    if (attempt > 0 || Date.now() - start >= RETRY_UNTIL_MS) break;
   }
   throw new HttpError(502, "Could not double-check that question. Try again.", "unverified");
 }

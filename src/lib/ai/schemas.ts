@@ -10,25 +10,41 @@ export const FormatSchema = z.enum(["mcq", "spr"]);
 export const ChoicesSchema = z.object({ A: z.string(), B: z.string(), C: z.string(), D: z.string() });
 export type Choices = z.infer<typeof ChoicesSchema>;
 
-/** A question as stored. Shared by the extractors, the PDF parser and the questions API. */
-export const ParsedQuestionSchema = z.object({
-  qb_id: z.string().regex(/^[0-9a-f]{8}$/).nullable(),
-  section: SectionSchema.default("rw"),
-  /** mcq = four choices; spr = student-produced response (Math grid-in), no choices. */
-  format: FormatSchema.default("mcq"),
-  test: z.string().nullable(),
-  domain: z.string().nullable(),
-  skill: z.string().nullable(),
-  difficulty: z.enum(["Easy", "Medium", "Hard"]).nullable(),
-  passage: z.string().nullable(),
-  stem: z.string().min(1),
-  choices: ChoicesSchema.nullable(),
-  correct: LetterSchema.nullable(),
-  /** Grid-in only: every accepted form of the official answer. */
-  answers: z.array(z.string().min(1).max(20)).max(12).nullable().default(null),
-  figure: z.string().max(6000).nullable().default(null),
-  rationale: z.string().nullable(),
+/** Field caps for a stored question (one PDF page or screenshot never needs more). */
+export const QUESTION_LIMITS = { stem: 4000, passage: 20000, choice: 2000, rationale: 20000, label: 200, figure: 6000 } as const;
+
+const ChoicesInputSchema = z.object({
+  A: z.string().max(QUESTION_LIMITS.choice),
+  B: z.string().max(QUESTION_LIMITS.choice),
+  C: z.string().max(QUESTION_LIMITS.choice),
+  D: z.string().max(QUESTION_LIMITS.choice),
 });
+
+/** A question as stored. Shared by the extractors, the PDF parser and the questions API. */
+export const ParsedQuestionSchema = z
+  .object({
+    qb_id: z.string().regex(/^[0-9a-f]{8}$/).nullable(),
+    section: SectionSchema.default("rw"),
+    /** mcq = four choices; spr = student-produced response (Math grid-in), no choices. */
+    format: FormatSchema.default("mcq"),
+    test: z.string().max(QUESTION_LIMITS.label).nullable(),
+    domain: z.string().max(QUESTION_LIMITS.label).nullable(),
+    skill: z.string().max(QUESTION_LIMITS.label).nullable(),
+    difficulty: z.enum(["Easy", "Medium", "Hard"]).nullable(),
+    passage: z.string().max(QUESTION_LIMITS.passage).nullable(),
+    stem: z.string().min(1).max(QUESTION_LIMITS.stem),
+    choices: ChoicesInputSchema.nullable(),
+    correct: LetterSchema.nullable(),
+    /** Grid-in only: every accepted form of the official answer. */
+    answers: z.array(z.string().min(1).max(20)).max(12).nullable().default(null),
+    figure: z.string().max(QUESTION_LIMITS.figure).nullable().default(null),
+    rationale: z.string().max(QUESTION_LIMITS.rationale).nullable(),
+  })
+  .superRefine((q, ctx) => {
+    if (q.format === "mcq" && !q.choices) ctx.addIssue({ code: "custom", path: ["choices"], message: "A multiple-choice question needs its four choices." });
+  })
+  // A grid-in has no choices, whatever the caller sent.
+  .transform((q) => (q.format === "spr" ? { ...q, choices: null } : q));
 export type ParsedQuestion = z.infer<typeof ParsedQuestionSchema>;
 /** What callers may pass in: the Math fields are optional and default to a Reading and Writing multiple-choice question. */
 export type ParsedQuestionInput = z.input<typeof ParsedQuestionSchema>;

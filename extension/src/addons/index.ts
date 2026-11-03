@@ -9,29 +9,30 @@
 import { badgeProgress, badgeToast, renderBadges, syncBadges, writeBadges, type BadgeInput, type EarnedBadges } from "./achievements";
 import { chip, h, spinner } from "./dom";
 import { cropDataUrl, renderCropper } from "./crop";
-import { cardAsText, downloadText, filterScope, openPrintable, parseBackup, stamp, toAnkiCsv, toBackup, toMarkdown, toPrintableHtml, type ExportScope } from "./export";
+import { BACKUP_MAX_BYTES, cardAsText, downloadText, filterScope, openPrintable, parseBackup, stamp, toAnkiCsv, toBackup, toMarkdown, toPrintableHtml, type ExportScope } from "./export";
 import { createDeck, deckCounts, type DeckState } from "./flashcards";
 import { HOTKEY_HELP, installHotkeys, type HotkeyActions } from "./hotkeys";
 import { defaultFilter, renderJournal, type JournalFilter } from "./journal";
 import { clearLog, entryFromExplain, importEntries, readLog, recordAttempt, recordDrill, updateEntry, type LogEntry, type SelfConfidence } from "./log";
 import { createPastePanel } from "./paste";
 import {
-  answerQuiz, createQuiz, currentAnswer, currentQuestion, finishQuiz, isFinished, nextQuiz, parseExport, previewOf, quizKey, quizProgress,
+  answerQuiz, createQuiz, currentAnswer, currentQuestion, finishQuiz, isFinished, nextQuiz, parseExport, previewOf, QUIZ_KEY, quizKey, quizProgress,
   quizSummary, readQuizStore, recordResult, resumeQuiz, retryMisses, saveActive, skipQuiz, toParsedQB, writeQuizStore,
   type ParsedExport, type QuizQuestion, type QuizResult, type QuizState,
 } from "./qbquiz";
-import { renderQuiz, renderQuizEntry, renderQuizResult, type QuizStartOptions } from "./qbquiz-ui";
+import { QUIZ_TEXT_MAX, renderQuiz, renderQuizEntry, renderQuizResult, type QuizStartOptions } from "./qbquiz-ui";
 import { buildPlan, renderPlan } from "./plan";
 import { pressPracticeKey, renderFlashcards, renderPracticeEntry, renderRedo, type PracticeHandlers, type PracticeMode } from "./practice-ui";
 import { DEFAULT_PREFS, readPrefs, writePrefs, type Prefs } from "./prefs";
 import { renderProgress } from "./progress";
 import { crossCheck, isQuestionBankUrl, readQuestionBankPage, type PageRead } from "./qbtext";
-import { createRedo, readRedo, recordRedo, redoQueue, redoStats, writeRedo, type RedoState, type RedoStore } from "./redo";
+import { createRedo, readRedo, recordRedo, REDO_KEY, redoQueue, redoStats, writeRedo, type RedoState, type RedoStore } from "./redo";
 import { buildWeeklyReport, renderReportTools } from "./report";
 import { createSeenCheck } from "./seen";
 import { createSelectionCapture, type CaptureHost } from "./selection";
 import { renderSkillMap, skillMap } from "./skillmap";
 import { addToSet, emptySets, endSet, readSets, startSet, writeSets, type SetState } from "./sets";
+import { KEYS, kv } from "./store";
 import { downloadDataUrl, renderShareImage } from "./share";
 import { applyAttempt, applyReview, describeDue, dueRules, nextDue, readSrs, rebuildFromLog, writeSrs, type RuleSrs, type SrsState } from "./srs";
 import { countdown, insights, MATH_TARGET_SECONDS, summarize, TARGET_SECONDS, targetSecondsFor, type Summary } from "./stats";
@@ -45,7 +46,7 @@ import { activityModel, renderCalendar } from "./calendar";
 import { errorLogFilename, errorLogRows, toErrorLogCsv, toErrorLogTsv } from "./errorlog";
 import {
   answerWord, createWordQuiz, currentWord, currentWordAnswer, finishWordQuiz, isWordQuizFinished, nextWord, readWordRecord,
-  saveWordResults, wordQuizAvailability, wordQuizKey, wordQuizProgress, wordQuizSummary, writeWordRecord, type WordQuizState,
+  saveWordResults, wordQuizAvailability, wordQuizKey, wordQuizProgress, wordQuizSummary, WORDQUIZ_KEY, writeWordRecord, type WordQuizState,
 } from "./wordquiz";
 import { renderWordQuiz, renderWordQuizEntry, renderWordQuizResult } from "./wordquiz-ui";
 
@@ -57,6 +58,8 @@ export interface HostBridge {
   getExplained(): { attemptId: string; picked: Letter | "correct" } | null;
   /** sidepanel.ts processImage(image): POST /api/extract and show the question. */
   processImage(image: string): Promise<void>;
+  /** Resolves once the host has read its saved settings (boot), so ready() knows whose data it loads. */
+  settingsReady?: Promise<void>;
   capture?(): void;
   pick?(letter: Letter | "correct"): void;
   explain?(): void;
@@ -113,6 +116,20 @@ export const PANEL_TABS: { id: PanelTab; label: string }[] = [
 /** An open offline practice screen. */
 type Practice = { mode: "flashcards"; deck: DeckState } | { mode: "redo"; redo: RedoState };
 
+/** chrome.storage.local: the account (id, or email on older sign-ins) whose study data is on this device. */
+export const OWNER_KEY = "rc.addons.owner.v1";
+/** Every add-on key, for the wipe when another account signs in. */
+export const ADDON_KEYS: readonly string[] = [...Object.values(KEYS), REDO_KEY, QUIZ_KEY, WORDQUIZ_KEY];
+
+const ALL_URLS = "<all_urls>";
+async function hasAllSites(): Promise<boolean> {
+  try {
+    return typeof chrome !== "undefined" && !!chrome.permissions ? await chrome.permissions.contains({ origins: [ALL_URLS] }) : false;
+  } catch {
+    return false;
+  }
+}
+
 export function createAddons(ctx: AddonContext, host: HostBridge) {
   const s = {
     /** Which tab of the side panel is showing. */
@@ -156,6 +173,8 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     /** wordquiz.ts: "Quiz me on my words" on screen (or its results). Memory only. */
     wordQuiz: null as WordQuizState | null,
     wordQuizN: 10,
+    /** Capturing is allowed on every site (the optional <all_urls> grant). Cached: contains() is async. */
+    allSites: false,
   };
   /** Handlers of the practice screen on view, for the hotkeys. */
   let practiceView: { mode: PracticeMode; handlers: PracticeHandlers } | null = null;
@@ -182,7 +201,9 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
   };
 
   let unhook: (() => void) | null = null;
-  const ready = (async () => {
+
+  /** Read everything saved on this device into s. */
+  async function load(): Promise<void> {
     [s.prefs, s.log, s.srs, s.timer, s.sets, s.redoStore] = await Promise.all([readPrefs(), readLog(), readSrs(), readTimer(), readSets(), readRedo()]);
     if (!Object.keys(s.srs).length && s.log.length) {
       s.srs = rebuildFromLog(s.log);
@@ -191,13 +212,71 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     const quizStore = await readQuizStore();
     // A quiz left open picks up where it was. The clock restarts on an unanswered question.
     s.quiz = quizStore.active ? resumeQuiz(quizStore.active, Date.now()) : null;
+    s.quizPaused = false;
     s.quizHistory = quizStore.history;
     recompute();
     s.badges = (await syncBadges(badgeInput())).badges;
-    applyZoom();
-    if (s.prefs.hotkeys) unhook = installHotkeys(hotkeyActions);
+  }
+
+  /**
+   * Tie the local study data to the signed-in account. Data left by a different account is wiped first.
+   * A fresh profile (no marker yet) is claimed as is, so the first sign-in keeps what was there. Returns true after a wipe.
+   */
+  async function claimOwner(): Promise<boolean> {
+    const settings = ctx.settings;
+    const owner = settings?.userId || settings?.email || null;
+    if (!owner) return false;
+    // Older sign-ins only saved the email, so a marker holding this account's email is still this account.
+    const mine = new Set([settings.userId, settings.email].filter((x): x is string => Boolean(x)));
+    const prev = await kv().get<unknown>(OWNER_KEY);
+    let wiped = false;
+    if (typeof prev === "string" && !mine.has(prev)) {
+      for (const key of ADDON_KEYS) await kv().remove(key);
+      s.review = freshReview();
+      s.practice = null;
+      practiceView = null;
+      s.wordQuiz = null;
+      s.quizEntry = { open: false, text: "", parsed: null };
+      s.lastSent = null;
+      wiped = true;
+    }
+    if (prev !== owner) await kv().set(OWNER_KEY, owner);
+    return wiped;
+  }
+
+  const ready = (async () => {
+    try {
+      await host.settingsReady;
+      await claimOwner();
+      await load();
+      s.allSites = await hasAllSites();
+      applyZoom();
+      if (s.prefs.hotkeys) unhook = installHotkeys(hotkeyActions);
+      if (typeof chrome !== "undefined" && chrome.permissions?.onAdded) {
+        const refresh = () => void hasAllSites().then((v) => { s.allSites = v; ctx.rerender(); });
+        chrome.permissions.onAdded.addListener(refresh);
+        chrome.permissions.onRemoved.addListener(refresh);
+      }
+    } catch (error) {
+      console.error("Rulecard: couldn't load the local study data", error);
+      toast("Couldn't load your local study data");
+    }
     ctx.rerender();
   })();
+
+  /** Call after a sign-in: another account's data is wiped and the add-ons reload. */
+  async function accountChanged(): Promise<void> {
+    await ready;
+    try {
+      if (await claimOwner()) {
+        await load();
+        ctx.rerender();
+      }
+    } catch (error) {
+      console.error("Rulecard: couldn't switch the local study data", error);
+      toast("Couldn't load your local study data");
+    }
+  }
 
   // ---------------------------------------------------------------- capture anywhere
 
@@ -238,6 +317,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     // Keys act on the tab you can see: a quiz waiting on another tab never eats a letter meant for Home.
     if (s.tab === "words") return s.wordQuiz ? { raw: pressWordQuizKey, help: toggleHelp } : { capture: () => host.capture?.(), help: toggleHelp };
     if (s.tab === "practice") {
+      if (s.review.loading) return { help: toggleHelp };
       if (s.quiz && !s.quizPaused) return { raw: pressQuizKey, help: toggleHelp };
       if (s.practice && practiceView) {
         const v = practiceView;
@@ -258,7 +338,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       capture: () => host.capture?.(),
       testMe: () => host.testMe?.(),
       focusChat: () => host.focusChat?.(),
-      review: () => void startReview(),
+      review: s.review.loading ? undefined : () => void startReview(),
       copyCard: () => void copyCurrentCard(),
       help: toggleHelp,
     };
@@ -413,7 +493,16 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
   /** Due rules this review session hasn't passed over. */
   const queueLeft = () => due().filter((d) => !s.review.skipped.includes(d.ruleId));
 
+  /** Set a quiz aside (a strip on top) so a review or a deck is visible. A finished quiz is closed. */
+  function parkQuiz() {
+    if (!s.quiz) return;
+    if (isFinished(s.quiz)) setQuiz(null);
+    else s.quizPaused = true;
+  }
+
   async function startReview(ruleId?: string): Promise<void> {
+    if (s.review.loading) return;
+    parkQuiz();
     if (ruleId && !s.srs[ruleId]) {
       // Not scheduled yet (shouldn't happen, but older logs may predate the scheduler).
       const latest = s.log.find((e) => e.ruleId === ruleId);
@@ -543,6 +632,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
   // ---------------------------------------------------------------- offline practice (flashcards, redo)
 
   function openPractice(p: Practice) {
+    parkQuiz();
     s.review = freshReview();
     s.practice = p;
     s.tab = "practice";
@@ -777,6 +867,11 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     const last = s.quizHistory[0] ?? null;
     const entry = renderQuizEntry({ text: e.text, preview: e.parsed ? previewOf(e.parsed) : null, last }, {
       input: (text) => {
+        if (text.length > QUIZ_TEXT_MAX) {
+          e.text = "";
+          e.parsed = null;
+          return { found: 0, skipped: 0, message: "That paste is too big. Paste one export at a time (under 2 MB of text)." };
+        }
         e.text = text;
         e.parsed = text.trim() ? parseExport(text) : null;
         return e.parsed ? previewOf(e.parsed) : null;
@@ -1004,8 +1099,16 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
   }
 
   async function doImport(file: File) {
+    if (file.size > BACKUP_MAX_BYTES) { toast("That file is over 25 MB, which is too big for a Rulecard backup."); return; }
+    let entries: unknown[];
     try {
-      const added = await importEntries(parseBackup(await file.text()));
+      entries = parseBackup(await file.text());
+    } catch {
+      toast("That file is not a Rulecard backup.");
+      return;
+    }
+    try {
+      const added = await importEntries(entries);
       s.log = await readLog();
       s.srs = rebuildFromLog(s.log);
       await writeSrs(s.srs);
@@ -1026,6 +1129,17 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     } catch {
       toast("Couldn't make the image");
     }
+  }
+
+  /** Give back the optional "all sites" grant from the capture button. */
+  async function dropAllSites() {
+    try {
+      await chrome.permissions.remove({ origins: [ALL_URLS] });
+    } catch {
+      // Chrome refused (a required permission): nothing to give back
+    }
+    s.allSites = await hasAllSites();
+    toast(s.allSites ? "Couldn't remove it" : "Capturing is limited to the tab you click the icon on");
   }
 
   async function setPref<K extends keyof Prefs>(key: K, value: Prefs[K]) {
@@ -1077,6 +1191,11 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
         toggle("pageCheck", "Check the page first", "Catches a hidden answer before you spend a capture, and flags misreads."),
         toggle("cropBeforeSend", "Crop screenshots", "Box just the question before sending (screenshots only)."),
         toggle("pastePanel", "Paste box", "Shows Paste a question under Capture, for text or a screenshot from any site."),
+        s.allSites
+          ? h("div", { class: "rc-toggle" },
+            h("button", { class: "btn small", text: "Stop capturing on all sites", onclick: () => void dropAllSites() }),
+            h("span", { class: "muted small", text: "Rulecard can read any tab right now. Afterwards, click its toolbar icon on the Question Bank tab first." }))
+          : null,
       ),
       h("section", null, h("h2", { text: "Practice" }),
         toggle("askConfidence", "Ask how sure I was", "Tracks overconfidence. Misses you were sure about are misconceptions."),
@@ -1210,6 +1329,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
 
   return {
     ready,
+    accountChanged,
     state: s,
     // hooks
     beforeCapture,

@@ -56,6 +56,20 @@ describe("math drills", () => {
     expect(checkAgrees(mcq, { work: "", answer_letter: "D", answer_value: "6" })).toBe(true);
     expect(checkAgrees(mcq, { work: "", answer_letter: "C", answer_value: "3" })).toBe(false);
   });
+
+  it("compares grid-in values with a relative tolerance that has a small floor", () => {
+    const tiny = normalizeDrill({ ...sprDrill, accepted_answers: ["0.001"] }, rule);
+    expect(checkAgrees(tiny, { work: "", answer_letter: null, answer_value: "0.001" })).toBe(true);
+    expect(checkAgrees(tiny, { work: "", answer_letter: null, answer_value: "1/1000" })).toBe(true);
+    expect(checkAgrees(tiny, { work: "", answer_letter: null, answer_value: "0.0011" })).toBe(false);
+    const big = normalizeDrill({ ...sprDrill, accepted_answers: ["1000"] }, rule);
+    expect(checkAgrees(big, { work: "", answer_letter: null, answer_value: "1000.05" })).toBe(true);
+    expect(checkAgrees(big, { work: "", answer_letter: null, answer_value: "1001" })).toBe(false);
+    const negative = normalizeDrill({ ...sprDrill, accepted_answers: ["-6"] }, rule);
+    for (const dash of ["\u2212", "\u2013", "\u2014", "\u2012"]) {
+      expect(checkAgrees(negative, { work: "", answer_letter: null, answer_value: `${dash}6` })).toBe(true);
+    }
+  });
 });
 
 const base: ExtractionOutput = {
@@ -93,6 +107,29 @@ describe("math extraction", () => {
   it("treats a Math question with four choices as multiple choice and keeps the figure", () => {
     const q = normalizeExtraction({ ...base, format: "mcq", choices: { A: "1", B: "2", C: "3", D: "4" }, figure: "Line through (0, 2) and (4, 0)" });
     expect(q).toMatchObject({ format: "mcq", correct: "B", answers: null, figure: "Line through (0, 2) and (4, 0)" });
+  });
+
+  it("only trusts answers from pasted text that really shows an answer line", () => {
+    const text = "Question ID 5eedf00d. 17x - 2 = 1. What value of x is the solution?";
+    expect(normalizeExtraction(base, text).answers).toBeNull();
+    expect(normalizeExtraction(base, `${text}\nCorrect Answer: 3/17`).answers).toEqual([".1764", ".1765", "3/17"]);
+    expect(normalizeExtraction(base, `${text}\ncorrect answer: 3/17`).answers).toEqual([".1764", ".1765", "3/17"]);
+    const mcq = { ...base, format: "mcq" as const, choices: { A: "1", B: "2", C: "3", D: "4" } };
+    expect(normalizeExtraction(mcq, text).correct).toBeNull();
+    expect(normalizeExtraction(mcq, `${text} Correct Answer: B`).correct).toBe("B");
+    // Screenshots keep the model's own flag.
+    expect(normalizeExtraction(mcq).correct).toBe("B");
+  });
+
+  it("caps field lengths so the extractor cannot bypass the stored-question schema", () => {
+    const q = normalizeExtraction({ ...base, stem: "x".repeat(5000), passage: "p".repeat(30000), figure: "f".repeat(7000), rationale: "r".repeat(30000), skill: null, domain: null, test: "t".repeat(300) });
+    expect(q.stem).toHaveLength(4000);
+    expect(q.passage).toHaveLength(20000);
+    expect(q.figure).toHaveLength(6000);
+    expect(q.rationale).toHaveLength(20000);
+    expect(q.test).toHaveLength(200);
+    const mcq = normalizeExtraction({ ...base, format: "mcq", choices: { A: "a".repeat(3000), B: "2", C: "3", D: "4" } });
+    expect(mcq.choices?.A).toHaveLength(2000);
   });
 
   it("infers Math from the skill when the model says rw, and never makes R&W a grid-in", () => {

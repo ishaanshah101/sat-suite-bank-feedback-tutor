@@ -5,6 +5,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import * as schema from "./schema";
 import { env } from "@/lib/env";
+import { SUPABASE_CA } from "./supabase-ca";
 
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -19,7 +20,7 @@ async function createPglite(url: string): Promise<Db> {
   const db = drizzle({ client, schema }) as unknown as Db;
   const exists = await db.execute(sql`select to_regclass('public.questions') as t`);
   const row = (exists as unknown as { rows?: Array<{ t: string | null }> }).rows?.[0] ?? (exists as unknown as Array<{ t: string | null }>)[0];
-  const migrations = row?.t ? ["0004_accounts.sql", "0005_math.sql"] : ["0001_init.sql", "0004_accounts.sql", "0005_math.sql"];
+  const migrations = row?.t ? ["0004_accounts.sql", "0005_math.sql", "0006_hardening.sql"] : ["0001_init.sql", "0004_accounts.sql", "0005_math.sql", "0006_hardening.sql"];
   for (const file of migrations) {
     await client.exec(fs.readFileSync(path.join(process.cwd(), "src", "db", "migrations", file), "utf8"));
   }
@@ -30,10 +31,12 @@ async function createPglite(url: string): Promise<Db> {
 async function createPostgres(url: string): Promise<Db> {
   const { drizzle } = await import("drizzle-orm/postgres-js");
   const postgres = (await import("postgres")).default;
+  // The Supabase pooler's chain ends in Supabase's own root CA (not a public one), so verification needs that CA pinned.
+  // DATABASE_SSL_INSECURE=1 falls back to an unverified TLS connection, for a pooler that presents another chain.
   const client = postgres(url, {
     max: 1,
     prepare: false,
-    ssl: "require",
+    ssl: env("DATABASE_SSL_INSECURE") === "1" ? "require" : { ca: SUPABASE_CA, rejectUnauthorized: true },
     connect_timeout: 15,
     idle_timeout: 20,
   });

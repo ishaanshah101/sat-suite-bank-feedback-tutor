@@ -94,6 +94,8 @@ export interface Settings {
   server: string;
   token: string | null;
   email?: string | null;
+  /** The account's id, so local study data can be tied to one student. */
+  userId?: string | null;
 }
 
 export interface RecentAttempt {

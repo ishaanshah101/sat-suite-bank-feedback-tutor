@@ -37,7 +37,20 @@ export interface PdfParseResult {
 }
 
 const LINE_TOLERANCE_PT = 2;
+/** Browser-side parsing caps: a Question Bank export is a few hundred pages of sparse text. */
+export const MAX_PDF_PAGES = 400;
+export const MAX_ITEMS_PER_PAGE = 5000;
 const NOISE = [/^page\s*\d+\s*of\s*\d+$/i, /collegeboard\.org/i, /^\d{1,2}\/\d{1,2}\/\d{2,4},?\s*\d{1,2}:\d{2}/];
+
+/** pdf.js text runs per page, trimmed to the fields the parser uses. A page with too many runs is refused. */
+export function pagesFromTextItems(items: ReadonlyArray<ReadonlyArray<TextItem>>): PageItems[] {
+  return items.map((pageItems, index) => {
+    if (pageItems.length > MAX_ITEMS_PER_PAGE) {
+      throw new Error(`Page ${index + 1} has over ${MAX_ITEMS_PER_PAGE} text runs; this does not look like a Question Bank export.`);
+    }
+    return { page: index + 1, items: pageItems.map((it) => ({ str: it.str, x: it.x, y: it.y, width: it.width, height: it.height })) };
+  });
+}
 
 export function linesFromItems(page: PageItems): Line[] {
   const items = page.items
@@ -46,8 +59,9 @@ export function linesFromItems(page: PageItems): Line[] {
     .sort((a, b) => b.y - a.y || a.x - b.x);
   const lines: Array<{ y: number; x: number; parts: TextItem[] }> = [];
   for (const it of items) {
-    const line = lines.find((l) => Math.abs(l.y - it.y) < LINE_TOLERANCE_PT);
-    if (line) {
+    // Items arrive sorted by y, so only the newest line can still be within tolerance.
+    const line = lines[lines.length - 1];
+    if (line && Math.abs(line.y - it.y) < LINE_TOLERANCE_PT) {
       line.parts.push(it);
       line.x = Math.min(line.x, it.x);
     } else {

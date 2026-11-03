@@ -262,9 +262,8 @@ export function layoutQuestion(q: SplitQuestion, header: string | null, measure:
 }
 
 export interface QuestionImageMeta {
-  /** Page the text came from. Its site name goes in a small header line. */
+  /** Page the text came from. Kept for the status line only; nothing about the page is drawn into the image. */
   url?: string | null;
-  title?: string | null;
 }
 
 /** "khanacademy.org", "a local file", or null. */
@@ -277,13 +276,6 @@ export function sourceLabel(url: string | null | undefined): string | null {
   } catch {
     return null;
   }
-}
-
-export function imageHeader(meta: QuestionImageMeta): string | null {
-  const where = sourceLabel(meta.url);
-  if (!where) return null;
-  // Only the site name. The tab title can be an email subject or a document name, so it never leaves the device.
-  return `Selected from ${where}`;
 }
 
 // ---------------------------------------------------------------- rendering
@@ -304,7 +296,9 @@ export async function questionTextToImage(text: string, meta: QuestionImageMeta 
     if (f !== font) probe.font = font = f;
     return probe.measureText(s).width;
   };
-  const layout = layoutQuestion(splitQuestion(text), imageHeader(meta), measure, width);
+  // No header line: where the text came from stays on the device.
+  void meta;
+  const layout = layoutQuestion(splitQuestion(text), null, measure, width);
   const height = Math.min(layout.height, MAX_IMAGE_HEIGHT);
   const canvas = new OffscreenCanvas(layout.width, height);
   const ctx = canvas.getContext("2d");
@@ -431,19 +425,19 @@ export function createSelectionCapture(host: CaptureHost) {
     host.rerender();
   };
 
-  async function run(sel: Pick<PendingSelection, "text" | "url" | "title">): Promise<void> {
+  async function run(sel: Pick<PendingSelection, "text" | "url">): Promise<void> {
     const check = checkQuestionText(sel.text, "selection");
     if (!check.ok) return set({ kind: "notice", tone: "warn", text: check.message });
     set({ kind: "working", from: sourceLabel(sel.url) });
     try {
-      const image = await questionTextToImage(check.text, { url: sel.url, title: sel.title });
+      const image = await questionTextToImage(check.text, { url: sel.url });
       await host.processImage(image);
       set({ kind: "idle" });
     } catch (error) {
       set({ kind: "notice", tone: "danger", text: describeError(host, error) });
     }
   }
-  const explain = (sel: Pick<PendingSelection, "text" | "url" | "title">): Promise<void> => (queue = queue.then(() => run(sel)));
+  const explain = (sel: Pick<PendingSelection, "text" | "url">): Promise<void> => (queue = queue.then(() => run(sel)));
 
   return {
     /** Start listening, then take a selection saved before the panel opened. */

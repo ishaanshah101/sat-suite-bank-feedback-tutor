@@ -15,8 +15,10 @@ export function h<K extends keyof HTMLElementTagNameMap>(
       if (value === undefined || value === null || value === false) continue;
       if (key === "class") el.className = String(value);
       else if (key === "text") el.textContent = String(value);
-      else if (key.startsWith("on") && typeof value === "function") el.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
-      else if (key === "checked" || key === "disabled" || key === "value") (el as unknown as Record<string, unknown>)[key] = value;
+      else if (key.startsWith("on")) {
+        // Only real listeners: a string here would become an inline handler attribute.
+        if (typeof value === "function") el.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
+      } else if (key === "checked" || key === "disabled" || key === "value") (el as unknown as Record<string, unknown>)[key] = value;
       else el.setAttribute(key, String(value));
     }
   }

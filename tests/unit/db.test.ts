@@ -31,11 +31,11 @@ describe("database layer on PGlite", () => {
     expect(second.source).toBe("capture");
 
     const attempt = await q.createAttempt(USER, { questionId: first.id, picked: "A", reasoning: "guessed" });
-    await q.finishAttempt(attempt.id, { explanation: { rule_id: "BND-01" }, ruleId: "BND-01", provider: "stub", model: "m" });
+    await q.finishAttempt(USER, attempt.id, { explanation: { rule_id: "BND-01" }, ruleId: "BND-01", provider: "stub", model: "m" });
     const right = await q.createAttempt(USER, { questionId: first.id, picked: "correct", reasoning: null });
-    await q.finishAttempt(right.id, { explanation: {}, ruleId: "BND-01", provider: "stub", model: "m" });
+    await q.finishAttempt(USER, right.id, { explanation: {}, ruleId: "BND-01", provider: "stub", model: "m" });
     const drill = await q.createDrill(USER, { attemptId: attempt.id, ruleId: "BND-01", question: { stem: "x" } });
-    await q.answerDrill(drill.id, "C", false);
+    await q.answerDrill(USER, drill.id, "C", false);
 
     const stats = await q.getRuleStats(USER);
     expect(stats).toEqual([expect.objectContaining({ ruleId: "BND-01", attemptMisses: 1, drillMisses: 1, misses: 2 })]);
@@ -46,7 +46,7 @@ describe("database layer on PGlite", () => {
 
     await q.addChatMessage(USER, attempt.id, "user", "why?");
     await q.addChatMessage(USER, attempt.id, "assistant", "because");
-    expect((await q.listChatMessages(attempt.id)).map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect((await q.listChatMessages(USER, attempt.id)).map((m) => m.role)).toEqual(["user", "assistant"]);
 
     await q.recordProviderError("openai", "429 quota", new Date(Date.now() + 1000));
     await q.recordProviderOk("openai");
@@ -58,7 +58,7 @@ describe("database layer on PGlite", () => {
     await q.recordUnlockAttempt("1.2.3.4");
     expect(await q.countUnlockAttempts("1.2.3.4", new Date(Date.now() - 1000))).toBe(1);
 
-    await q.deleteAttempt(attempt.id);
+    await q.deleteAttempt(USER, attempt.id);
     expect((await q.listAttempts(USER)).length).toBe(1);
   });
 
@@ -93,18 +93,57 @@ describe("database layer on PGlite", () => {
     expect(again.figure).toBe("a table");
 
     const wrong = await q.createAttempt(USER, { questionId: grid.id, picked: "spr", response: ".18", reasoning: null });
-    await q.finishAttempt(wrong.id, { explanation: {}, ruleId: "LE1-01", provider: "stub", model: "m", isCorrect: false });
+    await q.finishAttempt(USER, wrong.id, { explanation: {}, ruleId: "LE1-01", provider: "stub", model: "m", isCorrect: false });
     const right = await q.createAttempt(USER, { questionId: grid.id, picked: "spr", response: "3/17", reasoning: null });
-    await q.finishAttempt(right.id, { explanation: {}, ruleId: "LE1-01", provider: "stub", model: "m", isCorrect: true });
+    await q.finishAttempt(USER, right.id, { explanation: {}, ruleId: "LE1-01", provider: "stub", model: "m", isCorrect: true });
     const stats = await q.getRuleStats(USER);
     expect(stats.find((s) => s.ruleId === "LE1-01")).toMatchObject({ attemptMisses: 1, misses: 1 });
 
     const drill = await q.createDrill(USER, { attemptId: wrong.id, ruleId: "LE1-01", question: { stem: "x" } });
-    await q.answerDrill(drill.id, "spr", false, "7");
+    await q.answerDrill(USER, drill.id, "spr", false, "7");
     expect(await q.getDrill(USER, drill.id)).toMatchObject({ picked: "spr", response: "7", correct: false });
 
     const unknown = await q.upsertQuestion(USER, { qb_id: null, section: "math", format: "spr", test: null, domain: null, skill: null, difficulty: null, passage: null, stem: "t", choices: null, correct: null, answers: null, figure: null, rationale: null }, "paste");
-    await q.setModelGridInAnswer(unknown.id, "6");
+    await q.setModelGridInAnswer(USER, unknown.id, "6");
     expect((await q.getQuestion(USER, unknown.id))).toMatchObject({ answers: ["6"], answerSource: "model" });
+  });
+
+  it("scopes writes and chat to the owning account", async () => {
+    const q = await import("@/db/queries");
+    const OTHER = "11111111-2222-4333-8444-555555555555";
+    const question = await q.upsertQuestion(USER, { qb_id: null, test: null, domain: null, skill: null, difficulty: null, passage: null, stem: "scope", choices: { A: "a", B: "b", C: "c", D: "d" }, correct: null, rationale: null }, "paste");
+    const attempt = await q.createAttempt(USER, { questionId: question.id, picked: "A", reasoning: null });
+
+    await q.finishAttempt(OTHER, attempt.id, { explanation: {}, ruleId: "BND-01", provider: "stub", model: "m", isCorrect: true });
+    expect((await q.getAttempt(USER, attempt.id))?.attempt.ruleId).toBeNull();
+    await q.setModelAnswer(OTHER, question.id, "B");
+    expect((await q.getQuestion(USER, question.id))?.correct).toBeNull();
+    await q.setModelAnswer(USER, question.id, "B");
+    expect(await q.getQuestion(USER, question.id)).toMatchObject({ correct: "B", answerSource: "model" });
+
+    await expect(q.addChatMessage(OTHER, attempt.id, "user", "hi")).rejects.toThrow(/not found/);
+    await q.addChatMessage(USER, attempt.id, "user", "hi");
+    expect(await q.listChatMessages(OTHER, attempt.id)).toHaveLength(0);
+    expect(await q.listChatMessages(USER, attempt.id)).toHaveLength(1);
+
+    const drill = await q.createDrill(USER, { attemptId: attempt.id, ruleId: "BND-01", question: { stem: "x" } });
+    await q.answerDrill(OTHER, drill.id, "A", true);
+    expect((await q.getDrill(USER, drill.id))?.picked).toBeNull();
+
+    await q.deleteAttempt(OTHER, attempt.id);
+    expect(await q.getAttempt(USER, attempt.id)).not.toBeNull();
+    expect(await q.getAttempt(OTHER, attempt.id)).toBeNull();
+    await q.deleteAttempt(USER, attempt.id);
+    expect(await q.getAttempt(USER, attempt.id)).toBeNull();
+  });
+
+  it("requires user_id on every row", async () => {
+    const { getDb } = await import("@/db");
+    const { sql } = await import("drizzle-orm");
+    const db = await getDb();
+    const failure = await db.execute(sql`insert into public.questions (source, stem, choices) values ('paste', 's', '{}'::jsonb)`).then(() => null, (e: unknown) => e);
+    // Drizzle wraps the driver error; the not-null violation sits in the cause.
+    const { describeDbError } = await import("@/db");
+    expect(describeDbError(failure)).toMatchObject({ code: "23502", message: expect.stringMatching(/user_id/) });
   });
 });

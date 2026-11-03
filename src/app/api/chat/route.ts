@@ -2,7 +2,7 @@ import { convertToModelMessages, createUIMessageStreamResponse, streamText, toUI
 import { z } from "zod";
 import { HttpError, readJson, withApi } from "@/lib/api";
 import { chatInstructions } from "@/lib/ai/prompts";
-import { noteStreamError, noteStreamOk, pickProvider } from "@/lib/ai/providers";
+import { abortAfter, noteStreamError, noteStreamOk, pickProvider } from "@/lib/ai/providers";
 import { RuleCardSchema, type Pick } from "@/lib/ai/schemas";
 import { addChatMessage, getAttempt } from "@/db/queries";
 import { chargeAiQuota } from "@/lib/ai/quota";
@@ -11,6 +11,9 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_TEXT = 4000;
+// What one request may send the model: the whole thread's text, and only its most recent turns.
+const MAX_TOTAL_TEXT = 24_000;
+const MAX_MESSAGES = 30;
 
 const MessageSchema = z.object({
   id: z.string().max(200).optional(),
@@ -38,11 +41,15 @@ export async function POST(request: Request) {
     if (!data) throw new HttpError(404, "Attempt not found");
     const { attempt, question } = data;
     const card = RuleCardSchema.safeParse(attempt.explanation);
-    await chargeAiQuota(session.userId, "chat");
+    const totalText = body.messages.reduce((n, m) => n + m.parts.reduce((k, p) => k + (p.text?.length ?? 0), 0), 0);
+    if (totalText > MAX_TOTAL_TEXT) throw new HttpError(413, "This conversation is too long. Start a new one from the question page.", "too_long");
+    // No provider means no charge.
     const provider = await pickProvider();
+    await chargeAiQuota(session.userId, "chat");
     // Only text parts reach the model; the question context lives in instructions, never in messages.
     const safeMessages: UIMessage[] = body.messages
       .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-MAX_MESSAGES)
       .map((m, i) => ({
         id: m.id ?? `m-${i}`,
         role: m.role as "user" | "assistant",
@@ -59,6 +66,8 @@ export async function POST(request: Request) {
       messages: await convertToModelMessages(safeMessages),
       providerOptions: provider.providerOptions("chat"),
       maxOutputTokens: question.section === "math" ? 2500 : 1500,
+      maxRetries: 1,
+      abortSignal: abortAfter(55_000),
       onEnd: async ({ text }) => {
         noteStreamOk(provider);
         await addChatMessage(session.userId, attempt.id, "assistant", text).catch(() => undefined);

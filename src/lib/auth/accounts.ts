@@ -9,6 +9,8 @@ import { createSessionToken, SESSION_MAX_AGE_SECONDS } from "./token";
 
 export const SIGNIN_WINDOW_MS = 15 * 60 * 1000;
 export const SIGNIN_MAX_ATTEMPTS = 10;
+/** Wrong guesses at one account across every address; a right password clears only this bucket. */
+export const SIGNIN_MAX_PER_ACCOUNT = 20;
 export const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
 /** New accounts per network address per hour. Generous because a whole school can share one address. */
 export function signupMaxPerHour(): number {
@@ -48,16 +50,19 @@ export async function signIn(ip: string, input: { email: unknown; password: unkn
   const email = EmailSchema.safeParse(input.email);
   const password = typeof input.password === "string" ? input.password : "";
   if (!email.success || !password) return fail(400, "invalid", "Enter your email and password.");
-  const key = `signin:${ip}`;
+  const tooMany = "Too many tries. Wait 15 minutes and try again.";
+  const accountKey = `signin:acct:${email.data}`;
   try {
-    await takeAttempt(key, SIGNIN_MAX_ATTEMPTS, SIGNIN_WINDOW_MS, "Too many tries. Wait 15 minutes and try again.");
+    await takeAttempt(`signin:${ip}`, SIGNIN_MAX_ATTEMPTS, SIGNIN_WINDOW_MS, tooMany);
+    await takeAttempt(accountKey, SIGNIN_MAX_PER_ACCOUNT, SIGNIN_WINDOW_MS, tooMany);
   } catch (error) {
     return limited(error);
   }
   const user = await findUserByEmail(email.data);
   const matches = await verifyPassword(password, user?.passwordHash ?? (await dummyPasswordHash()));
   if (!user || !matches) return fail(401, "bad_credentials", "That email and password do not match an account.");
-  await clearAttempts(key);
+  // Only the account's bucket resets: a right password for one account must not buy more guesses at others from this address.
+  await clearAttempts(accountKey);
   return issue(user);
 }
 
@@ -88,6 +93,10 @@ export async function signUp(ip: string, input: { email: unknown; password: unkn
 
   if (await findUserByEmail(email.data)) return fail(409, "email_taken", "An account with that email already exists. Sign in instead.");
   const user = await insertUser({ id, email: email.data, passwordHash: await hashPassword(password.data) });
-  if (!user) return fail(409, "email_taken", "An account with that email already exists. Sign in instead.");
+  if (!user) {
+    // Two sign-ups with the passcode at once: the second loses on the id, not the email.
+    if (id && (await getUser(id))) return fail(409, "owner_claimed", "The original history already belongs to an account. Leave the passcode empty.");
+    return fail(409, "email_taken", "An account with that email already exists. Sign in instead.");
+  }
   return issue(user);
 }

@@ -7,6 +7,26 @@ import { MathText } from "./math-text";
 import { Chip } from "./ui";
 
 const LETTERS: Letter[] = ["A", "B", "C", "D"];
+const PREVIEW_CHARS = 700;
+
+/**
+ * Where to cut a long passage for the preview: never inside \( \) or \[ \], so the cut lands after
+ * the last closed math before the limit, or otherwise at whitespace.
+ */
+export function previewCut(text: string, max: number): number {
+  if (text.length <= max) return text.length;
+  const head = text.slice(0, max);
+  const open = Math.max(head.lastIndexOf("\\("), head.lastIndexOf("\\["));
+  if (open >= 0) {
+    const close = text.indexOf(text[open + 1] === "(" ? "\\)" : "\\]", open + 2);
+    if (close < 0 || close + 2 > max) {
+      const lastClose = Math.max(head.lastIndexOf("\\)", open), head.lastIndexOf("\\]", open));
+      return lastClose >= 0 ? lastClose + 2 : open;
+    }
+  }
+  const space = head.search(/\s\S*$/);
+  return space > 0 ? space : max;
+}
 
 export function QuestionCard({
   question,
@@ -27,8 +47,8 @@ export function QuestionCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const passage = question.passage ?? "";
-  const long = passage.length > 700;
-  const visible = long && !expanded ? `${passage.slice(0, 700)}...` : passage;
+  const long = passage.length > PREVIEW_CHARS;
+  const visible = long && !expanded ? `${passage.slice(0, previewCut(passage, PREVIEW_CHARS)).trimEnd()}...` : passage;
   const correct = showAnswer ? question.correct : null;
   const gridIn = question.format === "spr";
   const math = question.section === "math";
@@ -70,7 +90,7 @@ export function QuestionCard({
             return (
               <li key={letter} className={`flex gap-3 rounded-xl border px-3 py-2 text-[15px] ${tone}`}>
                 <span className="w-5 shrink-0 font-semibold">{letter}.</span>
-                <MathText text={question.choices![letter]} className="leading-relaxed" />
+                <MathText text={question.choices?.[letter] ?? ""} className="leading-relaxed" />
                 {isCorrect ? <span className="ml-auto text-xs font-semibold text-good">correct</span> : null}
                 {isPick && !isCorrect ? <span className="ml-auto text-xs font-semibold text-danger">your pick</span> : null}
               </li>

@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import { extractTextItems, getDocumentProxy } from "unpdf";
-import { parsePdfPages, type PageItems } from "@/lib/questions/pdf-parse";
+import { MAX_PDF_PAGES, pagesFromTextItems, parsePdfPages } from "@/lib/questions/pdf-parse";
 
 export interface PdfWorkerRequest {
   buffer: ArrayBuffer;
@@ -16,12 +16,9 @@ export interface PdfWorkerResponse {
 self.onmessage = async (event: MessageEvent<PdfWorkerRequest>) => {
   try {
     const pdf = await getDocumentProxy(new Uint8Array(event.data.buffer));
+    if (pdf.numPages > MAX_PDF_PAGES) throw new Error(`This PDF has ${pdf.numPages} pages; the limit is ${MAX_PDF_PAGES}. Export fewer questions and try again.`);
     const { totalPages, items } = await extractTextItems(pdf);
-    const pages: PageItems[] = items.map((pageItems, index) => ({
-      page: index + 1,
-      items: pageItems.map((it) => ({ str: it.str, x: it.x, y: it.y, width: it.width, height: it.height })),
-    }));
-    const result = parsePdfPages(pages);
+    const result = parsePdfPages(pagesFromTextItems(items));
     const response: PdfWorkerResponse = { ok: true, totalPages, result };
     self.postMessage(response);
   } catch (error) {

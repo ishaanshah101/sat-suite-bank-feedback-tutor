@@ -19,7 +19,7 @@
 
 import type { ApiExplainResponse, ApiPick, Diagnosis, ExplainResponse, Letter, QuestionFormat, Section } from "./types";
 import { choicesOf, hasChoices, isMathTaxonomy } from "./types";
-import { KEYS, kv } from "./store";
+import { isSafeKey, KEYS, kv } from "./store";
 
 /** How sure the student said they were BEFORE seeing the explanation. */
 export type SelfConfidence = "sure" | "unsure" | "guess";
@@ -32,6 +32,19 @@ const STEP_MAX = 300;
 const STEPS_MAX = 8;
 /** The server accepts at most 20 characters for a grid-in response. */
 const TYPED_MAX = 20;
+/** The card's prose (rule statement, why right, why the pick fails, takeaway) as recorded from /api/explain. */
+const CARD_TEXT_MAX = 1500;
+/** The same fields, and the note, as accepted from storage or a backup. */
+const TEXT_MAX = 2000;
+const ID_MAX = 200;
+const CHOICE_MAX = 500;
+const ACCEPTED_MAX = 20;
+const DRILLS_MAX = 500;
+/** The whole log, serialized, stays under this (chrome.storage.local is 10 MB in all). */
+export const LOG_BYTES_MAX = 4 * 1024 * 1024;
+/** An entry dated before this, or more than a day ahead, is not a real attempt. */
+const AT_MIN = Date.UTC(2020, 0, 1);
+const AT_SLACK = 86_400_000;
 /** `correct` on a grid-in entry. The type needs a letter; nothing should display it. */
 const NO_LETTER: Letter = "A";
 
@@ -164,10 +177,10 @@ export function entryFromExplain(data: ExplainResponse | ApiExplainResponse, pic
     at: extras.now ?? Date.now(),
     ruleId: card.rule_id,
     ruleName: data.rule?.name ?? null,
-    ruleStatement: card.rule_statement,
-    takeaway: card.takeaway,
-    whyCorrect: card.why_correct,
-    whyPickFails: card.why_pick_fails ?? null,
+    ruleStatement: clip(card.rule_statement, CARD_TEXT_MAX) ?? "",
+    takeaway: clip(card.takeaway, CARD_TEXT_MAX) ?? "",
+    whyCorrect: clip(card.why_correct, CARD_TEXT_MAX) ?? "",
+    whyPickFails: clip(card.why_pick_fails, CARD_TEXT_MAX),
     diagnosis: card.diagnosis,
     confidence: card.confidence,
     picked: letter ?? "correct",
@@ -217,19 +230,35 @@ export async function readLog(): Promise<LogEntry[]> {
   });
 }
 
-async function writeLog(entries: LogEntry[]): Promise<void> {
-  // newest first, capped
-  entries.sort((a, b) => b.at - a.at);
-  await kv().set(KEYS.log, entries.slice(0, MAX_ENTRIES));
+/** Newest first, capped by count and by size. The oldest entries go first when the log is too big. */
+export function trimLog(entries: LogEntry[], maxBytes = LOG_BYTES_MAX): LogEntry[] {
+  let keep = [...entries].sort((a, b) => b.at - a.at).slice(0, MAX_ENTRIES);
+  // UTF-16 units, close enough to bytes for a budget.
+  while (keep.length > 1 && JSON.stringify(keep).length > maxBytes) keep = keep.slice(0, Math.ceil(keep.length * 0.9));
+  return keep;
 }
 
-/** Insert or replace by attemptId. */
+/** Save the log and return what was kept. */
+async function writeLog(entries: LogEntry[]): Promise<LogEntry[]> {
+  const keep = trimLog(entries);
+  await kv().set(KEYS.log, keep);
+  return keep;
+}
+
+const isQuotaError = (error: unknown) => /quota/i.test(error instanceof Error ? error.message : String(error));
+
+/** Insert or replace by attemptId. When storage is full, half the log (the oldest half) is dropped and the save retried once. */
 export function recordAttempt(entry: LogEntry): Promise<LogEntry[]> {
   return serial(async () => {
   const entries = (await readLog()).filter((e) => e.attemptId !== entry.attemptId);
   entries.push(entry);
-  await writeLog(entries);
-  return entries;
+  try {
+    return await writeLog(entries);
+  } catch (error) {
+    if (!isQuotaError(error)) throw error;
+    const half = trimLog(entries).slice(0, Math.ceil(entries.length / 2));
+    return writeLog(half);
+  }
   });
 }
 
@@ -262,34 +291,78 @@ const isStrings = (x: unknown): x is string[] => Array.isArray(x) && x.every((s)
 const isStr = (x: unknown): x is string => typeof x === "string";
 const isNum = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
 const LETTER_SET = new Set(["A", "B", "C", "D"]);
+const isLetter = (x: unknown): x is Letter => isStr(x) && LETTER_SET.has(x);
+const DIAGNOSES = new Set<string>(["misread", "rule_gap", "careless", "got_it_right", "unknown"]);
+const CONFIDENCES = new Set<string>(["sure", "unsure", "guess"]);
+
+/** A string cut to n, else null. */
+const strOrNull = (v: unknown, n: number): string | null => (isStr(v) ? clip(v, n) : null);
+/** A string cut to n, else "". */
+const str = (v: unknown, n: number): string => (isStr(v) ? clip(v, n) ?? "" : "");
+/** An id: a short string that is not an Object.prototype name. Undefined when it isn't usable. */
+const idOf = (v: unknown): string | undefined => (isStr(v) && v !== "" && isSafeKey(v) ? v.slice(0, ID_MAX) : undefined);
 
 /**
- * A safe copy of a stored or imported entry, or null when the required fields are missing or the wrong
- * type. Drill records that aren't {at: number, correct: boolean} are dropped.
+ * A safe copy of a stored or imported entry, or null when a required field is missing or the wrong type, an id is an
+ * Object.prototype name, or the date is before 2020 or more than a day ahead. Built field by field: unknown keys are
+ * dropped, every string is cut to a sane length, and optional fields with the wrong type are left out.
  */
-export function sanitizeEntry(x: unknown): LogEntry | null {
+export function sanitizeEntry(x: unknown, now = Date.now()): LogEntry | null {
   if (!x || typeof x !== "object" || Array.isArray(x)) return null;
   const e = x as Record<string, unknown>;
-  if (!isStr(e.attemptId) || !e.attemptId || !isNum(e.at) || !isStr(e.ruleId) || !isStr(e.stem)) return null;
-  if (!isStr(e.correct) || !LETTER_SET.has(e.correct)) return null;
-  if (e.picked !== "correct" && !(isStr(e.picked) && LETTER_SET.has(e.picked))) return null;
+  const attemptId = idOf(e.attemptId);
+  const ruleId = idOf(e.ruleId);
+  if (!attemptId || !ruleId || !isStr(e.stem)) return null;
+  if (e.qbId !== undefined && e.qbId !== null && isStr(e.qbId) && !isSafeKey(e.qbId)) return null;
+  if (!isNum(e.at) || e.at < AT_MIN || e.at > now + AT_SLACK) return null;
+  if (!isLetter(e.correct)) return null;
+  const picked = e.picked === "correct" ? "correct" : isLetter(e.picked) ? e.picked : null;
+  if (!picked) return null;
   if (e.result !== "right" && e.result !== "missed") return null;
   const drills = Array.isArray(e.drills)
-    ? e.drills.filter((d): d is DrillRecord => !!d && typeof d === "object" && isNum((d as DrillRecord).at) && typeof (d as DrillRecord).correct === "boolean")
+    ? e.drills
+        .filter((d): d is DrillRecord => !!d && typeof d === "object" && isNum((d as DrillRecord).at) && typeof (d as DrillRecord).correct === "boolean")
+        .slice(0, DRILLS_MAX)
+        .map((d) => (d.review === undefined ? { at: d.at, correct: d.correct } : { at: d.at, correct: d.correct, review: Boolean(d.review) }))
     : [];
-  const text = (v: unknown, fallback = "") => (isStr(v) ? v : fallback);
-  const entry = repairEntry({
-    ...(e as unknown as LogEntry),
+  const rawChoices = e.choices && typeof e.choices === "object" ? (e.choices as Record<string, unknown>) : null;
+  const choices = choicesOf(null);
+  if (rawChoices) for (const l of ["A", "B", "C", "D"] as const) choices[l] = str(rawChoices[l], CHOICE_MAX);
+  const entry: LogEntry = {
+    attemptId,
+    at: e.at,
+    ruleId,
+    ruleName: strOrNull(e.ruleName, ID_MAX),
+    ruleStatement: str(e.ruleStatement, TEXT_MAX),
+    takeaway: str(e.takeaway, TEXT_MAX),
+    whyCorrect: str(e.whyCorrect, TEXT_MAX),
+    whyPickFails: strOrNull(e.whyPickFails, TEXT_MAX),
+    diagnosis: isStr(e.diagnosis) && DIAGNOSES.has(e.diagnosis) ? (e.diagnosis as Diagnosis) : "unknown",
+    confidence: isNum(e.confidence) ? Math.min(1, Math.max(0, e.confidence)) : 0,
+    picked,
+    correct: e.correct,
+    result: e.result,
+    qbId: strOrNull(e.qbId, ID_MAX),
+    domain: strOrNull(e.domain, ID_MAX),
+    skill: strOrNull(e.skill, ID_MAX),
+    difficulty: strOrNull(e.difficulty, ID_MAX),
+    stem: clip(e.stem, STEM_MAX) ?? "",
+    passage: strOrNull(e.passage, PASSAGE_MAX),
+    choices,
+    solvedByModel: e.solvedByModel === true,
+    seconds: isNum(e.seconds) && e.seconds >= 0 ? e.seconds : null,
+    note: str(e.note, TEXT_MAX),
+    starred: e.starred === true,
     drills,
-    ruleName: isStr(e.ruleName) ? e.ruleName : null,
-    ruleStatement: text(e.ruleStatement),
-    takeaway: text(e.takeaway),
-    whyCorrect: text(e.whyCorrect),
-    whyPickFails: isStr(e.whyPickFails) ? e.whyPickFails : null,
-    confidence: isNum(e.confidence) ? e.confidence : 0,
-    note: text(e.note),
-  });
-  if (!entry.diagnosis || !["misread", "rule_gap", "careless", "got_it_right", "unknown"].includes(entry.diagnosis)) entry.diagnosis = "unknown";
+  };
+  if (e.selfConfidence !== undefined) entry.selfConfidence = isStr(e.selfConfidence) && CONFIDENCES.has(e.selfConfidence) ? (e.selfConfidence as SelfConfidence) : null;
+  if (e.section === "rw" || e.section === "math" || e.section === null) entry.section = e.section;
+  if (e.format === "mcq" || e.format === "spr" || e.format === null) entry.format = e.format;
+  if (e.typed !== undefined) entry.typed = strOrNull(e.typed, TYPED_MAX);
+  if (isStrings(e.accepted)) entry.accepted = e.accepted.slice(0, ACCEPTED_MAX).map((a) => clip(a, TYPED_MAX * 2) ?? "");
+  if (e.figure !== undefined) entry.figure = strOrNull(e.figure, FIGURE_MAX);
+  if (isStrings(e.steps)) entry.steps = e.steps.slice(0, STEPS_MAX).map((st) => clip(st, STEP_MAX) ?? "");
+  if (e.shortcut !== undefined) entry.shortcut = strOrNull(e.shortcut, STEP_MAX);
   return entry;
 }
 

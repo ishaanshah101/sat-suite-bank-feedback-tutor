@@ -8,14 +8,20 @@ import { DeleteAccount } from "./delete-account";
 
 export const metadata = { title: "Account · Rulecard" };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ handoff?: string }> }) {
   const session = await requirePageSession();
+  const { handoff } = await searchParams;
   const user = await getUser(session.userId);
   const used = await aiUsedToday(session.userId);
   const unlimited = session.userId === ownerUserId();
   return (
     <Shell>
       <h1 className="text-xl font-semibold tracking-tight">Account</h1>
+      {handoff === "mismatch" ? (
+        <p className="mt-4 max-w-xl rounded-lg border border-line bg-bg px-3 py-2 text-sm" role="status">
+          This link was for a different account. Sign out here first, then open it again.
+        </p>
+      ) : null}
       <div className="mt-6 grid max-w-xl gap-4">
         <Card>
           <div className="text-sm text-muted">Signed in as</div>

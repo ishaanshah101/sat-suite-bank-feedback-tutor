@@ -19,6 +19,7 @@ import {
   type Settings,
 } from "./types";
 import { createAddons } from "./addons";
+import { PENDING_SELECTION_KEY } from "./addons/selection-bg";
 import { normalizeQuestion } from "./addons/types";
 
 interface State {
@@ -95,8 +96,10 @@ function h<K extends keyof HTMLElementTagNameMap>(
       if (value === undefined || value === null || value === false) continue;
       if (key === "class") el.className = String(value);
       else if (key === "text") el.textContent = String(value);
-      else if (key.startsWith("on") && typeof value === "function") el.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
-      else if (key === "checked" || key === "disabled" || key === "value") (el as unknown as Record<string, unknown>)[key] = value;
+      else if (key.startsWith("on")) {
+        // Only real listeners: a string here would become an inline handler attribute.
+        if (typeof value === "function") el.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
+      } else if (key === "checked" || key === "disabled" || key === "value") (el as unknown as Record<string, unknown>)[key] = value;
       else el.setAttribute(key, String(value));
     }
   }
@@ -134,7 +137,7 @@ function render() {
   for (const el of app().querySelectorAll<HTMLInputElement>("input[id], textarea[id]")) inputs[el.id] = el.value;
 
   const root = app();
-  root.replaceChildren(...(state.view === "connect" ? renderConnect() : state.view === "main" ? renderMain() : [h("p", { class: "muted", text: "Loading..." })]));
+  root.replaceChildren(...(state.view === "connect" ? renderConnect() : state.view === "main" ? renderMainSafe() : [h("p", { class: "muted", text: "Loading..." })]));
 
   for (const [id, value] of Object.entries(inputs)) {
     const el = document.getElementById(id) as HTMLInputElement | null;
@@ -211,8 +214,8 @@ async function connect() {
   let server: string;
   try {
     server = normalizeServer(value("server"));
-  } catch {
-    state.connectError = "That server address does not look right.";
+  } catch (error) {
+    state.connectError = describe(error);
     render();
     return;
   }
@@ -235,9 +238,16 @@ async function connect() {
       }
     }
     const { token, user } = await authenticate(server, state.authMode, email, password);
-    state.settings = { server, token, email: user.email };
+    const previous = state.settings.server;
+    state.settings = { server, token, email: user.email, userId: user.id };
     await saveSettings(state.settings);
+    if (previous !== server) await dropServerPermission(previous);
+    // Another student's local study data must not show up under this account.
+    await addons.accountChanged();
     state.view = "main";
+    render();
+    void consumePendingCapture();
+    void consumePendingQuestion();
     void refreshRecent();
     await refreshHealth();
   } catch (error) {
@@ -269,9 +279,22 @@ async function refreshRecent() {
   render();
 }
 
+/** Give back the host permission a custom server was granted (nothing to do for the default). Failures are ignored. */
+async function dropServerPermission(server: string) {
+  if (!server || server === DEFAULT_SERVER) return;
+  try {
+    await chrome.permissions.remove({ origins: [`${server}/*`] });
+  } catch {
+    // never granted, or Chrome refused: nothing to give back
+  }
+}
+
 async function signOut() {
   state.settings = { ...state.settings, token: null };
   await saveSettings(state.settings);
+  await dropServerPermission(state.settings.server);
+  // Captures and selections waiting in session storage belong to the account that was signed in.
+  await chrome.storage.session.remove(["pendingCapture", "pendingQuestion", PENDING_SELECTION_KEY]).catch(() => undefined);
   resetQuestion();
   state.health = null;
   state.recent = null;
@@ -281,6 +304,31 @@ async function signOut() {
 }
 
 // ---------- main view ----------
+
+/** renderMain, but a bug in one card can't blank the whole panel: Settings (and "Erase local data") stays reachable. */
+function renderMainSafe(): Node[] {
+  try {
+    return renderMain();
+  } catch (error) {
+    console.error("Rulecard: couldn't draw the panel", error);
+    let top: Node;
+    try {
+      top = h("div", { class: "rc-top" }, renderHeader(), addons.renderTabBar());
+    } catch {
+      top = h("div", { class: "rc-top" }, h("h1", { text: "Rulecard" }));
+    }
+    return [
+      top,
+      h(
+        "div",
+        { class: "card" },
+        h("h2", { text: "Something went wrong drawing this screen" }),
+        h("p", { class: "muted small", text: describe(error) }),
+        h("button", { class: "btn", text: "Open Settings", onclick: () => { addons.showTab("settings"); render(); } }),
+      ),
+    ];
+  }
+}
 
 function renderMain(): Node[] {
   const tab = addons.tab();
@@ -791,14 +839,30 @@ async function activeTab(): Promise<chrome.tabs.Tab> {
   return tab;
 }
 
+/** The capture (or paste, or selection) being extracted right now. One /api/extract at a time. */
+let inflight: Promise<void> | null = null;
+
+/** Run after whatever extract is in flight, and hold the slot until done. */
+function serialCapture(run: () => Promise<void>): Promise<void> {
+  const next = (inflight ?? Promise.resolve()).then(run, run).finally(() => {
+    if (inflight === next) inflight = null;
+  });
+  inflight = next;
+  return next;
+}
+
 async function capture() {
-  if (state.capturing) return;
+  if (state.capturing || inflight) return;
   // Capturing always happens on Home, wherever the shortcut was pressed.
   addons.showTab("home");
   state.capturing = true;
   state.captureError = null;
   state.needsAllSites = false;
   render();
+  await serialCapture(captureInner);
+}
+
+async function captureInner() {
   try {
     const tab = await activeTab();
     if (!(await addons.beforeCapture(tab))) return;
@@ -985,13 +1049,19 @@ async function consumePendingCapture() {
   const stored = (await chrome.storage.session.get("pendingCapture")) as { pendingCapture?: PendingCapture };
   const pending = stored.pendingCapture;
   if (!pending) return;
+  // Still loading: boot() takes it. Signed out: connect() takes it (it expires after two minutes).
+  if (state.view !== "main") return;
+  if (state.capturing || inflight) return;
   await chrome.storage.session.remove("pendingCapture");
   if (Date.now() - pending.at > 120_000) return;
-  if (state.view !== "main") return;
   addons.showTab("home");
   state.capturing = true;
   state.captureError = null;
   render();
+  await serialCapture(() => consumeCaptureInner(pending));
+}
+
+async function consumeCaptureInner(pending: PendingCapture) {
   try {
     if (pending.error) throw new Error(pending.error);
     if (pending.image) {
@@ -1031,8 +1101,35 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // ---------- boot ----------
 
+/** Resolves once boot() has read the saved settings, so the add-ons know whose data they are loading. */
+let settingsLoaded!: () => void;
+const settingsReady = new Promise<void>((resolve) => {
+  settingsLoaded = resolve;
+});
+
 async function boot() {
-  state.settings = await loadSettings();
+  try {
+    await bootInner();
+  } catch (error) {
+    console.error("Rulecard: could not start", error);
+    app().replaceChildren(
+      h(
+        "div",
+        { class: "card" },
+        h("h2", { text: "Rulecard could not start" }),
+        h("p", { class: "muted small", text: describe(error) }),
+        h("button", { class: "btn primary", text: "Retry", onclick: () => void boot() }),
+      ),
+    );
+  }
+}
+
+async function bootInner() {
+  try {
+    state.settings = await loadSettings();
+  } finally {
+    settingsLoaded();
+  }
   try {
     const commands = await chrome.commands.getAll();
     state.shortcut = commands.find((c) => c.name === "capture")?.shortcut || null;
@@ -1044,12 +1141,13 @@ async function boot() {
     render();
     return;
   }
+  await addons.accountChanged();
   state.view = "main";
   render();
+  void consumePendingCapture();
+  void consumePendingQuestion();
   void refreshRecent();
   await refreshHealth();
-  await consumePendingCapture();
-  await consumePendingQuestion();
 }
 
 const addons = createAddons(
@@ -1066,7 +1164,8 @@ const addons = createAddons(
     getQuestion: () => (state.question ? normalizeQuestion(state.question) : null),
     getExplained: () =>
       state.explained && { attemptId: state.explained.attemptId, picked: state.explained.picked === "spr" ? "correct" : state.explained.picked },
-    processImage,
+    processImage: (image) => serialCapture(() => processImage(image)),
+    settingsReady,
     capture: () => void capture(),
     pick: (letter) => {
       const d = state.drill;

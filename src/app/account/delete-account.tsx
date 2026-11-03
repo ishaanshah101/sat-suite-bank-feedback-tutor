@@ -35,6 +35,7 @@ export function DeleteAccount() {
       <input
         type="password"
         placeholder="Password"
+        aria-label="Password"
         autoComplete="current-password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}

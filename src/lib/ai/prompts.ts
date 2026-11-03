@@ -67,7 +67,7 @@ export function explainInstructions(rules: Rule[], mustSolve: boolean, question:
   const gridIn = isGridIn(question);
   const answerLine = gridIn
     ? mustSolve
-      ? "correct_answer: the correct answer is unknown, so solve the question carefully, check it, and put the value in correct_answer the way a student would enter it (a fraction like 3/17 or a decimal like 2.5); set solved_by_model to true. Set correct_letter to null."
+      ? "correct_answer: the correct answer is unknown, so solve the question carefully, check it, and put the exact value in correct_answer as an integer, a fraction like 3/17, or a terminating decimal like 2.5; never a rounded decimal (write 3/17, not 0.1765). Set solved_by_model to true. Set correct_letter to null."
       : "correct_answer: copy the first official accepted answer given with the question and set solved_by_model to false. Set correct_letter to null."
     : mustSolve
       ? "correct_letter: the correct answer is unknown, so solve the question carefully and set solved_by_model to true. Set correct_answer to null."
@@ -141,7 +141,7 @@ Requirements:
 - College Board style: a short setup (a context or given equations) in passage or null, a clear stem, new numbers and a new context (not the original question's).
 - format: "${isGridIn(question) ? "spr" : "mcq"}" (match the student's original question).
 - For "mcq": four choices A to D with exactly one correct answer, and three wrong choices that come from the rule's trap and other common slips. Put the letter in correct, set accepted_answers to [], and in why_wrong write one sentence per wrong letter (for the correct letter write "Correct.").
-- For "spr": set every choice and every why_wrong entry to an empty string and correct to null; the answer must be a number a student can enter in 5 characters (6 if negative) as an integer, a terminating decimal, or a fraction; list every accepted form in accepted_answers (for example ["3/4", ".75", "0.75"]).
+- For "spr": set every choice and every why_wrong entry to an empty string and correct to null; the answer must be a number a student can enter in 5 characters (6 if negative) as an integer, a terminating decimal, or a fraction. In accepted_answers put the exact form first (an integer, a fraction like 3/17, or a terminating decimal), then any rounded or truncated decimals a student could enter (for example ["3/4", ".75", "0.75"] or ["3/17", ".1764", ".1765"]).
 - Do not use a figure unless it is essential; if you do, describe it fully in figure, otherwise set figure to null.
 - solution: 2 to 6 short steps that reach the answer. Work it out carefully and double-check the arithmetic; the answer will be verified independently.
 - why_correct: one sentence on why the answer is right, naming the rule.
@@ -177,14 +177,15 @@ export function pickLabel(picked: Pick, response?: string | null): string {
 
 /** Whether the student's answer is right: true, false, or null when the correct answer is unknown. */
 export function isPickCorrect(question: { format: QuestionRow["format"]; correct: QuestionRow["correct"]; answers: QuestionRow["answers"] }, picked: Pick, response: string | null): boolean | null {
-  if (picked === "correct") return true;
+  const known = question.format === "spr" ? Boolean(question.answers?.length) : Boolean(question.correct);
+  // "I got it right" is only a grade when there is an answer to have got right.
+  if (picked === "correct") return known ? true : null;
+  if (!known) return null;
   if (question.format === "spr") {
     if (picked !== "spr" || !response) return null;
-    if (!question.answers?.length) return null;
-    return isSprCorrect(response, question.answers);
+    return isSprCorrect(response, question.answers ?? []);
   }
   if (picked === "spr") return null;
-  if (!question.correct) return null;
   return picked === (question.correct as Letter);
 }
 

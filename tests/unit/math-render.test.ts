@@ -38,4 +38,39 @@ describe("math rendering", () => {
     expect(html).not.toMatch(/href=/i);
     expect(html).not.toMatch(/<script/i);
   });
+
+  it("escapes markup inside \\text and refuses untrusted commands", () => {
+    const text = renderMathHtml("\\(\\text{<img src=x onerror=alert(1)>}\\)");
+    expect(text).not.toMatch(/<img/i);
+    expect(text).toContain("&lt;img");
+    for (const tex of ["\\url{x}", "\\includegraphics{x}", "\\htmlData{a=b}{x}"]) {
+      const html = renderMathHtml(`\\(${tex}\\)`);
+      expect(html).not.toMatch(/href=/i);
+      expect(html).not.toMatch(/<img/i);
+      expect(html).not.toMatch(/\sdata-/i);
+    }
+  });
+
+  it("stays linear on unclosed delimiters", () => {
+    const text = "\\(".repeat(50_000);
+    const start = performance.now();
+    const segments = splitMath(text);
+    expect(performance.now() - start).toBeLessThan(100);
+    expect(segments).toEqual([{ kind: "text", value: text, display: false }]);
+    expect(mathToPlain(text)).toBe(text);
+  });
+
+  it("keeps the old split for mixed, nested and empty delimiters", () => {
+    expect(splitMath("a \\( \\[ b \\) c \\[ d \\] e")).toEqual([
+      { kind: "text", value: "a ", display: false },
+      { kind: "math", value: "\\[ b", display: false },
+      { kind: "text", value: " c ", display: false },
+      { kind: "math", value: "d", display: true },
+      { kind: "text", value: " e", display: false },
+    ]);
+    expect(splitMath("\\(\\) x \\(y\\)")).toEqual([
+      { kind: "math", value: "\\) x \\(y", display: false },
+    ]);
+    expect(splitMath("no math here")).toEqual([{ kind: "text", value: "no math here", display: false }]);
+  });
 });

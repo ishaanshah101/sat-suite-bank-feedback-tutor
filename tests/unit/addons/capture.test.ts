@@ -5,7 +5,6 @@ import { at, entry } from "./helpers";
 import { pendingFromClick, pickSelectionText, SELECTION_MAX_CHARS } from "../../../extension/src/addons/selection-bg";
 import {
   checkQuestionText,
-  imageHeader,
   isFreshSelection,
   isPendingSelection,
   layoutQuestion,
@@ -133,13 +132,10 @@ test("layoutQuestion: header, trailing text, blank lines and default width", () 
   assert.equal(layoutQuestion({ body: "x", choices: [], after: "" }, null, tenPx).width, 1100);
 });
 
-test("imageHeader names the site only, never the tab title", () => {
+test("sourceLabel names the site for the status line only", () => {
   assert.equal(sourceLabel("https://www.khanacademy.org/test-prep/sat"), "khanacademy.org");
   assert.equal(sourceLabel("file:///Users/me/practice-test-4.pdf"), "a local file");
   assert.equal(sourceLabel("not a url"), null);
-  assert.equal(imageHeader({ url: "https://www.khanacademy.org/x", title: "  SAT   practice " }), "Selected from khanacademy.org");
-  assert.equal(imageHeader({ url: "https://mail.google.com/mail/u/0", title: "Re: my private email subject" }), "Selected from mail.google.com");
-  assert.equal(imageHeader({}), null);
 });
 
 // ---------------------------------------------------------------- selection plumbing
@@ -152,17 +148,16 @@ test("pickSelectionText prefers the page text (with line breaks) when it matches
 });
 
 test("pendingFromClick builds the session value", () => {
-  assert.deepEqual(pendingFromClick("  line1\r\nline2  ", { pageUrl: "https://ex.com/a" }, { url: "https://tab.com", title: " T ", windowId: 7 }, 123), {
+  assert.deepEqual(pendingFromClick("  line1\r\nline2  ", { pageUrl: "https://ex.com/a" }, { url: "https://tab.com", windowId: 7 }, 123), {
     text: "line1\nline2",
     url: "https://ex.com/a",
-    title: "T",
     at: 123,
     windowId: 7,
   });
   const big = pendingFromClick("x".repeat(7000), {}, undefined, 1);
   assert.equal(big.text.length, SELECTION_MAX_CHARS);
   assert.equal(big.url, null);
-  assert.equal(big.title, null);
+  assert.equal("title" in big, false);
   assert.equal(big.windowId, null);
   assert.equal(pendingFromClick("t", { frameUrl: "https://f.com" }, { windowId: -1 }, 1).url, "https://f.com");
   assert.equal(pendingFromClick("t", {}, { windowId: -1 }, 1).windowId, null);

@@ -210,9 +210,17 @@ export async function readQuestionBankPage(tabId: number): Promise<PageRead | nu
       },
     });
     const reads = results
-      .map((r) => r.result as { text?: unknown; media?: unknown } | undefined)
-      .filter((r): r is { text: string; media: number } => !!r && typeof r.text === "string" && r.text.length > 0);
-    const best = reads
+      .map((r) => {
+        const v = r.result as { text?: unknown; media?: unknown } | undefined;
+        return v && typeof v.text === "string" && v.text.length > 0
+          ? { frameId: r.frameId, text: v.text, media: typeof v.media === "number" && Number.isFinite(v.media) ? v.media : 0 }
+          : null;
+      })
+      .filter((r): r is { frameId: number; text: string; media: number } => r !== null);
+    // The page itself first; an embedded frame only when the top frame shows no question.
+    const top = reads.find((r) => r.frameId === 0);
+    const pool = top && RE_QID_ANY.test(top.text) ? [top] : reads;
+    const best = pool
       .map((r) => ({ r, score: (RE_QID_ANY.test(r.text) ? 2 : 0) + (/\bA[.)]/.test(r.text) ? 1 : 0) + r.text.length / 1e6 }))
       .sort((a, b) => b.score - a.score)[0];
     return best ? { parsed: parseQuestionBankText(best.r.text), media: best.r.media } : null;
