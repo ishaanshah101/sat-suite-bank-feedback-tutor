@@ -89,10 +89,26 @@ function gatewayCandidates(): Record<TaskKind, string[]> {
   };
 }
 
-const blockedGatewayModels = new Set<string>();
+// Model id -> time the block expires. A refusal is remembered for a while, not forever.
+const BLOCK_TTL_MS = 6 * 60 * 60 * 1000;
+const blockedGatewayModels = new Map<string, number>();
 
-/** The account cannot use this model (free tier, unknown model): try the next candidate, not the next provider. */
+function isBlockedGatewayModel(id: string): boolean {
+  const until = blockedGatewayModels.get(id);
+  if (until === undefined) return false;
+  if (until > Date.now()) return true;
+  blockedGatewayModels.delete(id);
+  return false;
+}
+
+/**
+ * The account cannot use this model (free tier, unknown model): try the next candidate, not the next provider.
+ * Needs a 403 or 404, so a transient 429 or 503 phrased "not available" does not block the model.
+ */
 export function isModelUnavailableError(error: unknown): boolean {
+  if (RetryError.isInstance(error)) return isModelUnavailableError(error.lastError);
+  const status = statusCodeOf(error);
+  if (status !== 403 && status !== 404) return false;
   const message = error instanceof Error ? error.message : String(error);
   return /free tier|do not have access to this model|model.{0,40}(not found|not available|unsupported|does not exist)|no such model/i.test(message);
 }
@@ -130,7 +146,7 @@ function makeGateway(): ProviderHandle {
   const provider = createGateway({ apiKey: env("AI_GATEWAY_API_KEY") });
   const candidates = gatewayCandidates();
   const usable = (kind: TaskKind) => {
-    const left = candidates[kind].filter((id) => !blockedGatewayModels.has(id));
+    const left = candidates[kind].filter((id) => !isBlockedGatewayModel(id));
     return left.length ? left : candidates[kind];
   };
   type GatewayModel = ReturnType<typeof provider>;
@@ -143,7 +159,7 @@ function makeGateway(): ProviderHandle {
         return await call(provider(id), { ...options, providerOptions: { ...gatewayOptionsFor(id, kind) } });
       } catch (error) {
         if (!isModelUnavailableError(error)) throw error;
-        blockedGatewayModels.add(id);
+        blockedGatewayModels.set(id, Date.now() + BLOCK_TTL_MS);
         lastError = error;
       }
     }
@@ -219,8 +235,9 @@ export function configuredProviders(): ProviderName[] {
   return providerOrder().filter(isConfigured);
 }
 
+/** Deterministic stub models for tests and keyless local runs. Never on Vercel, whatever the env says. */
 export function isStubMode(): boolean {
-  return env("RULECARD_STUB_AI") === "1";
+  return env("RULECARD_STUB_AI") === "1" && env("VERCEL") !== "1" && env("VERCEL_ENV") !== "production";
 }
 
 export async function availableProviders(): Promise<ProviderHandle[]> {

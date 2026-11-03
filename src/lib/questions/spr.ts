@@ -16,6 +16,13 @@ export type SprEntry = { ok: true; text: string; value: Rational; kind: "integer
 const MAX_POSITIVE = 5;
 const MAX_NEGATIVE = 6;
 
+/** Minus signs and dashes students or PDFs produce, as one ASCII hyphen. */
+const DASHES = /[\u2212\u2012\u2013\u2014]/g;
+
+function normalizeDashes(text: string): string {
+  return text.replace(DASHES, "-");
+}
+
 function gcd(a: bigint, b: bigint): bigint {
   a = a < 0n ? -a : a;
   b = b < 0n ? -b : b;
@@ -34,8 +41,9 @@ function rational(num: bigint, den: bigint): Rational {
 
 /** Parse a number written as an integer, a decimal or a fraction, with no length limit. */
 export function parseNumber(raw: string): { value: Rational; kind: "integer" | "decimal" | "fraction" } | null {
-  const text = raw.trim().replace(/−/g, "-");
-  let m = /^(-?)(\d+)$/.exec(text);
+  const text = normalizeDashes(raw.trim());
+  // "5." is 5: a trailing point is harmless.
+  let m = /^(-?)(\d+)\.?$/.exec(text);
   if (m) return { value: rational(BigInt(m[1] + m[2]), 1n), kind: "integer" };
   m = /^(-?)(\d*)\.(\d+)$/.exec(text);
   if (m) {
@@ -54,12 +62,16 @@ export function parseNumber(raw: string): { value: Rational; kind: "integer" | "
 
 /** Validate what a student would type into the grid-in box. */
 export function parseSprEntry(raw: string): SprEntry {
-  const text = raw.trim().replace(/−/g, "-").replace(/\s*\/\s*/g, "/");
+  const text = normalizeDashes(raw.trim())
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/^(-?\d+)\.$/, "$1");
   if (!text) return { ok: false, error: "Type your answer." };
   if (/\d\s+\d+\/\d/.test(text)) return { ok: false, error: "Mixed numbers are not allowed: enter 3 1/2 as 7/2 or 3.5." };
   if (/[%$,]/.test(text)) return { ok: false, error: "Leave out symbols such as %, $ and commas." };
   const parsed = parseNumber(text);
   if (!parsed) return { ok: false, error: "Enter a number, a decimal or a fraction such as 7/2." };
+  // "00.67" would pad its way past the fill-every-space rule.
+  if (/^-?0\d/.test(text)) return { ok: false, error: "Remove the extra leading zeros." };
   const limit = text.startsWith("-") ? MAX_NEGATIVE : MAX_POSITIVE;
   if (text.length > limit) {
     return {
@@ -83,16 +95,38 @@ function scaled(x: Rational, k: number): { truncated: bigint; rounded: bigint } 
   return negative ? { truncated: -truncated, rounded: -rounded } : { truncated, rounded };
 }
 
+/** Digits after the point in a decimal written out, or null for anything else. */
+function decimalPlaces(text: string): number | null {
+  const m = /^-?\d*\.(\d+)$/.exec(normalizeDashes(text.trim()));
+  return m ? m[1].length : null;
+}
+
+/** A listed decimal that fills the box is a truncated or rounded approximation, not the exact value. */
+function fillsBox(text: string): boolean {
+  const t = normalizeDashes(text.trim());
+  return t.length >= (t.startsWith("-") ? MAX_NEGATIVE : MAX_POSITIVE);
+}
+
 /**
  * Is the student's entry correct, given the accepted answers (as the Question Bank lists them, for
  * example [".1764", ".1765", "3/17"])? An exact match of value counts, and so does a decimal that
- * fills the whole box and equals the true value truncated or rounded at its last digit.
+ * fills the whole box and equals the true value truncated or rounded at its last digit. The reverse
+ * holds too: when a listed answer is itself such an approximation, any entry (a fraction, a longer
+ * decimal) that truncates or rounds to it is right.
  */
 export function isSprCorrect(entry: string, accepted: readonly string[]): boolean {
   const student = parseSprEntry(entry);
   if (!student.ok) return false;
   const targets = accepted.map(parseNumber).filter((t): t is NonNullable<typeof t> => t !== null);
   if (targets.some((t) => equal(t.value, student.value))) return true;
+  for (const raw of accepted) {
+    const places = decimalPlaces(raw);
+    const target = parseNumber(raw);
+    if (places === null || !target || !fillsBox(raw)) continue;
+    const targetScaled = (target.value.num * 10n ** BigInt(places)) / target.value.den;
+    const { truncated, rounded } = scaled(student.value, places);
+    if (targetScaled === truncated || targetScaled === rounded) return true;
+  }
   if (student.kind !== "decimal") return false;
   const limit = student.text.startsWith("-") ? MAX_NEGATIVE : MAX_POSITIVE;
   if (student.text.length < limit) return false;
@@ -112,7 +146,7 @@ export function splitAcceptedAnswers(text: string): string[] {
   return text
     .replace(/^\s*(correct answers?|answers?)\s*:?\s*/i, "")
     .split(/\s*(?:,|;|\bor\b)\s*/i)
-    .map((s) => s.trim().replace(/−/g, "-"))
+    .map((s) => normalizeDashes(s.trim()))
     .filter((s) => s.length > 0 && parseNumber(s) !== null);
 }
 

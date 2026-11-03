@@ -11,6 +11,7 @@ await build({
   platform: "browser",
   sourcemap: false,
   minify: false,
-  legalComments: "none",
+  // Bundled MIT notices (KaTeX) stay at the end of dist/sidepanel.js.
+  legalComments: "eof",
   logLevel: "info",
 });

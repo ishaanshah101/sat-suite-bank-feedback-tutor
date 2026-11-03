@@ -1,8 +1,8 @@
 import { json, withApi } from "@/lib/api";
-import { healthReport } from "@/lib/health";
+import { healthReportFor } from "@/lib/health";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return withApi(async () => json(await healthReport()));
+  return withApi(async (session) => json(await healthReportFor(session.userId)));
 }

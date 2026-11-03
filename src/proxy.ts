@@ -1,11 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { bearerToken, SESSION_COOKIE, verifySessionToken } from "@/lib/auth/token";
+import { env } from "@/lib/env";
 
-/** API routes that need no session (sign in, create an account). */
-const PUBLIC_API = new Set(["/api/token", "/api/auth/signin", "/api/auth/signup"]);
+/** API routes that need no session (sign in, create an account, sign out: it only clears the cookie, expired or not). */
+const PUBLIC_API = new Set(["/api/token", "/api/auth/signin", "/api/auth/signup", "/api/logout"]);
 
 /** Browser extension pages; the bearer token is the real protection, this only lets the browser read the response. */
-const EXTENSION_ORIGIN = /^(chrome|moz|safari-web)-extension:\/\/[a-z0-9-]+$/i;
+const EXTENSION_ORIGIN = /^(chrome|moz|safari-web)-extension:\/\/([a-z0-9-]+)$/i;
+
+/** With EXTENSION_IDS set (comma-separated extension ids), only those extensions get CORS headers; otherwise any extension does. */
+function allowedExtensionOrigin(origin: string | null): string | null {
+  const match = origin ? EXTENSION_ORIGIN.exec(origin) : null;
+  if (!match) return null;
+  const ids = env("EXTENSION_IDS");
+  if (!ids) return origin;
+  const allowed = ids.split(",").map((id) => id.trim().toLowerCase()).filter(Boolean);
+  return allowed.includes(match[2].toLowerCase()) ? origin : null;
+}
 
 function corsHeaders(origin: string): Record<string, string> {
   return {
@@ -20,8 +31,7 @@ function corsHeaders(origin: string): Record<string, string> {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isApi = pathname.startsWith("/api/");
-  const origin = request.headers.get("origin");
-  const extensionOrigin = isApi && origin && EXTENSION_ORIGIN.test(origin) ? origin : null;
+  const extensionOrigin = isApi ? allowedExtensionOrigin(request.headers.get("origin")) : null;
   const withCors = (response: NextResponse) => {
     if (extensionOrigin) {
       for (const [key, value] of Object.entries(corsHeaders(extensionOrigin))) response.headers.set(key, value);
@@ -50,5 +60,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!signin|unlock|privacy|api/cron|api/ping|_next/|favicon\\.ico|icon\\.svg|robots\\.txt).*)"],
+  // Whole segments only: "/signin" and "/signin/x" are public, "/signin-help" is not.
+  matcher: ["/((?!signin(?:/|$)|unlock(?:/|$)|privacy(?:/|$)|api/cron(?:/|$)|api/ping(?:/|$)|_next/|favicon\\.ico$|icon\\.svg$|robots\\.txt$).*)"],
 };

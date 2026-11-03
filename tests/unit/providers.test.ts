@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { APICallError } from "ai";
+import { APICallError, RetryError } from "ai";
 
 const ORIGINAL = { ...process.env };
 
@@ -103,8 +103,15 @@ describe("gateway fallback", () => {
       const handles = await mod.availableProviders();
       expect(handles.map((h) => h.name)).toEqual(["openai", "gateway"]);
       expect(handles[1].modelId("extract")).toBe("openai/gpt-6-luna");
-      expect(mod.isModelUnavailableError(new Error("Free tier users do not have access to this model."))).toBe(true);
-      expect(mod.isModelUnavailableError(new Error("rate limit exceeded"))).toBe(false);
+      const refused = (message: string, statusCode: number) => Object.assign(new Error(message), { statusCode });
+      expect(mod.isModelUnavailableError(refused("Free tier users do not have access to this model.", 403))).toBe(true);
+      expect(mod.isModelUnavailableError(refused("Model not found", 404))).toBe(true);
+      expect(mod.isModelUnavailableError(refused("rate limit exceeded", 429))).toBe(false);
+      // A transient failure phrased like a refusal must not block the model.
+      expect(mod.isModelUnavailableError(refused("The model is not available right now.", 503))).toBe(false);
+      expect(mod.isModelUnavailableError(refused("The model is not available right now.", 429))).toBe(false);
+      expect(mod.isModelUnavailableError(new Error("Free tier users do not have access to this model."))).toBe(false);
+      expect(mod.isModelUnavailableError(new RetryError({ message: "x", reason: "maxRetriesExceeded", errors: [refused("no such model", 404)] }))).toBe(true);
 
       process.env.AI_GATEWAY = "off";
       mod = await freshProviders();
@@ -131,5 +138,32 @@ describe("gateway fallback", () => {
         else process.env[k] = v;
       }
     }
+  });
+});
+
+describe("stub mode", () => {
+  const saved = { RULECARD_STUB_AI: process.env.RULECARD_STUB_AI, VERCEL: process.env.VERCEL, VERCEL_ENV: process.env.VERCEL_ENV };
+  afterEach(() => {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  it("only runs off Vercel", async () => {
+    const { isStubMode } = await freshProviders();
+    delete process.env.VERCEL;
+    delete process.env.VERCEL_ENV;
+    delete process.env.RULECARD_STUB_AI;
+    expect(isStubMode()).toBe(false);
+    process.env.RULECARD_STUB_AI = "1";
+    expect(isStubMode()).toBe(true);
+    process.env.VERCEL = "1";
+    expect(isStubMode()).toBe(false);
+    delete process.env.VERCEL;
+    process.env.VERCEL_ENV = "production";
+    expect(isStubMode()).toBe(false);
+    process.env.VERCEL_ENV = "preview";
+    expect(isStubMode()).toBe(true);
   });
 });

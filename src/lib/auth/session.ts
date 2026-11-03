@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getUser } from "@/db/queries";
-import { bearerToken, SESSION_COOKIE, verifySessionToken, type Session } from "./token";
+import { bearerToken, issuedBeforeAccount, SESSION_COOKIE, verifySessionToken, type Session } from "./token";
 
 export class UnauthorizedError extends Error {
   constructor() {
@@ -20,11 +20,15 @@ export async function getSession(): Promise<Session | null> {
   return verifySessionToken(token);
 }
 
-/** Call at the top of every Server Action and Route Handler. The proxy alone is not enough: it also checks the account still exists. */
+/**
+ * Call at the top of every Server Action and Route Handler. The proxy alone is not enough: it also checks the account
+ * still exists and that the token is not older than the account (a deleted account's id can be claimed again).
+ */
 export async function requireSession(): Promise<Session> {
   const session = await getSession();
   if (!session) throw new UnauthorizedError();
-  if (!(await getUser(session.userId))) throw new UnauthorizedError();
+  const user = await getUser(session.userId);
+  if (!user || issuedBeforeAccount(session, user.createdAt)) throw new UnauthorizedError();
   return session;
 }
 

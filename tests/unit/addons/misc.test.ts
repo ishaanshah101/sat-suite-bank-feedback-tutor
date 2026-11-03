@@ -27,8 +27,10 @@ test("entryFromExplain derives result and clips long text", () => {
 
 test("log: upsert, note/star, drills, import dedupe, cap", async () => {
   setKV(memoryKV());
-  await recordAttempt(entryFromExplain(explain, "A", { now: 10 }));
-  await recordAttempt(entryFromExplain(explain, "B", { now: 20 })); // same attemptId → replace
+  // Real dates: the log refuses entries dated before 2020.
+  const T0 = Date.UTC(2026, 0, 1);
+  await recordAttempt(entryFromExplain(explain, "A", { now: T0 + 10 }));
+  await recordAttempt(entryFromExplain(explain, "B", { now: T0 + 20 })); // same attemptId → replace
   let log = await readLog();
   assert.equal(log.length, 1);
   assert.equal(log[0]!.picked, "B");
@@ -38,7 +40,7 @@ test("log: upsert, note/star, drills, import dedupe, cap", async () => {
   assert.equal(log[0]!.note, "watch FANBOYS");
   assert.equal(log[0]!.drills.length, 1);
   assert.equal(await importEntries([log[0]!, entry({ attemptId: "new" })]), 1);
-  const many = Array.from({ length: MAX_ENTRIES + 20 }, (_, i) => entry({ attemptId: `m${i}`, at: i }));
+  const many = Array.from({ length: MAX_ENTRIES + 20 }, (_, i) => entry({ attemptId: `m${i}`, at: T0 + i }));
   await importEntries(many);
   log = await readLog();
   assert.equal(log.length, MAX_ENTRIES);

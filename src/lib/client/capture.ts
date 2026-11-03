@@ -48,6 +48,7 @@ export async function connectCapture(): Promise<void> {
   if (!captureSupported()) throw new Error("Tab capture needs desktop Chrome or Edge.");
   stopCapture();
   setState("connecting");
+  let stream: MediaStream | null = null;
   try {
     const Ctor = (window as unknown as { CaptureController?: CaptureControllerCtor }).CaptureController;
     const controller = Ctor ? new Ctor() : undefined;
@@ -60,7 +61,7 @@ export async function connectCapture(): Promise<void> {
       preferCurrentTab: false,
       ...(controller ? { controller } : {}),
     } as unknown as DisplayMediaStreamOptions;
-    const stream = await navigator.mediaDevices.getDisplayMedia(options);
+    stream = await navigator.mediaDevices.getDisplayMedia(options);
     const track = stream.getVideoTracks()[0];
     try {
       const surface = (track.getSettings() as MediaTrackSettings & { displaySurface?: string }).displaySurface;
@@ -85,6 +86,8 @@ export async function connectCapture(): Promise<void> {
     store.video = video;
     setState("live");
   } catch (error) {
+    // The picker succeeded but a later step failed: release the share instead of leaking it.
+    if (stream && stream !== store.stream) stream.getTracks().forEach((t) => t.stop());
     setState(store.stream ? "live" : "idle");
     throw error;
   }

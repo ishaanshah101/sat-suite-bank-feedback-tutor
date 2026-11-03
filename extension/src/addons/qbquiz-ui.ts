@@ -23,8 +23,13 @@ import { LETTERS, type Letter } from "./types";
 type Kid = Node | string | null | undefined | false;
 type TextFn = (text: string) => Node | string;
 
-/** What the entry card shows about the paste. previewOf(parseExport(text)) fits. */
-export type QuizPreview = Pick<ExportPreview, "found" | "skipped"> & Partial<Pick<ExportPreview, "noAnswer" | "duplicates">>;
+/** What the entry card shows about the paste. previewOf(parseExport(text)) fits. `message` replaces the counts. */
+export type QuizPreview = Pick<ExportPreview, "found" | "skipped"> & Partial<Pick<ExportPreview, "noAnswer" | "duplicates">> & { message?: string };
+
+/** Longer pastes are refused: one export is far smaller, and parsing is quadratic-ish on the worst input. */
+export const QUIZ_TEXT_MAX = 2 * 1024 * 1024;
+/** Typing or pasting is parsed this long after the last change. */
+export const QUIZ_INPUT_DEBOUNCE_MS = 250;
 
 export interface QuizEntryState {
   text: string;
@@ -168,6 +173,7 @@ const stat = (value: string, label: string) => h("div", { class: "rc-quiz-stat" 
 
 function previewLines(p: QuizPreview | null): HTMLElement[] {
   if (!p) return [h("p", { class: "small muted", text: "Paste an export to see how many questions it has." })];
+  if (p.message) return [h("p", { class: "small rc-quiz-hint", role: "alert", text: p.message })];
   if (!p.found && !p.skipped) {
     return [h("p", { class: "small", text: "No questions found yet. Paste the whole export, from the first Question ID to the end." })];
   }
@@ -188,6 +194,7 @@ export function renderQuizEntry(state: QuizEntryState, handlers: QuizEntryHandle
   const found = () => Math.max(0, preview?.found ?? 0);
 
   const status = h("div", { class: "rc-quiz-preview", "aria-live": "polite" });
+  let inputTimer: ReturnType<typeof setTimeout> | null = null;
   const start = h("button", { class: "btn primary", onclick: () => { if (found()) handlers.start({ shuffle, limit }); } });
   const paint = () => {
     status.replaceChildren(...previewLines(preview));
@@ -204,10 +211,15 @@ export function renderQuizEntry(state: QuizEntryState, handlers: QuizEntryHandle
     placeholder: "Paste the whole export here",
     "aria-label": "Question Bank export text",
     oninput: (ev: Event) => {
-      const r = handlers.input((ev.target as HTMLTextAreaElement).value);
-      if (r === undefined) return;
-      preview = r as QuizPreview | null;
-      paint();
+      const target = ev.target as HTMLTextAreaElement;
+      if (inputTimer) clearTimeout(inputTimer);
+      inputTimer = setTimeout(() => {
+        inputTimer = null;
+        const r = handlers.input(target.value);
+        if (r === undefined) return;
+        preview = r as QuizPreview | null;
+        paint();
+      }, QUIZ_INPUT_DEBOUNCE_MS);
     },
   });
   area.value = state.text ?? "";

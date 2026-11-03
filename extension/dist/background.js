@@ -93,6 +93,8 @@ function kv() {
   if (!current) current = typeof chrome !== "undefined" && chrome?.storage?.local ? chromeKV : memoryKV();
   return current;
 }
+var UNSAFE_KEY = /^(__proto__|constructor|prototype)$/;
+var isSafeKey = (key) => !UNSAFE_KEY.test(key);
 var KEYS = {
   log: "rc.addons.log.v1",
   srs: "rc.addons.srs.v1",
@@ -104,6 +106,21 @@ var KEYS = {
 };
 
 // extension/src/addons/log.ts
+var STEM_MAX = 500;
+var PASSAGE_MAX = 1200;
+var FIGURE_MAX = 800;
+var STEP_MAX = 300;
+var STEPS_MAX = 8;
+var TYPED_MAX = 20;
+var TEXT_MAX = 2e3;
+var ID_MAX = 200;
+var CHOICE_MAX = 500;
+var ACCEPTED_MAX = 20;
+var DRILLS_MAX = 500;
+var LOG_BYTES_MAX = 4 * 1024 * 1024;
+var AT_MIN = Date.UTC(2020, 0, 1);
+var AT_SLACK = 864e5;
+var clip = (s, n) => s ? s.length > n ? `${s.slice(0, n - 1)}\u2026` : s : null;
 var queue = Promise.resolve();
 async function readLog() {
   const raw = await kv().get(KEYS.log);
@@ -117,43 +134,64 @@ var isStrings = (x) => Array.isArray(x) && x.every((s) => typeof s === "string")
 var isStr = (x) => typeof x === "string";
 var isNum = (x) => typeof x === "number" && Number.isFinite(x);
 var LETTER_SET = /* @__PURE__ */ new Set(["A", "B", "C", "D"]);
-function sanitizeEntry(x) {
+var isLetter = (x) => isStr(x) && LETTER_SET.has(x);
+var DIAGNOSES = /* @__PURE__ */ new Set(["misread", "rule_gap", "careless", "got_it_right", "unknown"]);
+var CONFIDENCES = /* @__PURE__ */ new Set(["sure", "unsure", "guess"]);
+var strOrNull = (v, n) => isStr(v) ? clip(v, n) : null;
+var str = (v, n) => isStr(v) ? clip(v, n) ?? "" : "";
+var idOf = (v) => isStr(v) && v !== "" && isSafeKey(v) ? v.slice(0, ID_MAX) : void 0;
+function sanitizeEntry(x, now = Date.now()) {
   if (!x || typeof x !== "object" || Array.isArray(x)) return null;
   const e = x;
-  if (!isStr(e.attemptId) || !e.attemptId || !isNum(e.at) || !isStr(e.ruleId) || !isStr(e.stem)) return null;
-  if (!isStr(e.correct) || !LETTER_SET.has(e.correct)) return null;
-  if (e.picked !== "correct" && !(isStr(e.picked) && LETTER_SET.has(e.picked))) return null;
+  const attemptId = idOf(e.attemptId);
+  const ruleId = idOf(e.ruleId);
+  if (!attemptId || !ruleId || !isStr(e.stem)) return null;
+  if (e.qbId !== void 0 && e.qbId !== null && isStr(e.qbId) && !isSafeKey(e.qbId)) return null;
+  if (!isNum(e.at) || e.at < AT_MIN || e.at > now + AT_SLACK) return null;
+  if (!isLetter(e.correct)) return null;
+  const picked = e.picked === "correct" ? "correct" : isLetter(e.picked) ? e.picked : null;
+  if (!picked) return null;
   if (e.result !== "right" && e.result !== "missed") return null;
-  const drills = Array.isArray(e.drills) ? e.drills.filter((d) => !!d && typeof d === "object" && isNum(d.at) && typeof d.correct === "boolean") : [];
-  const text = (v, fallback = "") => isStr(v) ? v : fallback;
-  const entry = repairEntry({
-    ...e,
-    drills,
-    ruleName: isStr(e.ruleName) ? e.ruleName : null,
-    ruleStatement: text(e.ruleStatement),
-    takeaway: text(e.takeaway),
-    whyCorrect: text(e.whyCorrect),
-    whyPickFails: isStr(e.whyPickFails) ? e.whyPickFails : null,
-    confidence: isNum(e.confidence) ? e.confidence : 0,
-    note: text(e.note)
-  });
-  if (!entry.diagnosis || !["misread", "rule_gap", "careless", "got_it_right", "unknown"].includes(entry.diagnosis)) entry.diagnosis = "unknown";
-  return entry;
-}
-function repairEntry(e) {
-  const out = {
-    ...e,
-    choices: choicesOf(e.choices && typeof e.choices === "object" ? e.choices : null),
-    drills: Array.isArray(e.drills) ? e.drills : [],
-    note: e.note ?? "",
-    starred: Boolean(e.starred)
+  const drills = Array.isArray(e.drills) ? e.drills.filter((d) => !!d && typeof d === "object" && isNum(d.at) && typeof d.correct === "boolean").slice(0, DRILLS_MAX).map((d) => d.review === void 0 ? { at: d.at, correct: d.correct } : { at: d.at, correct: d.correct, review: Boolean(d.review) }) : [];
+  const rawChoices = e.choices && typeof e.choices === "object" ? e.choices : null;
+  const choices = choicesOf(null);
+  if (rawChoices) for (const l of ["A", "B", "C", "D"]) choices[l] = str(rawChoices[l], CHOICE_MAX);
+  const entry = {
+    attemptId,
+    at: e.at,
+    ruleId,
+    ruleName: strOrNull(e.ruleName, ID_MAX),
+    ruleStatement: str(e.ruleStatement, TEXT_MAX),
+    takeaway: str(e.takeaway, TEXT_MAX),
+    whyCorrect: str(e.whyCorrect, TEXT_MAX),
+    whyPickFails: strOrNull(e.whyPickFails, TEXT_MAX),
+    diagnosis: isStr(e.diagnosis) && DIAGNOSES.has(e.diagnosis) ? e.diagnosis : "unknown",
+    confidence: isNum(e.confidence) ? Math.min(1, Math.max(0, e.confidence)) : 0,
+    picked,
+    correct: e.correct,
+    result: e.result,
+    qbId: strOrNull(e.qbId, ID_MAX),
+    domain: strOrNull(e.domain, ID_MAX),
+    skill: strOrNull(e.skill, ID_MAX),
+    difficulty: strOrNull(e.difficulty, ID_MAX),
+    stem: clip(e.stem, STEM_MAX) ?? "",
+    passage: strOrNull(e.passage, PASSAGE_MAX),
+    choices,
+    solvedByModel: e.solvedByModel === true,
+    seconds: isNum(e.seconds) && e.seconds >= 0 ? e.seconds : null,
+    note: str(e.note, TEXT_MAX),
+    starred: e.starred === true,
+    drills
   };
-  if (out.section !== void 0 && out.section !== null && out.section !== "rw" && out.section !== "math") delete out.section;
-  if (out.format !== void 0 && out.format !== null && out.format !== "mcq" && out.format !== "spr") delete out.format;
-  if (out.typed !== void 0 && out.typed !== null && typeof out.typed !== "string") delete out.typed;
-  if (out.accepted !== void 0 && !isStrings(out.accepted)) delete out.accepted;
-  if (out.steps !== void 0 && !isStrings(out.steps)) delete out.steps;
-  return out;
+  if (e.selfConfidence !== void 0) entry.selfConfidence = isStr(e.selfConfidence) && CONFIDENCES.has(e.selfConfidence) ? e.selfConfidence : null;
+  if (e.section === "rw" || e.section === "math" || e.section === null) entry.section = e.section;
+  if (e.format === "mcq" || e.format === "spr" || e.format === null) entry.format = e.format;
+  if (e.typed !== void 0) entry.typed = strOrNull(e.typed, TYPED_MAX);
+  if (isStrings(e.accepted)) entry.accepted = e.accepted.slice(0, ACCEPTED_MAX).map((a) => clip(a, TYPED_MAX * 2) ?? "");
+  if (e.figure !== void 0) entry.figure = strOrNull(e.figure, FIGURE_MAX);
+  if (isStrings(e.steps)) entry.steps = e.steps.slice(0, STEPS_MAX).map((st) => clip(st, STEP_MAX) ?? "");
+  if (e.shortcut !== void 0) entry.shortcut = strOrNull(e.shortcut, STEP_MAX);
+  return entry;
 }
 
 // extension/src/addons/prefs.ts
@@ -181,8 +219,23 @@ var DEFAULT_PREFS = {
   wordBank: true,
   activity: true
 };
+var isObj = (x) => typeof x === "object" && x !== null && !Array.isArray(x);
+var num = (v, min, max, fallback, integer = false) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= max && (!integer || Number.isInteger(v)) ? v : fallback;
+function sanitizePrefs(raw) {
+  const r = isObj(raw) ? raw : {};
+  const out = { ...DEFAULT_PREFS };
+  for (const key of Object.keys(DEFAULT_PREFS)) {
+    const v = r[key];
+    if (typeof DEFAULT_PREFS[key] === "boolean" && typeof v === "boolean") out[key] = v;
+  }
+  out.reminderHour = num(r.reminderHour, 0, 23, DEFAULT_PREFS.reminderHour, true);
+  out.dailyGoal = num(r.dailyGoal, 1, 100, DEFAULT_PREFS.dailyGoal, true);
+  out.zoom = num(r.zoom, 0.5, 2, DEFAULT_PREFS.zoom);
+  out.testDate = typeof r.testDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.testDate) ? r.testDate : null;
+  return out;
+}
 async function readPrefs() {
-  return { ...DEFAULT_PREFS, ...await kv().get(KEYS.prefs) ?? {} };
+  return sanitizePrefs(await kv().get(KEYS.prefs));
 }
 
 // extension/src/addons/qbtext.ts
@@ -220,7 +273,6 @@ function pendingFromClick(text, info, tab, now) {
   return {
     text: clean.length > SELECTION_MAX_CHARS ? clean.slice(0, SELECTION_MAX_CHARS) : clean,
     url: info.pageUrl || tab?.url || info.frameUrl || null,
-    title: tab?.title?.trim() || null,
     at: now,
     windowId: typeof tab?.windowId === "number" && tab.windowId >= 0 ? tab.windowId : null
   };
@@ -279,7 +331,16 @@ function dueRules(state, now) {
   return Object.values(state).filter((r) => r.due <= now).sort((a, b) => a.due - b.due || b.lapses - a.lapses || a.box - b.box);
 }
 async function readSrs() {
-  return await kv().get(KEYS.srs) ?? {};
+  const raw = await kv().get(KEYS.srs);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [id, r] of Object.entries(raw)) {
+    if (!isSafeKey(id) || !r || typeof r !== "object") continue;
+    const rule = r;
+    if (typeof rule.box !== "number" || typeof rule.due !== "number" || typeof rule.attemptId !== "string") continue;
+    out[id] = { ...rule, ruleId: id };
+  }
+  return out;
 }
 
 // extension/src/addons/stats.ts
@@ -353,7 +414,7 @@ function installBackgroundAddons(host) {
   });
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === BADGE_ALARM) void refreshBadge();
-    if (alarm.name === REMINDER_ALARM) void maybeRemind();
+    if (alarm.name === REMINDER_ALARM) void maybeRemind().finally(() => scheduleReminder());
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;

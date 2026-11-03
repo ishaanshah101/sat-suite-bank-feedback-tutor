@@ -145,7 +145,7 @@ try {
     const res = await fetch(settings.server + "/api/extract", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${settings.token}` },
-      body: JSON.stringify({ text: "SAT Math grid-in stub: \\(\\frac{3}{17}\\) check question for the extension.", source: "paste" }),
+      body: JSON.stringify({ text: "SAT Math grid-in stub: \\(\\frac{3}{17}\\) check question for the extension. Correct Answer: 3/17", source: "paste" }),
     });
     const data = await res.json();
     if (data.question) await chrome.storage.session.set({ pendingQuestion: data.question });

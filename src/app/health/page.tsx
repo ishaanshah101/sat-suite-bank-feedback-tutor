@@ -1,13 +1,13 @@
 import { Shell } from "@/components/shell";
 import { Card, Chip } from "@/components/ui";
 import { requirePageSession } from "@/lib/auth/session";
-import { healthReport } from "@/lib/health";
+import { healthReportFor } from "@/lib/health";
 
 export const metadata = { title: "Status · Rulecard" };
 
 export default async function HealthPage() {
-  await requirePageSession();
-  const report = await healthReport();
+  const session = await requirePageSession();
+  const report = await healthReportFor(session.userId);
   return (
     <Shell>
       <h1 className="text-xl font-semibold tracking-tight">Status</h1>
@@ -17,7 +17,9 @@ export default async function HealthPage() {
           <p className="mt-2 text-sm">
             {report.ok ? <Chip tone="good">healthy</Chip> : <Chip tone="danger">needs attention</Chip>} <span className="ml-2 text-muted">version {report.version}</span>
           </p>
-          <p className="mt-2 text-sm text-muted">Old passcode set (lets the original history be claimed): {report.passcodeConfigured ? "yes" : "no"}</p>
+          {report.passcodeConfigured !== undefined ? (
+            <p className="mt-2 text-sm text-muted">Old passcode set (lets the original history be claimed): {report.passcodeConfigured ? "yes" : "no"}</p>
+          ) : null}
         </Card>
         <Card>
           <h2 className="text-sm font-semibold">Database</h2>

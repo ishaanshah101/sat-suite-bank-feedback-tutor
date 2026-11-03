@@ -24,13 +24,13 @@ export async function POST(request: Request) {
       const entry = parseSprEntry(body.response);
       if (!entry.ok) throw new HttpError(400, entry.error, "invalid_response");
       const correct = isSprCorrect(entry.text, drill.accepted_answers);
-      await answerDrill(row.id, "spr", correct, entry.text);
+      await answerDrill(session.userId, row.id, "spr", correct, entry.text);
       return json({ ...base, correct, correctLetter: null, correctAnswer: displayAnswer(drill.accepted_answers), fix: null });
     }
 
     if (!("picked" in body)) throw new HttpError(400, "Pick a letter.", "invalid_response");
     const correct = body.picked === drill.correct;
-    await answerDrill(row.id, body.picked, correct);
+    await answerDrill(session.userId, row.id, body.picked, correct);
     return json({
       ...base,
       correct,

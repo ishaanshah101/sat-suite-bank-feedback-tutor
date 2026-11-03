@@ -1,5 +1,5 @@
 import "server-only";
-import { appVersion, env } from "@/lib/env";
+import { appVersion, env, ownerUserId } from "@/lib/env";
 import { dbKind, pingDb } from "@/db";
 import { listProviderStatus } from "@/db/queries";
 import { configuredProviders, cooldownUntil, isStubMode, providerOrder } from "@/lib/ai/providers";
@@ -24,7 +24,8 @@ export interface HealthReport {
       auth: string;
     }>;
   };
-  passcodeConfigured: boolean;
+  /** Owner only. */
+  passcodeConfigured?: boolean;
 }
 
 export async function healthReport(): Promise<HealthReport> {
@@ -72,4 +73,24 @@ export async function healthReport(): Promise<HealthReport> {
     ai: { order: providerOrder(), configured, live, stub: isStubMode(), providers },
     passcodeConfigured: Boolean(env("APP_PASSCODE")),
   };
+}
+
+/** The report without infrastructure detail: no error text, no key or passcode state. For anyone but the owner. */
+export function redactHealth(report: HealthReport): HealthReport {
+  const redacted: HealthReport = {
+    ...report,
+    db: { ...report.db, error: undefined },
+    ai: {
+      ...report.ai,
+      providers: report.ai.providers.map((p) => ({ ...p, lastError: null, auth: p.configured ? "configured" : "off" })),
+    },
+  };
+  delete redacted.passcodeConfigured;
+  return redacted;
+}
+
+/** The full report for the owner, the redacted one for everyone else. */
+export async function healthReportFor(userId: string): Promise<HealthReport> {
+  const report = await healthReport();
+  return userId === ownerUserId() ? report : redactHealth(report);
 }

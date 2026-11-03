@@ -11,6 +11,10 @@ import { Button, ErrorNote, Spinner } from "./ui";
 
 type Mode = "capture" | "pdf" | "paste" | "image";
 
+const MAX_PDF_BYTES = 40 * 1024 * 1024;
+/** Matches the server's limit for pasted text. */
+const MAX_PASTE_CHARS = 20_000;
+
 export interface PdfImport {
   file: File;
   parsed: ParsedPdfQuestion[];
@@ -68,6 +72,10 @@ export function InputStrip({
 
   const onPdfFile = (file: File | undefined) => {
     if (!file) return;
+    if (file.size > MAX_PDF_BYTES) {
+      setError(`That PDF is ${Math.round(file.size / 1024 / 1024)} MB; the limit is 40 MB. Export fewer questions and try again.`);
+      return;
+    }
     void run("Parsing PDF in your browser...", async () => {
       const { result, totalPages } = await parsePdfFile(file);
       onPdf({ file, parsed: result.questions, warnings: result.warnings, totalPages });
@@ -159,13 +167,20 @@ export function InputStrip({
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             rows={6}
+            maxLength={MAX_PASTE_CHARS}
             placeholder="Paste the passage, the question and the four choices (and the correct answer if you have it)."
+            aria-label="Pasted question text"
             className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
             data-testid="paste-textarea"
           />
-          <Button onClick={onPaste} disabled={busy || pasted.trim().length < 20} data-testid="paste-submit">
-            {busy && status ? <Spinner /> : null} Read question
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={onPaste} disabled={busy || pasted.trim().length < 20} data-testid="paste-submit">
+              {busy && status ? <Spinner /> : null} Read question
+            </Button>
+            <span className="text-xs text-muted">
+              {pasted.length.toLocaleString()} / {MAX_PASTE_CHARS.toLocaleString()}
+            </span>
+          </div>
         </div>
       ) : null}
 
@@ -183,7 +198,9 @@ export function InputStrip({
         </div>
       ) : null}
 
-      {status ? <p className="text-sm text-muted">{status}</p> : null}
+      <p className="text-sm text-muted" role="status" aria-live="polite">
+        {status}
+      </p>
       <ErrorNote message={error} />
     </div>
   );

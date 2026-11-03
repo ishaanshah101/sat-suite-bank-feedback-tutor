@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     const pruned = await pruneCounters();
     return Response.json({ ok: true, providerStatusRows: rows[0]?.n ?? 0, pruned, at: new Date().toISOString() }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
-    return Response.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 500, headers: { "cache-control": "no-store" } });
+    console.error("[cron] keepalive", error);
+    return Response.json({ ok: false, error: "keepalive failed" }, { status: 500, headers: { "cache-control": "no-store" } });
   }
 }

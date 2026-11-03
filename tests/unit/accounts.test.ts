@@ -1,4 +1,11 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
+const request = vi.hoisted(() => ({ bearer: null as string | null }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(request.bearer ? { authorization: `Bearer ${request.bearer}` } : {}),
+  cookies: async () => ({ get: () => undefined }),
+}));
+vi.mock("next/navigation", () => ({ redirect: () => undefined }));
 
 const OWNER = "68311219-1a38-469e-ab48-b3bf632be848";
 
@@ -18,7 +25,7 @@ describe("accounts", () => {
     if (!created.ok) return;
     expect(created.user.email).toBe("student@example.com");
     expect(created.user.id).not.toBe(OWNER);
-    expect(await verifySessionToken(created.token)).toEqual({ userId: created.user.id });
+    expect(await verifySessionToken(created.token)).toMatchObject({ userId: created.user.id });
 
     const dup = await signUp("10.0.0.1", { email: "student@example.com", password: "another-pass" });
     expect(dup).toMatchObject({ ok: false, status: 409, code: "email_taken" });
@@ -44,6 +51,44 @@ describe("accounts", () => {
       expect(await signIn("10.0.2.1", { email: "student@example.com", password: "nope-nope" })).toMatchObject({ status: 401 });
     }
     expect(await signIn("10.0.2.1", { email: "student@example.com", password: "longenough1" })).toMatchObject({ ok: false, status: 429 });
+  });
+
+  it("keeps counting guesses at other accounts after a right password", async () => {
+    const { signIn, signUp, SIGNIN_MAX_ATTEMPTS } = await import("@/lib/auth/accounts");
+    expect(await signUp("10.0.5.9", { email: "attacker@example.com", password: "longenough1" })).toMatchObject({ ok: true });
+    for (let i = 0; i < SIGNIN_MAX_ATTEMPTS - 1; i++) {
+      expect(await signIn("10.0.5.1", { email: "student@example.com", password: "nope-nope" })).toMatchObject({ status: 401 });
+    }
+    expect(await signIn("10.0.5.1", { email: "attacker@example.com", password: "longenough1" })).toMatchObject({ ok: true });
+    expect(await signIn("10.0.5.1", { email: "student@example.com", password: "nope-nope" })).toMatchObject({ ok: false, status: 429 });
+  });
+
+  it("limits guesses at one account across addresses", async () => {
+    const { signIn, signUp, SIGNIN_MAX_PER_ACCOUNT } = await import("@/lib/auth/accounts");
+    expect(await signUp("10.0.6.9", { email: "target@example.com", password: "longenough1" })).toMatchObject({ ok: true });
+    for (let i = 0; i < SIGNIN_MAX_PER_ACCOUNT; i++) {
+      expect(await signIn(`10.0.6.${i}`, { email: "target@example.com", password: "nope-nope" })).toMatchObject({ status: 401 });
+    }
+    expect(await signIn("10.0.7.1", { email: "target@example.com", password: "longenough1" })).toMatchObject({ ok: false, status: 429 });
+  });
+
+  it("rejects a session token issued before the account existed", async () => {
+    const { signUp } = await import("@/lib/auth/accounts");
+    const { requireSession, UnauthorizedError } = await import("@/lib/auth/session");
+    const { SignJWT } = await import("jose");
+    const made = await signUp("10.0.8.1", { email: "stale@example.com", password: "longenough1" });
+    if (!made.ok) throw new Error("signup failed");
+    request.bearer = made.token;
+    expect(await requireSession()).toMatchObject({ userId: made.user.id });
+    const key = new TextEncoder().encode(process.env.SESSION_SECRET);
+    request.bearer = await new SignJWT({ kind: "account" })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(made.user.id)
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 3600)
+      .setExpirationTime("1h")
+      .sign(key);
+    await expect(requireSession()).rejects.toBeInstanceOf(UnauthorizedError);
+    request.bearer = null;
   });
 
   it("enforces the daily AI limit except for the owner, and deletes an account with its data", async () => {

@@ -9,6 +9,7 @@
 // module variables, so they survive re-renders but reset when the panel reloads.
 
 import { chip, h } from "./dom";
+import { guardCell } from "./errorlog";
 import { stamp } from "./export";
 import { hasChoiceList, type LogEntry } from "./log";
 import { normalizeSkill, qbFilterSteps, SKILLS } from "./taxonomy";
@@ -63,7 +64,7 @@ const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trim
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** The word as a whole word or phrase, any case. */
 const wordPattern = (word: string) => new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(word)}(?![\\p{L}\\p{N}])`, "giu");
-const csvCell = (s: string) => `"${s.replace(/"/g, '""')}"`;
+const csvCell = (s: string) => `"${guardCell(s).replace(/"/g, '""')}"`;
 
 /** The sentence of `text` that covers characters [from, to), using simple sentence boundaries. */
 function sentenceAt(text: string, from: number, to: number): string {

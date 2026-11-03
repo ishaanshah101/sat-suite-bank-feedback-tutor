@@ -50,6 +50,8 @@ export function ChatPanel({ attemptId, initialMessages = [] }: { attemptId: stri
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about this question"
+          aria-label="Ask about this question"
+          maxLength={4000}
           className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
           data-testid="chat-input"
         />

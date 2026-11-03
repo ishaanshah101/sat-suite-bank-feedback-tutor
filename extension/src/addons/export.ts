@@ -207,10 +207,20 @@ export function toBackup(entries: LogEntry[]): string {
   return JSON.stringify(b, null, 2);
 }
 
-export function parseBackup(text: string): LogEntry[] {
-  const data = JSON.parse(text) as Partial<Backup>;
-  if (data.kind !== "rulecard-addons-backup" || !Array.isArray(data.entries)) throw new Error("That file is not a Rulecard backup.");
-  return data.entries;
+/** A backup file bigger than this is refused before it is read. */
+export const BACKUP_MAX_BYTES = 25 * 1024 * 1024;
+
+/** The raw entries of a backup file. Each one still has to go through sanitizeEntry (importEntries does). */
+export function parseBackup(text: string): unknown[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("That file is not a Rulecard backup.");
+  }
+  const b = data && typeof data === "object" && !Array.isArray(data) ? (data as Partial<Backup>) : null;
+  if (!b || b.kind !== "rulecard-addons-backup" || !Array.isArray(b.entries)) throw new Error("That file is not a Rulecard backup.");
+  return b.entries;
 }
 
 /** Plain-text version of one card, for the clipboard. Grid-in: the accepted answers instead of a letter. */

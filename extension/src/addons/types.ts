@@ -35,6 +35,7 @@ export interface Settings {
   token: string | null;
   /** null allowed so upstream 0.3.0 `Settings` fits AddonContext as is. */
   email?: string | null;
+  userId?: string | null;
 }
 
 // ---------------------------------------------------------------- upstream 0.3.0, exact

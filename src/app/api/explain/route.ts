@@ -48,24 +48,23 @@ export async function POST(request: Request) {
         allowModelSolve: body.allowModelSolve ?? false,
         gotItRight: graded,
       });
-      // A model-solved answer is kept (flagged) so later attempts and the history can use it.
-      if (gridIn && !question.answers?.length) {
-        const solved = usableModelAnswer(card);
-        if (solved) await setModelGridInAnswer(question.id, solved);
-      } else if (!gridIn && !question.correct && card.correct_letter) {
-        await setModelAnswer(question.id, card.correct_letter);
-      }
-      const updated = (await getQuestion(session.userId, question.id)) ?? question;
-      const isCorrect = graded ?? isPickCorrect(updated, body.picked, response);
+      // A model-solved answer grades this attempt now and is kept (flagged) once the attempt is saved, so a failed save leaves nothing behind.
+      const modelGridIn = gridIn && !question.answers?.length ? usableModelAnswer(card) : null;
+      const modelLetter = !gridIn && !question.correct ? card.correct_letter : null;
+      const withModelAnswer = modelGridIn ? { ...question, answers: [modelGridIn] } : modelLetter ? { ...question, correct: modelLetter } : question;
+      const isCorrect = graded ?? isPickCorrect(withModelAnswer, body.picked, response);
       if (isCorrect === true && card.diagnosis !== "got_it_right") {
         card.diagnosis = "got_it_right";
         card.why_pick_fails = null;
       }
-      await finishAttempt(attempt.id, { explanation: card, ruleId: card.rule_id, provider, model, isCorrect });
+      await finishAttempt(session.userId, attempt.id, { explanation: card, ruleId: card.rule_id, provider, model, isCorrect });
+      if (modelGridIn) await setModelGridInAnswer(session.userId, question.id, modelGridIn);
+      else if (modelLetter) await setModelAnswer(session.userId, question.id, modelLetter);
+      const updated = (await getQuestion(session.userId, question.id)) ?? withModelAnswer;
       const rule = getRule(card.rule_id);
       return json({ attemptId: attempt.id, card, question: updated, rule: { id: card.rule_id, name: rule?.name ?? null }, isCorrect, provider, model });
     } catch (error) {
-      await deleteAttempt(attempt.id).catch(() => undefined);
+      await deleteAttempt(session.userId, attempt.id).catch(() => undefined);
       throw error;
     }
   });

@@ -72,8 +72,27 @@ export const DEFAULT_PREFS: Prefs = {
   activity: true,
 };
 
+const isObj = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+const num = (v: unknown, min: number, max: number, fallback: number, integer = false) =>
+  typeof v === "number" && Number.isFinite(v) && v >= min && v <= max && (!integer || Number.isInteger(v)) ? v : fallback;
+
+/** Saved prefs with every value checked: a wrong type or an out-of-range number falls back to the default. */
+export function sanitizePrefs(raw: unknown): Prefs {
+  const r = isObj(raw) ? raw : {};
+  const out = { ...DEFAULT_PREFS };
+  for (const key of Object.keys(DEFAULT_PREFS) as (keyof Prefs)[]) {
+    const v = r[key];
+    if (typeof DEFAULT_PREFS[key] === "boolean" && typeof v === "boolean") (out as Record<string, unknown>)[key] = v;
+  }
+  out.reminderHour = num(r.reminderHour, 0, 23, DEFAULT_PREFS.reminderHour, true);
+  out.dailyGoal = num(r.dailyGoal, 1, 100, DEFAULT_PREFS.dailyGoal, true);
+  out.zoom = num(r.zoom, 0.5, 2, DEFAULT_PREFS.zoom);
+  out.testDate = typeof r.testDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.testDate) ? r.testDate : null;
+  return out;
+}
+
 export async function readPrefs(): Promise<Prefs> {
-  return { ...DEFAULT_PREFS, ...((await kv().get<Partial<Prefs>>(KEYS.prefs)) ?? {}) };
+  return sanitizePrefs(await kv().get<unknown>(KEYS.prefs));
 }
 export async function writePrefs(p: Prefs): Promise<void> {
   await kv().set(KEYS.prefs, p);

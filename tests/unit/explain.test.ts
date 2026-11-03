@@ -146,6 +146,12 @@ describe("sanitizeRuleCard (Math grid-in)", () => {
     expect(out.solved_by_model).toBe(true);
     expect(usableModelAnswer(out)).toBe("3/17");
     expect(usableModelAnswer({ ...out, correct_answer: "about 0.18" })).toBeNull();
+    // Four or more decimal places is a rounded value, not an exact answer.
+    expect(usableModelAnswer({ ...out, correct_answer: "0.1765" })).toBeNull();
+    expect(usableModelAnswer({ ...out, correct_answer: ".17647" })).toBeNull();
+    expect(usableModelAnswer({ ...out, correct_answer: "0.667" })).toBe("0.667");
+    expect(usableModelAnswer({ ...out, correct_answer: "2.5" })).toBe("2.5");
+    expect(usableModelAnswer({ ...out, correct_answer: "12" })).toBe("12");
     expect(hasKnownAnswer(unknown)).toBe(false);
     expect(hasKnownAnswer(gridIn)).toBe(true);
   });
@@ -161,6 +167,13 @@ describe("grading", () => {
     expect(isPickCorrect(gridIn, "spr", ".18")).toBe(false);
     expect(isPickCorrect(gridIn, "correct", null)).toBe(true);
     expect(isPickCorrect({ ...gridIn, answers: null }, "spr", "3/17")).toBeNull();
+  });
+
+  it("does not grade 'got it right' when the answer is unknown", () => {
+    expect(isPickCorrect(question, "correct", null)).toBe(true);
+    expect(isPickCorrect({ ...question, correct: null }, "correct", null)).toBeNull();
+    expect(isPickCorrect({ ...gridIn, answers: null }, "correct", null)).toBeNull();
+    expect(isPickCorrect({ ...gridIn, answers: [] }, "correct", null)).toBeNull();
   });
 
   it("reads cards stored before Math support with defaults", () => {

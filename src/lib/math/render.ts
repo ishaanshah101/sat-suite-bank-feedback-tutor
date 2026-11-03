@@ -13,16 +13,31 @@ export interface MathSegment {
   display: boolean;
 }
 
-const DELIMITERS = /\\\(([\s\S]+?)\\\)|\\\[([\s\S]+?)\\\]/g;
+const INLINE_OPEN = "\\(";
+const INLINE_CLOSE = "\\)";
+const DISPLAY_OPEN = "\\[";
+const DISPLAY_CLOSE = "\\]";
 
+/**
+ * One left-to-right scan: each opener is looked up once and every closer search moves the cursor
+ * forward, so the cost stays linear. An opener with no closer ends the math; the rest is plain text.
+ */
 export function splitMath(text: string): MathSegment[] {
   const out: MathSegment[] = [];
   let last = 0;
-  for (const m of text.matchAll(DELIMITERS)) {
-    const index = m.index ?? 0;
-    if (index > last) out.push({ kind: "text", value: text.slice(last, index), display: false });
-    out.push({ kind: "math", value: (m[1] ?? m[2] ?? "").trim(), display: m[2] !== undefined });
-    last = index + m[0].length;
+  let inline = text.indexOf(INLINE_OPEN);
+  let display = text.indexOf(DISPLAY_OPEN);
+  while (inline >= 0 || display >= 0) {
+    const isDisplay = inline < 0 || (display >= 0 && display < inline);
+    const open = isDisplay ? display : inline;
+    // At least one character between the delimiters.
+    const close = text.indexOf(isDisplay ? DISPLAY_CLOSE : INLINE_CLOSE, open + 3);
+    if (close < 0) break;
+    if (open > last) out.push({ kind: "text", value: text.slice(last, open), display: false });
+    out.push({ kind: "math", value: text.slice(open + 2, close).trim(), display: isDisplay });
+    last = close + 2;
+    if (inline >= 0 && inline < last) inline = text.indexOf(INLINE_OPEN, last);
+    if (display >= 0 && display < last) display = text.indexOf(DISPLAY_OPEN, last);
   }
   if (last < text.length) out.push({ kind: "text", value: text.slice(last), display: false });
   return out;
@@ -39,7 +54,16 @@ export function hasMath(text: string | null | undefined): boolean {
 /** One LaTeX expression as MathML. Bad LaTeX falls back to the escaped source instead of throwing. */
 export function renderTex(tex: string, display = false): string {
   try {
-    const html = katex.renderToString(tex, { output: "mathml", displayMode: display, throwOnError: false, strict: "ignore", trust: false });
+    const html = katex.renderToString(tex, {
+      output: "mathml",
+      displayMode: display,
+      throwOnError: false,
+      strict: "ignore",
+      trust: false,
+      // Bound macro expansion and glue sizes so pasted LaTeX cannot blow up rendering.
+      maxExpand: 100,
+      maxSize: 50,
+    });
     return markUnaryMinus(html);
   } catch {
     return `<code>${escapeHtml(tex)}</code>`;
@@ -63,5 +87,7 @@ export function renderMathHtml(text: string): string {
 
 /** Plain-text version for places that cannot show MathML (titles, aria labels): drops the delimiters. */
 export function mathToPlain(text: string): string {
-  return text.replace(DELIMITERS, (_, inline: string | undefined, display: string | undefined) => (inline ?? display ?? "").trim());
+  return splitMath(text)
+    .map((s) => s.value)
+    .join("");
 }

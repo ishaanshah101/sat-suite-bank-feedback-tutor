@@ -36,8 +36,12 @@ export function ReviewWorkspace() {
   const [explained, setExplained] = useState<Explained | null>(null);
   const [error, setError] = useState<string | null>(null);
   const currentId = useRef<string | null>(null);
+  // Bumped by every load, so a queue item that resolves after the user moved on is discarded.
+  const loadToken = useRef(0);
+  const pendingLoad = useRef(0);
 
   const load = (q: QuestionRow) => {
+    loadToken.current++;
     currentId.current = q.id;
     setQuestion(q);
     setPicked(null);
@@ -78,20 +82,27 @@ export function ReviewWorkspace() {
   };
 
   const [loadingNext, setLoadingNext] = useState(false);
-  const next = async () => {
-    const [head, ...rest] = queue;
-    if (!head || loadingNext) return;
+  /** Resolve a queue item (Math ones read the page with vision) and show it, unless the user has left. */
+  const loadFromQueue = async (head: QueueItem, rest: QueueItem[]) => {
+    const token = ++loadToken.current;
+    pendingLoad.current = token;
     setLoadingNext(true);
     setError(null);
     try {
       const row = await head.load();
+      if (loadToken.current !== token) return;
       setQueue(rest);
       load(row);
     } catch (e) {
-      setError(`Could not read ${head.label}: ${e instanceof Error ? e.message : String(e)}`);
+      if (loadToken.current === token) setError(`Could not read ${head.label}: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
-      setLoadingNext(false);
+      if (pendingLoad.current === token) setLoadingNext(false);
     }
+  };
+  const next = async () => {
+    const [head, ...rest] = queue;
+    if (!head || loadingNext) return;
+    await loadFromQueue(head, rest);
   };
 
   const needsAnswer = question && (gridIn ? !question.answers?.length : !question.correct);
@@ -120,12 +131,7 @@ export function ReviewWorkspace() {
               const [head, ...rest] = items;
               if (!head) return;
               setQueue(rest);
-              setLoadingNext(true);
-              head
-                .load()
-                .then(load)
-                .catch((e) => setError(`Could not read ${head.label}: ${e instanceof Error ? e.message : String(e)}`))
-                .finally(() => setLoadingNext(false));
+              void loadFromQueue(head, rest);
             }}
             onClose={() => setPdf(null)}
           />
@@ -188,6 +194,7 @@ export function ReviewWorkspace() {
                         key={l}
                         type="button"
                         onClick={() => setPicked(l)}
+                        aria-pressed={picked === l}
                         className={`h-10 w-10 rounded-lg border text-sm font-semibold transition ${picked === l ? "border-accent bg-accent text-white" : "border-line hover:bg-bg"}`}
                         data-testid={`pick-${l}`}
                       >
@@ -198,6 +205,7 @@ export function ReviewWorkspace() {
                   <button
                     type="button"
                     onClick={() => setPicked("correct")}
+                    aria-pressed={picked === "correct"}
                     className={`rounded-lg border px-3 text-sm font-medium transition ${picked === "correct" ? "border-accent bg-accent text-white" : "border-line hover:bg-bg"}`}
                     data-testid="pick-correct"
                   >
@@ -214,6 +222,8 @@ export function ReviewWorkspace() {
                   value={reasoning}
                   onChange={(e) => setReasoning(e.target.value)}
                   placeholder="What was your thinking? (one line, optional but useful)"
+                  aria-label="Your reasoning"
+                  maxLength={2000}
                   className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-accent"
                   data-testid="reasoning-input"
                 />

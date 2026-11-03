@@ -3,13 +3,18 @@ import { requireEnv } from "@/lib/env";
 
 export const SESSION_COOKIE = "rulecard_session";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+export const SESSION_SECRET_MIN = 32;
 
 function secretKey(): Uint8Array {
-  return new TextEncoder().encode(requireEnv("SESSION_SECRET"));
+  const secret = requireEnv("SESSION_SECRET");
+  if (secret.length < SESSION_SECRET_MIN) throw new Error(`SESSION_SECRET must be at least ${SESSION_SECRET_MIN} characters`);
+  return new TextEncoder().encode(secret);
 }
 
 export interface Session {
   userId: string;
+  /** Unix seconds the token was signed; lets a session be refused when its account was created later (id reuse). */
+  issuedAt?: number;
 }
 
 /** Marks tokens issued to accounts. Tokens from the old single-passcode gate lack it and stop working. */
@@ -29,10 +34,17 @@ export async function verifySessionToken(token: string): Promise<Session | null>
     const { payload } = await jwtVerify(token, secretKey(), { algorithms: ["HS256"] });
     if (typeof payload.sub !== "string" || payload.sub.length === 0) return null;
     if (payload.kind !== TOKEN_KIND) return null;
-    return { userId: payload.sub };
+    if (typeof payload.iat !== "number") return null;
+    return { userId: payload.sub, issuedAt: payload.iat };
   } catch {
     return null;
   }
+}
+
+/** True when the token was signed before the account existed: a token kept from a deleted account whose id was reclaimed. */
+export function issuedBeforeAccount(session: Session, createdAt: Date): boolean {
+  if (session.issuedAt === undefined) return true;
+  return session.issuedAt * 1000 < createdAt.getTime() - 5000;
 }
 
 export function sessionCookieOptions() {
@@ -56,21 +68,29 @@ export function bearerToken(headers: Headers): string | null {
 const HANDOFF_KIND = "handoff";
 export const HANDOFF_SECONDS = 60;
 
+export interface Handoff {
+  userId: string;
+  /** Random id so each code can be redeemed once. */
+  jti: string;
+}
+
 /** A one-minute code that opens the web app as the same account (the extension holds a bearer token, the site needs a cookie). */
 export async function createHandoffCode(userId: string): Promise<string> {
   return new SignJWT({ kind: HANDOFF_KIND })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)
+    .setJti(crypto.randomUUID())
     .setIssuedAt()
     .setExpirationTime(`${HANDOFF_SECONDS}s`)
     .sign(secretKey());
 }
 
-export async function verifyHandoffCode(code: string): Promise<Session | null> {
+export async function verifyHandoffCode(code: string): Promise<Handoff | null> {
   try {
     const { payload } = await jwtVerify(code, secretKey(), { algorithms: ["HS256"] });
     if (payload.kind !== HANDOFF_KIND || typeof payload.sub !== "string" || !payload.sub) return null;
-    return { userId: payload.sub };
+    if (typeof payload.jti !== "string" || !payload.jti) return null;
+    return { userId: payload.sub, jti: payload.jti };
   } catch {
     return null;
   }

@@ -9,7 +9,7 @@ describe("session tokens", () => {
   it("round-trips a signed session and rejects tampering", async () => {
     const { createSessionToken, verifySessionToken } = await import("@/lib/auth/token");
     const token = await createSessionToken("user-1");
-    expect(await verifySessionToken(token)).toEqual({ userId: "user-1" });
+    expect(await verifySessionToken(token)).toMatchObject({ userId: "user-1", issuedAt: expect.any(Number) });
     expect(await verifySessionToken(token.slice(0, -2) + "zz")).toBeNull();
     expect(await verifySessionToken("not-a-jwt")).toBeNull();
   });
@@ -20,6 +20,38 @@ describe("session tokens", () => {
     const key = new TextEncoder().encode(process.env.SESSION_SECRET);
     const legacy = await new SignJWT({ pv: "abc" }).setProtectedHeader({ alg: "HS256" }).setSubject("user-1").setExpirationTime("1h").sign(key);
     expect(await verifySessionToken(legacy)).toBeNull();
+  });
+
+  it("flags tokens signed before the account was created", async () => {
+    const { createSessionToken, issuedBeforeAccount, verifySessionToken } = await import("@/lib/auth/token");
+    const session = (await verifySessionToken(await createSessionToken("user-1")))!;
+    expect(issuedBeforeAccount(session, new Date(Date.now() - 60_000))).toBe(false);
+    expect(issuedBeforeAccount(session, new Date())).toBe(false);
+    expect(issuedBeforeAccount(session, new Date(Date.now() + 60_000))).toBe(true);
+    expect(issuedBeforeAccount({ userId: "user-1" }, new Date(0))).toBe(true);
+  });
+
+  it("refuses a short SESSION_SECRET", async () => {
+    const { createSessionToken } = await import("@/lib/auth/token");
+    const saved = process.env.SESSION_SECRET;
+    process.env.SESSION_SECRET = "too-short";
+    try {
+      await expect(createSessionToken("user-1")).rejects.toThrow(/at least 32 characters/);
+    } finally {
+      process.env.SESSION_SECRET = saved;
+    }
+  });
+});
+
+describe("handoff codes", () => {
+  it("carries a fresh id per code and rejects session tokens", async () => {
+    const { createHandoffCode, createSessionToken, verifyHandoffCode } = await import("@/lib/auth/token");
+    const one = await verifyHandoffCode(await createHandoffCode("user-1"));
+    const two = await verifyHandoffCode(await createHandoffCode("user-1"));
+    expect(one).toMatchObject({ userId: "user-1", jti: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    expect(two?.jti).not.toBe(one?.jti);
+    expect(await verifyHandoffCode(await createSessionToken("user-1"))).toBeNull();
+    expect(await verifyHandoffCode("nope")).toBeNull();
   });
 });
 

@@ -45,6 +45,10 @@ export function setKV(next: KV): void {
   current = next;
 }
 
+/** Names that would alias Object.prototype members when used as keys of a plain object. */
+const UNSAFE_KEY = /^(__proto__|constructor|prototype)$/;
+export const isSafeKey = (key: string): boolean => !UNSAFE_KEY.test(key);
+
 /** Storage keys used by the addons. Kept in one place to avoid collisions with `settings`. */
 export const KEYS = {
   log: "rc.addons.log.v1",

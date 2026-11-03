@@ -92,21 +92,21 @@ export async function getQuestion(userId: string, id: string): Promise<QuestionR
   return rows[0] ?? null;
 }
 
-export async function setModelAnswer(id: string, correct: Letter): Promise<void> {
+export async function setModelAnswer(userId: string, id: string, correct: Letter): Promise<void> {
   const db = await getDb();
   await db
     .update(questions)
     .set({ correct, answerSource: "model", updatedAt: new Date() })
-    .where(and(eq(questions.id, id), sql`${questions.correct} is null`));
+    .where(and(eq(questions.id, id), eq(questions.userId, userId), sql`${questions.correct} is null`));
 }
 
 /** Grid-in: remember an answer the model worked out (flagged as model-made), only when none is known. */
-export async function setModelGridInAnswer(id: string, answer: string): Promise<void> {
+export async function setModelGridInAnswer(userId: string, id: string, answer: string): Promise<void> {
   const db = await getDb();
   await db
     .update(questions)
     .set({ answers: [answer], answerSource: "model", updatedAt: new Date() })
-    .where(and(eq(questions.id, id), sql`${questions.answers} is null`));
+    .where(and(eq(questions.id, id), eq(questions.userId, userId), sql`${questions.answers} is null`));
 }
 
 export async function createAttempt(
@@ -122,6 +122,7 @@ export async function createAttempt(
 }
 
 export async function finishAttempt(
+  userId: string,
   id: string,
   input: { explanation: Record<string, unknown>; ruleId: string; provider: string; model: string; isCorrect?: boolean | null },
 ): Promise<void> {
@@ -129,12 +130,12 @@ export async function finishAttempt(
   await db
     .update(attempts)
     .set({ explanation: input.explanation, ruleId: input.ruleId, provider: input.provider, model: input.model, isCorrect: input.isCorrect ?? null, updatedAt: new Date() })
-    .where(eq(attempts.id, id));
+    .where(and(eq(attempts.id, id), eq(attempts.userId, userId)));
 }
 
-export async function deleteAttempt(id: string): Promise<void> {
+export async function deleteAttempt(userId: string, id: string): Promise<void> {
   const db = await getDb();
-  await db.delete(attempts).where(eq(attempts.id, id));
+  await db.delete(attempts).where(and(eq(attempts.id, id), eq(attempts.userId, userId)));
 }
 
 export interface AttemptWithQuestion {
@@ -147,7 +148,7 @@ export async function getAttempt(userId: string, id: string): Promise<AttemptWit
   const rows = await db
     .select({ attempt: attempts, question: questions })
     .from(attempts)
-    .innerJoin(questions, eq(questions.id, attempts.questionId))
+    .innerJoin(questions, and(eq(questions.id, attempts.questionId), eq(questions.userId, userId)))
     .where(and(eq(attempts.id, id), eq(attempts.userId, userId)))
     .limit(1);
   return rows[0] ?? null;
@@ -158,21 +159,32 @@ export async function listAttempts(userId: string, limit = 200): Promise<Attempt
   return db
     .select({ attempt: attempts, question: questions })
     .from(attempts)
-    .innerJoin(questions, eq(questions.id, attempts.questionId))
+    .innerJoin(questions, and(eq(questions.id, attempts.questionId), eq(questions.userId, userId)))
     .where(eq(attempts.userId, userId))
     .orderBy(desc(attempts.createdAt))
     .limit(limit);
 }
 
+/** Saves a chat turn; refuses when the attempt is not this user's. */
 export async function addChatMessage(userId: string, attemptId: string, role: "user" | "assistant", content: string): Promise<void> {
   if (!content.trim()) return;
   const db = await getDb();
+  const owned = await db
+    .select({ id: attempts.id })
+    .from(attempts)
+    .where(and(eq(attempts.id, attemptId), eq(attempts.userId, userId)))
+    .limit(1);
+  if (!owned.length) throw new Error("Attempt not found");
   await db.insert(chatMessages).values({ userId, attemptId, role, content });
 }
 
-export async function listChatMessages(attemptId: string) {
+export async function listChatMessages(userId: string, attemptId: string) {
   const db = await getDb();
-  return db.select().from(chatMessages).where(eq(chatMessages.attemptId, attemptId)).orderBy(chatMessages.createdAt);
+  return db
+    .select()
+    .from(chatMessages)
+    .where(and(eq(chatMessages.attemptId, attemptId), eq(chatMessages.userId, userId)))
+    .orderBy(chatMessages.createdAt);
 }
 
 export async function createDrill(userId: string, input: { attemptId: string | null; ruleId: string; question: Record<string, unknown> }): Promise<DrillRow> {
@@ -196,12 +208,12 @@ export async function getDrill(userId: string, id: string): Promise<DrillRow | n
 
 /** Records the first answer only; a second click on a drill that already has one changes nothing. */
 /** Record the first answer to a drill (a letter, or "spr" with the typed response); later answers are ignored. */
-export async function answerDrill(id: string, picked: Letter | "spr", correct: boolean, response: string | null = null): Promise<void> {
+export async function answerDrill(userId: string, id: string, picked: Letter | "spr", correct: boolean, response: string | null = null): Promise<void> {
   const db = await getDb();
   await db
     .update(drills)
     .set({ picked, correct, response, updatedAt: new Date() })
-    .where(and(eq(drills.id, id), sql`${drills.picked} is null`));
+    .where(and(eq(drills.id, id), eq(drills.userId, userId), sql`${drills.picked} is null`));
 }
 
 export interface RuleStat {

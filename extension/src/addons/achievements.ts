@@ -256,7 +256,11 @@ export function badgeProgress(input: BadgeInput, earned: EarnedBadges): BadgeVie
   });
   const done = views.filter((v) => v.earnedAt !== null).sort((a, b) => (a.earnedAt ?? 0) - (b.earnedAt ?? 0) || a.i - b.i);
   const locked = views.filter((v) => v.earnedAt === null).sort((a, b) => b.value / b.goal - a.value / a.goal || a.i - b.i);
-  return [...done, ...locked].map(({ i: _i, ...v }) => v);
+  return [...done, ...locked].map((v) => {
+    const { i, ...rest } = v;
+    void i;
+    return rest;
+  });
 }
 
 let open = false;

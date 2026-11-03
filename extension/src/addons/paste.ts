@@ -26,6 +26,8 @@ import {
 
 export const PASTE_MAX_EDGE = 1600;
 export const PASTE_MAX_BYTES = 20 * 1024 * 1024;
+/** Bigger files are always re-encoded through the canvas, never sent as their original bytes. */
+export const PASSTHROUGH_MAX_BYTES = 2 * 1024 * 1024;
 export const PASTE_TEXTAREA_ID = "rc-paste-text";
 export const ACCEPTED_IMAGE_TYPES: readonly string[] = ["image/png", "image/jpeg"];
 
@@ -118,7 +120,7 @@ export async function imageFileToDataUrl(file: Blob, max = PASTE_MAX_EDGE): Prom
     if (!fit.width) throw new Error("That image is empty. Choose another screenshot.");
     const type = file.type === "image/jpeg" ? "image/jpeg" : "image/png";
     // Small enough already: send the original bytes.
-    if (fit.scale === 1 && file.type === type) return await blobToDataUrl(file);
+    if (fit.scale === 1 && file.type === type && file.size <= PASSTHROUGH_MAX_BYTES) return await blobToDataUrl(file);
     const canvas = new OffscreenCanvas(fit.width, fit.height);
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas not available");
