@@ -3,17 +3,17 @@
 Everything else is done: the web app is live at https://rulecard.vercel.app, the server uses only the free
 Vercel AI Gateway, and every file below is in this `store/` folder.
 
-## 1. Revoke the old Anthropic key (5 minutes, do this first)
+## 1. The old Anthropic key: done (disconnected, not deleted)
 
-Rulecard can no longer use it (the value stored in Vercel was wiped and the server blocks paid providers),
-but revoking it guarantees nothing anywhere can be billed.
+Rulecard cannot use it: the value stored in Vercel was wiped, `AI_DISABLED_PROVIDERS=openai,anthropic`
+blocks paid providers even if a value were set, and no copy exists in the repo. The key stays alive at
+Anthropic for your other projects. If you ever want it fully revoked: https://console.anthropic.com →
+Settings → API Keys → Delete.
 
-1. Go to https://console.anthropic.com and sign in.
-2. Open **Settings → API Keys**.
-3. Find the key you made for Rulecard and click **Delete** (or **Disable**).
-4. Optional: in **Settings → Billing**, turn off auto-reload.
+## 2. Upload the extension: done (0.6.1 uploaded 2026-11-03, store id `lhkjgpalkmpbpholdakoejpkhghplidi`)
 
-## 2. Upload the extension (10 minutes)
+`EXTENSION_IDS` in Vercel is set to that id, so only the store build can call the API from an extension.
+For the next version:
 
 Material: `rulecard-extension-0.6.1.zip`
 
@@ -59,14 +59,14 @@ Visibility **Unlisted** first (share by link while you check it) or **Public**; 
 Click **Submit for review** (top right). Reviews usually take 1 to 3 days; Google emails you the result.
 After approval, Chrome updates installed copies automatically within a few hours.
 
-## 7. Before going Public
+## 7. Before going Public: done
 
-Read College Board's Question Bank terms of use. Each account stores the questions it captures, so check
-that a public listing is fine, or keep it Unlisted.
+You checked College Board's Question Bank terms on 2026-11-03 and capturing is allowed, so Public is fine.
 
 ## Optional
 
-- Try 0.6.1 before Google approves it: unzip `rulecard-extension-0.6.1.zip`, open `chrome://extensions`,
-  turn on **Developer mode**, click **Load unpacked**, pick the unzipped folder.
+- Try a build before Google approves it: unzip it, open `chrome://extensions`, turn on **Developer mode**,
+  click **Load unpacked**, pick the unzipped folder. An unpacked copy has a different id, so add that id to
+  `EXTENSION_IDS` in Vercel (comma separated) and redeploy, or the browser will refuse its API calls.
 - Claim your pre-accounts history: create your account with the old passcode (the `APP_PASSCODE` value in
   Vercel → rulecard → Settings → Environment Variables) in the "Used Rulecard with a passcode before?" box.
