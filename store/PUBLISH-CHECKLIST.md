@@ -1,4 +1,4 @@
-# Publishing Rulecard 0.6.1: your checklist
+# Publishing Rulecard 0.6.2: your checklist
 
 Everything else is done: the web app is live at https://rulecard.vercel.app, the server uses only the free
 Vercel AI Gateway, and every file below is in this `store/` folder.
@@ -10,18 +10,20 @@ blocks paid providers even if a value were set, and no copy exists in the repo. 
 Anthropic for your other projects. If you ever want it fully revoked: https://console.anthropic.com →
 Settings → API Keys → Delete.
 
-## 2. Upload the extension: done (0.6.1 uploaded 2026-11-03, store id `lhkjgpalkmpbpholdakoejpkhghplidi`)
+## 2. Upload the extension: 0.6.2 is the one to upload (store id `lhkjgpalkmpbpholdakoejpkhghplidi`)
 
-`EXTENSION_IDS` in Vercel is set to that id, so only the store build can call the API from an extension.
-For the next version:
+0.6.1 went up on 2026-11-03; 0.6.2 fixes capture on sites other than the Question Bank (Chrome now asks
+once per site instead of needing a toolbar-icon click). If 0.6.1 is still "pending review", open the item,
+cancel the pending review if the dashboard asks, then upload the new package. `EXTENSION_IDS` in Vercel is
+set to the store id, so only the store build can call the API from an extension.
 
-Material: `rulecard-extension-0.6.1.zip`
+Material: `rulecard-extension-0.6.2.zip`
 
 1. Go to https://chrome.google.com/webstore/devconsole and sign in with your Google account.
    - First time only: accept the developer agreement and pay the one-time $5 registration fee.
 2. **If Rulecard is already listed (any status):** click **Rulecard → Package → Upload new package**, choose
-   `rulecard-extension-0.6.1.zip`, and confirm. The version must read 0.6.1.
-3. **If this is the first upload:** click **+ New item**, choose `rulecard-extension-0.6.1.zip`, then fill the
+   `rulecard-extension-0.6.2.zip`, and confirm. The version must read 0.6.2.
+3. **If this is the first upload:** click **+ New item**, choose `rulecard-extension-0.6.2.zip`, then fill the
    tabs in steps 3 to 5.
 
 ## 3. Store listing tab
