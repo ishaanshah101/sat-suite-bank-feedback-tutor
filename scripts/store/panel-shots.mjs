@@ -103,7 +103,7 @@ const recent = [
   const json = (route, body) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   await context.route("https://rulecard.vercel.app/**", async (route) => {
     const p = new URL(route.request().url()).pathname;
-    if (p === "/api/health") return json(route, { ok: true, version: "0.6.1", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
+    if (p === "/api/health") return json(route, { ok: true, version: "0.6.2", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
     if (p === "/api/attempts") return json(route, { attempts: recent });
     const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : rwQuestion;
     if (p === "/api/extract") return json(route, { question: q, provider: "anthropic", model: "x" });

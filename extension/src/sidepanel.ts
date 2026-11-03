@@ -1,5 +1,6 @@
 import { ApiError, authenticate, DEFAULT_SERVER, loadSettings, normalizeServer, request, saveSettings, streamChat, webLink } from "./api";
 import { downscale } from "./image";
+import { siteHost, sitePattern } from "./site";
 import { renderMathHtml } from "../../src/lib/math/render";
 import { parseSprEntry } from "../../src/lib/questions/spr";
 import {
@@ -34,6 +35,8 @@ interface State {
   capturing: boolean;
   captureError: string | null;
   needsAllSites: boolean;
+  /** Match pattern of the site Chrome refused to let us read, when a one-click grant would fix it. */
+  needsSite: string | null;
   question: Question | null;
   picked: Pick | null;
   allowSolve: boolean;
@@ -58,6 +61,7 @@ const state: State = {
   capturing: false,
   captureError: null,
   needsAllSites: false,
+  needsSite: null,
   question: null,
   picked: null,
   allowSolve: false,
@@ -414,13 +418,17 @@ function renderCapture(): Node {
   const hint = state.shortcut ? ["or press ", h("kbd", { text: state.shortcut })] : ["(set a shortcut at chrome://extensions/shortcuts)"];
   const children: Child[] = [
     h("button", { class: "btn primary big", disabled: state.capturing, onclick: () => void capture() }, state.capturing ? spinner() : null, state.capturing ? (addons.isCropping() ? "Crop below, then send" : "Reading the question...") : state.question ? "Capture again" : "Capture this tab"),
-    h("p", { class: "muted small" }, "On the Question Bank tab, click the Rulecard toolbar icon once (that is Chrome's permission to read the tab), reveal the answer, then click Capture ", ...hint, "."),
+    h("p", { class: "muted small" }, "Reveal the answer on the Question Bank page, then click Capture ", ...hint, ". On any other site Chrome asks once whether Rulecard may read it."),
   ];
   if (state.health && !state.health.ai.live && !state.health.ai.stub && state.health.ai.configured.length === 0) {
     children.push(h("div", { class: "banner warn" }, "The server has no AI key yet, so capture will fail until you add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel. ", link(`${state.settings.server}/health`, "Status page")));
   }
   children.push(...addons.renderInCapture());
   if (state.captureError) children.push(h("div", { class: "banner danger", role: "alert", text: state.captureError }));
+  if (state.needsSite) {
+    const site = state.needsSite;
+    children.push(h("button", { class: "btn primary", onclick: () => void allowSite(site) }, `Allow Rulecard on ${siteHost(site)}`));
+  }
   if (state.needsAllSites) {
     children.push(h("button", { class: "btn", onclick: () => void allowAllSites() }, "Allow capturing on all sites (no icon click needed)"));
   }
@@ -860,6 +868,7 @@ async function capture() {
   state.capturing = true;
   state.captureError = null;
   state.needsAllSites = false;
+  state.needsSite = null;
   render();
   await serialCapture(captureInner);
 }
@@ -873,19 +882,7 @@ async function captureInner() {
       await processImage(textImage);
       return;
     }
-    let raw: string;
-    try {
-      raw = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (/permission|activeTab|all_urls/i.test(message)) {
-        state.needsAllSites = true;
-        throw new Error(
-          "Chrome only lets Rulecard read a tab after you click the Rulecard toolbar icon on that tab (or press the shortcut there). Click the icon on the Question Bank tab, then Capture again. Or allow all sites below, once.",
-        );
-      }
-      throw error;
-    }
+    const raw = await captureVisible(tab);
     const image = await addons.transformImage(await downscale(raw));
     if (!image) return;
     await processImage(image);
@@ -894,6 +891,50 @@ async function captureInner() {
     state.captureError = describe(error);
   } finally {
     state.capturing = false;
+    render();
+  }
+}
+
+/**
+ * Screenshot the tab. Chrome allows that on the Question Bank (host permission), on any site whose
+ * toolbar icon was clicked (activeTab), and on sites the user granted. Anywhere else it refuses, so we
+ * ask for that one site while the Capture click still counts as a user gesture, then try once more.
+ * If the gesture has expired or the user said no, the panel shows an "Allow Rulecard on <site>" button.
+ */
+async function captureVisible(tab: chrome.tabs.Tab): Promise<string> {
+  try {
+    return await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/permission|activeTab|all_urls/i.test(message)) throw error;
+    const site = sitePattern(tab.url);
+    if (site) {
+      const granted = await chrome.permissions.request({ origins: [site] }).catch(() => false);
+      if (granted) return await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+    }
+    state.needsSite = site;
+    state.needsAllSites = true;
+    throw new Error(
+      site
+        ? `Chrome hasn't let Rulecard read ${siteHost(site)} yet. Click "Allow Rulecard on ${siteHost(site)}" below (once), or click the Rulecard toolbar icon on that tab and then Capture again.`
+        : "Chrome cannot read this kind of page (browser pages, files, the Web Store). Switch to the Question Bank tab, then Capture again.",
+    );
+  }
+}
+
+/** The "Allow Rulecard on <site>" button: a direct click, so Chrome always shows its prompt. */
+async function allowSite(site: string) {
+  try {
+    const granted = await chrome.permissions.request({ origins: [site] });
+    if (granted) {
+      state.needsSite = null;
+      state.needsAllSites = false;
+      state.captureError = null;
+      render();
+      await capture();
+    }
+  } catch (error) {
+    state.captureError = describe(error);
     render();
   }
 }
@@ -911,6 +952,7 @@ async function allowAllSites() {
     const granted = await chrome.permissions.request({ origins: ["<all_urls>"] });
     if (granted) {
       state.needsAllSites = false;
+      state.needsSite = null;
       state.captureError = null;
       render();
       await capture();

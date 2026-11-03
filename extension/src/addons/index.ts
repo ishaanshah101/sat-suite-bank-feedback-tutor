@@ -1194,7 +1194,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
         s.allSites
           ? h("div", { class: "rc-toggle" },
             h("button", { class: "btn small", text: "Stop capturing on all sites", onclick: () => void dropAllSites() }),
-            h("span", { class: "muted small", text: "Rulecard can read any tab right now. Afterwards, click its toolbar icon on the Question Bank tab first." }))
+            h("span", { class: "muted small", text: "Rulecard can read any tab right now. Afterwards, the Question Bank still works and other sites ask once." }))
           : null,
       ),
       h("section", null, h("h2", { text: "Practice" }),
