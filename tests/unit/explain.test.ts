@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hasKnownAnswer, sanitizeRuleCard, usableModelAnswer } from "@/lib/ai/explain";
-import { isPickCorrect } from "@/lib/ai/prompts";
+import { cardModeFor, explainInstructions, isPickCorrect } from "@/lib/ai/prompts";
 import type { QuestionRow } from "@/db/schema";
 import { RuleCardSchema, type RuleCard } from "@/lib/ai/schemas";
 
@@ -31,6 +31,9 @@ const question: QuestionRow = {
 const card: RuleCard = {
   rule_id: "bnd-01",
   rule_statement: "s",
+  key_rules: [],
+  simple_explanation: null,
+  mode: "explained",
   correct_letter: "C",
   correct_answer: null,
   why_correct: "w",
@@ -185,5 +188,53 @@ describe("grading", () => {
     expect(parsed.steps).toEqual([]);
     expect(parsed.shortcut).toBeNull();
     expect(parsed.correct_answer).toBeNull();
+  });
+});
+
+describe("the two card modes", () => {
+  const withRationale: QuestionRow = { ...question, rationale: "Choice B is the best answer. A semicolon joins two independent clauses." };
+
+  it("translates when the PDF has the official answer and rationale, explains otherwise", () => {
+    expect(cardModeFor(withRationale)).toBe("translated");
+    expect(cardModeFor(question)).toBe("explained");
+    expect(cardModeFor({ ...withRationale, correct: null })).toBe("explained");
+    expect(cardModeFor({ ...withRationale, answerSource: "model" })).toBe("explained");
+    expect(cardModeFor({ ...gridIn, rationale: "The correct answer is 3/17." })).toBe("translated");
+    expect(cardModeFor({ ...gridIn, answers: null, rationale: "x" })).toBe("explained");
+  });
+
+  it("a translated card keeps 1 to 3 clean bullets and never adds its own explanation", () => {
+    const out = sanitizeRuleCard(
+      { ...card, key_rules: ["- Rule one.", "Rule one.", "", "  2) Rule two  ", "Rule three.", "Rule four."], simple_explanation: "extra" },
+      withRationale,
+      "A",
+      false,
+    );
+    expect(out.mode).toBe("translated");
+    expect(out.key_rules).toEqual(["Rule one.", "Rule two", "Rule three."]);
+    expect(out.simple_explanation).toBeNull();
+  });
+
+  it("an explained card always has a simple explanation and at least one rule", () => {
+    const out = sanitizeRuleCard({ ...card, key_rules: [], simple_explanation: "  " }, question, "A", false);
+    expect(out.mode).toBe("explained");
+    expect(out.key_rules).toEqual([out.rule_statement]);
+    expect(out.simple_explanation).toBe(card.why_correct);
+  });
+
+  it("the prompt names the job for each mode", () => {
+    expect(explainInstructions([], false, withRationale)).toMatch(/TRANSLATES College Board's official rationale/);
+    expect(explainInstructions([], false, withRationale)).toMatch(/simple_explanation: always null/);
+    expect(explainInstructions([], true, { ...question, correct: null })).toMatch(/EXPLAINS the question simply/);
+  });
+
+  it("old stored cards without the new fields still parse", () => {
+    const old: Record<string, unknown> = { ...card };
+    delete old.key_rules;
+    delete old.simple_explanation;
+    delete old.mode;
+    const parsed = RuleCardSchema.parse(old);
+    expect(parsed.key_rules).toEqual([]);
+    expect(parsed.mode).toBe("explained");
   });
 });

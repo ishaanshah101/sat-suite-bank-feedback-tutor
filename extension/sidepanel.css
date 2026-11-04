@@ -129,3 +129,78 @@ math[display="block"] { margin: 4px 0; }
 .rc-tabbtn.active .rc-tabcount { background: #fff; color: var(--accent); }
 .rc-tabdot { position: absolute; top: 4px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 @media (max-width: 300px) { .rc-tabbtn { font-size: 11px; } }
+
+/* Question Bank PDF: the list of questions in the opened export. */
+.pdf-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.pdf-list li + li {
+  border-top: 1px solid var(--line);
+}
+.pdf-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.pdf-item:hover:not(:disabled) {
+  background: var(--bg);
+}
+.pdf-item.on {
+  background: var(--accent-soft, #e8eefc);
+  font-weight: 600;
+}
+.pdf-item:disabled {
+  cursor: progress;
+}
+.pdf-num {
+  min-width: 1.6em;
+  color: var(--muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
+.pdf-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.key-rules {
+  margin: 4px 0 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.key-rules li {
+  line-height: 1.45;
+}
+details.more > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+}
+details.more[open] > summary {
+  margin-bottom: 8px;
+}
+.answer-line {
+  font-size: 15px;
+}
+.simple-explanation p {
+  margin: 4px 0 0;
+  line-height: 1.5;
+}

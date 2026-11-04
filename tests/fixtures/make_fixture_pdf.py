@@ -39,6 +39,45 @@ QUESTIONS = [
 ]
 
 
+# November 2026 export layout: a Standard ID column, and the choices under the "Answer" heading.
+QUESTIONS_2026 = [
+    [
+        "Question ID: 22a41819",
+        "Assessment Test Domain Skill Difficulty Standard ID",
+        "SAT Reading and Craft and Words in Context Hard California",
+        "Writing Structure L.11-12.3 L.11-12.4",
+        "Question",
+        "Rejecting the premise that the literary magazine Ebony and Topaz (1927) should present a unified",
+        "vision of Black American identity, editor Charles S. Johnson fostered his contributors' diverse",
+        "perspectives. Johnson diverged from Du Bois and Locke, whose decisions were more ______.",
+        "Which choice completes the text with the most logical and precise word or phrase?",
+        "Answer",
+        "A. proficient",
+        "B. dogmatic",
+        "C. ambiguous",
+        "D. unpretentious",
+        "Correct Answer: B",
+        "Rationale",
+        "Choice B is the best answer. A person who is dogmatic believes strongly that their principles are true.",
+        "Choice A is incorrect. Proficient means skilled.",
+    ],
+    [
+        "Question ID: 5b0e9c21",
+        "Assessment Test Domain Skill Difficulty Standard ID",
+        "SAT Reading and Standard English Boundaries Medium California",
+        "Writing Conventions L.11-12.2",
+        "Question",
+        "The museum's new wing opened in March _____ visitors lined up for hours to see it.",
+        "Which choice completes the text so that it conforms to the conventions of Standard English?",
+        "Answer",
+        "A. March,",
+        "B. March;",
+        "C. March",
+        "D. March, and,",
+    ],
+]
+
+
 def esc(s):
     return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
@@ -53,7 +92,8 @@ def page_stream(lines):
     return "\n".join(ops).encode("latin-1")
 
 
-def build(out_path):
+def build(out_path, questions=None):
+    questions = QUESTIONS if questions is None else questions
     objects = []  # list of bytes
     def add(obj):
         objects.append(obj)
@@ -64,7 +104,7 @@ def build(out_path):
     pages_id_placeholder = None
     # reserve pages object index
     pages_index = add(b"PLACEHOLDER")
-    for q in QUESTIONS:
+    for q in questions:
         stream = page_stream(q)
         cid = add(b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream")
         pid = add(
@@ -90,4 +130,7 @@ def build(out_path):
 
 
 if __name__ == "__main__":
-    build(sys.argv[1] if len(sys.argv) > 1 else "tests/fixtures/qb-export.pdf")
+    if len(sys.argv) > 1 and sys.argv[1] == "--2026":
+        build(sys.argv[2] if len(sys.argv) > 2 else "tests/fixtures/qb-export-2026.pdf", QUESTIONS_2026)
+    else:
+        build(sys.argv[1] if len(sys.argv) > 1 else "tests/fixtures/qb-export.pdf")

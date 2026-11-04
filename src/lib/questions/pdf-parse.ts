@@ -265,6 +265,10 @@ function parseBlock(lines: Line[], id: string): ParsedPdfQuestion {
     if (t) bodyLines.push(t);
   }
 
+  // Newer exports print the choices under an "Answer" heading, before "Correct Answer:". Step over the
+  // heading when choice A follows it, so the choices are read instead of ending the question there.
+  if (i < texts.length && squash(texts[i]) === "answer" && texts[i + 1] !== undefined && /^A\s*\.\s*/.test(texts[i + 1]) && startsChoices(texts, i + 1)) i++;
+
   // Choices: A to D, each possibly wrapping onto following lines.
   const choices: Partial<Record<Letter, string>> = {};
   const order: Letter[] = ["A", "B", "C", "D"];

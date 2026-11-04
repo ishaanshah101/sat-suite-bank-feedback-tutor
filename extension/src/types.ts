@@ -37,6 +37,12 @@ export interface Question {
 export interface RuleCard {
   rule_id: string;
   rule_statement: string;
+  /** 1 to 3 rule bullets: the point of the card. Missing on cards saved before 0.7.0. */
+  key_rules?: string[];
+  /** "explained" cards only: the question explained simply. */
+  simple_explanation?: string | null;
+  /** "translated": the official rationale turned into rules. "explained": no official explanation, so a simple one. */
+  mode?: "translated" | "explained";
   correct_letter: Letter | null;
   correct_answer: string | null;
   why_correct: string;

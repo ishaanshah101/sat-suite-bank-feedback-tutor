@@ -73,10 +73,26 @@ export type ExtractionOutput = z.infer<typeof ExtractionOutputSchema>;
 
 const DiagnosisSchema = z.enum(["misread", "rule_gap", "careless", "got_it_right", "unknown"]);
 
+/**
+ * The two things a card does, decided by code from the question, never by the model:
+ * - "translated": the PDF carries the official answer and College Board's rationale. The card turns that
+ *   long rationale into the 1 to 3 rules the student needs, and nothing else.
+ * - "explained": no official explanation (or no answer at all). The card explains the question simply,
+ *   then gives the same 1 to 3 rules.
+ */
+export const CardModeSchema = z.enum(["translated", "explained"]);
+export type CardMode = z.infer<typeof CardModeSchema>;
+/** At most this many rule bullets on a card. */
+export const MAX_KEY_RULES = 3;
+
 /** What the model returns for a rule card (every field required, for strict structured output). */
 export const RuleCardOutputSchema = z.object({
   rule_id: z.string(),
   rule_statement: z.string(),
+  /** The heart of the card: 1 to 3 short rules, one per bullet, that get this question (and ones like it) right. */
+  key_rules: z.array(z.string()),
+  /** "explained" mode only: the question explained simply in a few plain sentences. Null when translating. */
+  simple_explanation: z.string().nullable(),
   /** Multiple choice: the correct letter. Null for a grid-in question. */
   correct_letter: LetterSchema.nullable(),
   /** Grid-in: the correct value as a student would enter it. Null for multiple choice. */
@@ -97,6 +113,10 @@ export const RuleCardOutputSchema = z.object({
 
 /** A stored rule card. Cards saved before Math support lack the newer fields, so they default. */
 export const RuleCardSchema = RuleCardOutputSchema.extend({
+  key_rules: z.array(z.string()).default([]),
+  simple_explanation: z.string().nullable().default(null),
+  /** Set by the server. Cards saved before the two modes existed read as "explained". */
+  mode: CardModeSchema.default("explained"),
   correct_letter: LetterSchema.nullable().default(null),
   correct_answer: z.string().nullable().default(null),
   steps: z.array(z.string()).default([]),

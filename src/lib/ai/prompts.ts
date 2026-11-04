@@ -2,7 +2,8 @@ import type { Rule } from "@/content/rules";
 import { formatRulesForPrompt } from "@/content/rules";
 import type { QuestionRow } from "@/db/schema";
 import { displayAnswer, isSprCorrect } from "@/lib/questions/spr";
-import type { Letter, Pick, RuleCard } from "./schemas";
+import type { CardMode, Letter, Pick, RuleCard } from "./schemas";
+import { MAX_KEY_RULES } from "./schemas";
 
 export const EXTRACT_INSTRUCTIONS = `You extract Digital SAT questions (Reading and Writing, or Math) from College Board's SAT Suite Question Bank into structured data.
 
@@ -58,11 +59,34 @@ export function describeQuestion(question: QuestionRow): string {
   } else {
     lines.push("Correct answer: unknown");
   }
-  if (question.rationale) lines.push(`Official rationale (long, use only as a fact check):\n${question.rationale}`);
+  if (question.rationale) lines.push(`Official College Board rationale:\n${question.rationale}`);
   return lines.join("\n\n");
 }
 
-export function explainInstructions(rules: Rule[], mustSolve: boolean, question: QuestionRow): string {
+/**
+ * Which of the two jobs this card does. "translated" needs the official answer and the official rationale
+ * from the PDF; anything less (no rationale, no answer, or an answer the model worked out) is "explained".
+ */
+export function cardModeFor(question: { rationale: QuestionRow["rationale"]; correct: QuestionRow["correct"]; answers: QuestionRow["answers"]; format: QuestionRow["format"]; answerSource: QuestionRow["answerSource"] }): CardMode {
+  const official = question.answerSource !== "model";
+  const known = question.format === "spr" ? Boolean(question.answers?.length) : Boolean(question.correct);
+  return question.rationale?.trim() && known && official ? "translated" : "explained";
+}
+
+/** The part of the instructions that fixes what the card is for. */
+function modeInstructions(mode: CardMode, math: boolean): string {
+  const bullets = `key_rules: 1 to ${MAX_KEY_RULES} bullet points, the rules the student must know to get this question and others like it right. Usually 1 or 2; 3 only when the question truly needs three. Each bullet is one plain sentence of at most 25 words: say the rule in general terms, then how it decides this question (for example "A semicolon joins two complete sentences, so 'March; visitors' is the only clean join."). No bullet repeats another. No hedging, no "remember to", no restating the passage.`;
+  if (mode === "translated") {
+    return `This card TRANSLATES College Board's official rationale. The rationale is correct but long and confusing; the student wants only the rules hidden in it.
+- ${bullets} Build every bullet from what the official rationale says. Do not add claims it does not support${math ? ", and keep its method" : ""}.
+- simple_explanation: always null for this card.`;
+  }
+  return `This card EXPLAINS the question simply, because there is no official explanation to translate.
+- simple_explanation: at most three short sentences in everyday words: what the question is really asking, and why the correct answer fits. No jargon unless a bullet defines it.
+- ${bullets}`;
+}
+
+export function explainInstructions(rules: Rule[], mustSolve: boolean, question: QuestionRow, mode: CardMode = cardModeFor(question)): string {
   const math = isMath(question);
   const gridIn = isGridIn(question);
   const answerLine = gridIn
@@ -81,7 +105,10 @@ export function explainInstructions(rules: Rule[], mustSolve: boolean, question:
 - shortcut: always null for Reading and Writing.`;
   return `You are Rulecard, a tutor for ${subject}. A student answered a Question Bank question and tells you what they picked${gridIn ? " (they typed a grid-in answer)" : ""} and, sometimes, their thinking. Produce a rule card as structured output.
 
-Principles:
+What this card is for (the most important part):
+${modeInstructions(mode, math)}
+
+Other fields:
 - Lead with the rule. Exactly one rule from the library below is the rule this question tests. Put its id in rule_id and a one-sentence version of it, applied to this question, in rule_statement. If no library rule fits, use the closest general rule (${math ? "MTH" : "GEN"}) and put a short name for the missing rule in suggested_rule (otherwise null).
 - why_correct: at most two sentences on why the correct answer follows from the rule.
 - why_pick_fails: at most two sentences on exactly why the student's answer is wrong, naming the specific trap or slip${math ? " (for example a sign error, solving for the wrong quantity, using the diameter as the radius)" : ""}. If the student was right, set it to null.

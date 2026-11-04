@@ -1,36 +1,3 @@
-// extension/src/image.ts
-var MAX_LONG_EDGE = 1568;
-var PNG_BUDGET_BYTES = 26e5;
-async function blobToDataUrl(blob) {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = "";
-  const chunk = 32768;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return `data:${blob.type};base64,${btoa(binary)}`;
-}
-async function downscale(dataUrl, maxEdge = MAX_LONG_EDGE) {
-  const blob = await (await fetch(dataUrl)).blob();
-  const bitmap = await createImageBitmap(blob);
-  try {
-    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = new OffscreenCanvas(width, height);
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas not available");
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = "high";
-    context.drawImage(bitmap, 0, 0, width, height);
-    let out = await canvas.convertToBlob({ type: "image/png" });
-    if (out.size > PNG_BUDGET_BYTES) out = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.92 });
-    return blobToDataUrl(out);
-  } finally {
-    bitmap.close();
-  }
-}
-
 // extension/src/addons/types.ts
 function choicesOf(c) {
   return { A: c?.A ?? "", B: c?.B ?? "", C: c?.C ?? "", D: c?.D ?? "" };
@@ -238,92 +205,6 @@ async function readPrefs() {
   return sanitizePrefs(await kv().get(KEYS.prefs));
 }
 
-// extension/src/addons/qbtext.ts
-function loose(phrase) {
-  return phrase.split("").map((c) => c === " " ? "\\s*" : c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*").join("");
-}
-var RE_QID = new RegExp(`${loose("Question ID")}\\s*:?\\s*((?:[0-9a-fA-F] ?){7}[0-9a-fA-F])(?![0-9A-Za-z])`, "i");
-var RE_QID_ANY = new RegExp(`${loose("Question ID")}\\s*:?\\s*([A-Za-z0-9-]{6,})`, "i");
-var RE_CORRECT = new RegExp(`${loose("Correct Answer")}\\s*:?\\s*\\(?([A-D])\\)?(?![A-Za-z])`, "i");
-var RE_RATIONALE = new RegExp(`^\\s*${loose("Rationale")}\\s*$`, "im");
-var RE_STOP = new RegExp(`^(${loose("Correct Answer")}|${loose("Rationale")}|${loose("Question Difficulty")})`, "i");
-var RE_ANSWER_LABEL = new RegExp(`^${loose("Answer")}$`, "i");
-var RE_QUESTION_LABEL = new RegExp(`^${loose("Question")}$`, "i");
-var QB_HOSTS = ["satsuitequestionbank.collegeboard.org", "satsuiteeducatorquestionbank.collegeboard.org"];
-
-// extension/src/addons/selection-bg.ts
-var SELECTION_MENU_ID = "rulecard-explain-selection";
-var SELECTION_MENU_TITLE = "Explain this question with Rulecard";
-var PENDING_SELECTION_KEY = "rc.addons.pendingSelection.v1";
-var SELECTION_MAX_CHARS = 6e3;
-var PAGE_READ_TIMEOUT_MS = 1500;
-var squash = (s) => s.replace(/\s+/g, "");
-function pickSelectionText(menuText, pageText) {
-  const menu = (menuText ?? "").trim();
-  const page = (pageText ?? "").trim();
-  if (!page) return menu;
-  if (!menu) return page;
-  const a = squash(menu);
-  const b = squash(page);
-  const n = Math.min(a.length, b.length, 200);
-  return a.slice(0, n) === b.slice(0, n) && b.length >= a.length * 0.9 ? page : menu;
-}
-function pendingFromClick(text, info, tab, now) {
-  const clean = text.replace(/\r\n?/g, "\n").trim();
-  return {
-    text: clean.length > SELECTION_MAX_CHARS ? clean.slice(0, SELECTION_MAX_CHARS) : clean,
-    url: info.pageUrl || tab?.url || info.frameUrl || null,
-    at: now,
-    windowId: typeof tab?.windowId === "number" && tab.windowId >= 0 ? tab.windowId : null
-  };
-}
-function selectionInPage() {
-  const text = getSelection()?.toString() ?? "";
-  if (text.trim()) return text;
-  const el = document.activeElement;
-  if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
-    return el.value.slice(el.selectionStart ?? 0, el.selectionEnd ?? 0);
-  }
-  return "";
-}
-async function readPageSelection(tabId, frameId) {
-  if (typeof chrome.scripting?.executeScript !== "function") return "";
-  const timeout = new Promise((resolve) => setTimeout(() => resolve(null), PAGE_READ_TIMEOUT_MS));
-  try {
-    const results = await Promise.race([
-      chrome.scripting.executeScript({ target: { tabId, frameIds: [frameId ?? 0] }, func: selectionInPage }),
-      timeout
-    ]);
-    const value = results?.[0]?.result;
-    return typeof value === "string" ? value : "";
-  } catch {
-    return "";
-  }
-}
-async function saveSelection(info, tab, at) {
-  const fromPage = tab?.id !== void 0 && tab.id >= 0 ? await readPageSelection(tab.id, info.frameId) : "";
-  const pending = pendingFromClick(pickSelectionText(info.selectionText, fromPage), info, tab, at);
-  await chrome.storage.session.set({ [PENDING_SELECTION_KEY]: pending }).catch(() => void 0);
-}
-function createSelectionMenu() {
-  chrome.contextMenus.remove(SELECTION_MENU_ID, () => {
-    void chrome.runtime.lastError;
-    chrome.contextMenus.create(
-      { id: SELECTION_MENU_ID, title: SELECTION_MENU_TITLE, contexts: ["selection"] },
-      () => void chrome.runtime.lastError
-    );
-  });
-}
-function installSelectionCapture() {
-  chrome.runtime.onInstalled.addListener(() => createSelectionMenu());
-  chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId !== SELECTION_MENU_ID) return;
-    const at = Date.now();
-    if (tab && tab.windowId >= 0) void chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => void 0);
-    void saveSelection(info, tab, at);
-  });
-}
-
 // extension/src/addons/srs.ts
 var INTERVAL_DAYS = [0, 1, 2, 4, 8, 16, 32];
 var MAX_BOX = INTERVAL_DAYS.length - 1;
@@ -352,7 +233,6 @@ function dayKey(ts) {
 }
 
 // extension/src/addons/background.ts
-var MENU_ID = "rulecard-capture";
 var BADGE_ALARM = "rulecard-badge";
 var REMINDER_ALARM = "rulecard-reminder";
 var QB_URL = "https://satsuitequestionbank.collegeboard.org/digital/search";
@@ -390,16 +270,8 @@ async function maybeRemind() {
     priority: 0
   });
 }
-function installBackgroundAddons(host) {
+function installBackgroundAddons() {
   chrome.runtime.onInstalled.addListener((details) => {
-    chrome.contextMenus.removeAll(() => {
-      chrome.contextMenus.create({
-        id: MENU_ID,
-        title: "Capture this question with Rulecard",
-        contexts: ["page", "selection", "image", "frame"],
-        documentUrlPatterns: QB_HOSTS.map((host2) => `https://${host2}/*`)
-      });
-    });
     chrome.alarms.create(BADGE_ALARM, { periodInMinutes: 30 });
     void refreshBadge();
     void scheduleReminder();
@@ -408,9 +280,6 @@ function installBackgroundAddons(host) {
   chrome.runtime.onStartup.addListener(() => {
     void refreshBadge();
     void scheduleReminder();
-  });
-  chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === MENU_ID && tab) host.captureTab(tab);
   });
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === BADGE_ALARM) void refreshBadge();
@@ -433,7 +302,6 @@ function installBackgroundAddons(host) {
   };
   hookNotificationClick();
   chrome.permissions.onAdded.addListener(() => hookNotificationClick());
-  installSelectionCapture();
 }
 
 // extension/src/background.ts
@@ -442,23 +310,4 @@ var openOnClick = () => {
 };
 chrome.runtime.onInstalled.addListener(openOnClick);
 chrome.runtime.onStartup.addListener(openOnClick);
-function captureTab(tab) {
-  const windowId = tab.windowId;
-  if (windowId === void 0) return;
-  void chrome.sidePanel.open({ windowId }).catch(() => void 0);
-  void (async () => {
-    let pending;
-    try {
-      const raw = await chrome.tabs.captureVisibleTab(windowId, { format: "png" });
-      pending = { image: await downscale(raw), at: Date.now(), tabTitle: tab.title ?? null };
-    } catch (error) {
-      pending = { error: error instanceof Error ? error.message : String(error), at: Date.now() };
-    }
-    await chrome.storage.session.set({ pendingCapture: pending });
-  })();
-}
-chrome.commands.onCommand.addListener((command, tab) => {
-  if (command !== "capture" || !tab) return;
-  captureTab(tab);
-});
-installBackgroundAddons({ captureTab });
+installBackgroundAddons();

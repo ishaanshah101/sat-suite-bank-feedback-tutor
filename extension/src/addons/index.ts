@@ -8,13 +8,11 @@
 
 import { badgeProgress, badgeToast, renderBadges, syncBadges, writeBadges, type BadgeInput, type EarnedBadges } from "./achievements";
 import { chip, h, spinner } from "./dom";
-import { cropDataUrl, renderCropper } from "./crop";
 import { BACKUP_MAX_BYTES, cardAsText, downloadText, filterScope, openPrintable, parseBackup, stamp, toAnkiCsv, toBackup, toMarkdown, toPrintableHtml, type ExportScope } from "./export";
 import { createDeck, deckCounts, type DeckState } from "./flashcards";
 import { HOTKEY_HELP, installHotkeys, type HotkeyActions } from "./hotkeys";
 import { defaultFilter, renderJournal, type JournalFilter } from "./journal";
 import { clearLog, entryFromExplain, importEntries, readLog, recordAttempt, recordDrill, updateEntry, type LogEntry, type SelfConfidence } from "./log";
-import { createPastePanel } from "./paste";
 import {
   answerQuiz, createQuiz, currentAnswer, currentQuestion, finishQuiz, isFinished, nextQuiz, parseExport, previewOf, QUIZ_KEY, quizKey, quizProgress,
   quizSummary, readQuizStore, recordResult, resumeQuiz, retryMisses, saveActive, skipQuiz, toParsedQB, writeQuizStore,
@@ -25,11 +23,9 @@ import { buildPlan, renderPlan } from "./plan";
 import { pressPracticeKey, renderFlashcards, renderPracticeEntry, renderRedo, type PracticeHandlers, type PracticeMode } from "./practice-ui";
 import { DEFAULT_PREFS, readPrefs, writePrefs, type Prefs } from "./prefs";
 import { renderProgress } from "./progress";
-import { crossCheck, isQuestionBankUrl, readQuestionBankPage, type PageRead } from "./qbtext";
 import { createRedo, readRedo, recordRedo, REDO_KEY, redoQueue, redoStats, writeRedo, type RedoState, type RedoStore } from "./redo";
 import { buildWeeklyReport, renderReportTools } from "./report";
 import { createSeenCheck } from "./seen";
-import { createSelectionCapture, type CaptureHost } from "./selection";
 import { renderSkillMap, skillMap } from "./skillmap";
 import { addToSet, emptySets, endSet, readSets, startSet, writeSets, type SetState } from "./sets";
 import { KEYS, kv } from "./store";
@@ -37,10 +33,10 @@ import { downloadDataUrl, renderShareImage } from "./share";
 import { applyAttempt, applyReview, describeDue, dueRules, nextDue, readSrs, rebuildFromLog, writeSrs, type RuleSrs, type SrsState } from "./srs";
 import { countdown, insights, MATH_TARGET_SECONDS, summarize, TARGET_SECONDS, targetSecondsFor, type Summary } from "./stats";
 import { strategyFor } from "./strategies";
-import { canTextCapture, renderQuestionImage } from "./textcapture";
+import { renderQuestionImage } from "./textcapture";
 import { renderTraps, trapReport } from "./traps";
 import { emptyTimer, formatClock, lap, readTimer, renderTimer, writeTimer, type TimerState } from "./timer";
-import { hasChoices, isMathTaxonomy, LETTERS, type AddonContext, type ApiExplainResponse, type ApiPick, type DrillCheckResponse, type ExplainResponse, type Letter, type Question } from "./types";
+import { hasChoices, LETTERS, type AddonContext, type ApiExplainResponse, type ApiPick, type DrillCheckResponse, type ExplainResponse, type Letter, type Question } from "./types";
 import { collectWords, renderWordBank } from "./vocab";
 import { activityModel, renderCalendar } from "./calendar";
 import { errorLogFilename, errorLogRows, toErrorLogCsv, toErrorLogTsv } from "./errorlog";
@@ -50,7 +46,6 @@ import {
 } from "./wordquiz";
 import { renderWordQuiz, renderWordQuizEntry, renderWordQuizResult } from "./wordquiz-ui";
 
-export { cropDataUrl };
 
 /** What the add-ons need to call back into sidepanel.ts. All optional except processImage. */
 export interface HostBridge {
@@ -121,15 +116,6 @@ export const OWNER_KEY = "rc.addons.owner.v1";
 /** Every add-on key, for the wipe when another account signs in. */
 export const ADDON_KEYS: readonly string[] = [...Object.values(KEYS), REDO_KEY, QUIZ_KEY, WORDQUIZ_KEY];
 
-const ALL_URLS = "<all_urls>";
-async function hasAllSites(): Promise<boolean> {
-  try {
-    return typeof chrome !== "undefined" && !!chrome.permissions ? await chrome.permissions.contains({ origins: [ALL_URLS] }) : false;
-  } catch {
-    return false;
-  }
-}
-
 export function createAddons(ctx: AddonContext, host: HostBridge) {
   const s = {
     /** Which tab of the side panel is showing. */
@@ -141,12 +127,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     sets: emptySets() as SetState,
     summary: null as Summary | null,
     review: freshReview(),
-    page: null as (PageRead & { at: number; tabId: number }) | null,
-    pageWarning: null as string | null,
-    captureAnyway: false,
-    checkWarnings: [] as string[],
-    cropping: null as { image: string; resolve: (v: string | null) => void } | null,
-    lastSent: null as { kind: "text" | "screenshot"; image: string } | null,
     confidence: null as SelfConfidence | null,
     journal: defaultFilter() as JournalFilter,
     showHelp: false,
@@ -174,7 +154,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     wordQuiz: null as WordQuizState | null,
     wordQuizN: 10,
     /** Capturing is allowed on every site (the optional <all_urls> grant). Cached: contains() is async. */
-    allSites: false,
   };
   /** Handlers of the practice screen on view, for the hotkeys. */
   let practiceView: { mode: PracticeMode; handlers: PracticeHandlers } | null = null;
@@ -237,7 +216,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       practiceView = null;
       s.wordQuiz = null;
       s.quizEntry = { open: false, text: "", parsed: null };
-      s.lastSent = null;
       wiped = true;
     }
     if (prev !== owner) await kv().set(OWNER_KEY, owner);
@@ -249,14 +227,8 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       await host.settingsReady;
       await claimOwner();
       await load();
-      s.allSites = await hasAllSites();
       applyZoom();
       if (s.prefs.hotkeys) unhook = installHotkeys(hotkeyActions);
-      if (typeof chrome !== "undefined" && chrome.permissions?.onAdded) {
-        const refresh = () => void hasAllSites().then((v) => { s.allSites = v; ctx.rerender(); });
-        chrome.permissions.onAdded.addListener(refresh);
-        chrome.permissions.onRemoved.addListener(refresh);
-      }
     } catch (error) {
       console.error("Rulecard: couldn't load the local study data", error);
       toast("Couldn't load your local study data");
@@ -278,13 +250,12 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     }
   }
 
-  // ---------------------------------------------------------------- capture anywhere
+  // ---------------------------------------------------------------- questions from elsewhere
 
-  // Right-click selections and pasted questions go through the same processImage as a capture.
-  const captureHost: CaptureHost = {
-    processImage: async (image) => {
+  // A miss from the Question Bank export quiz goes through the same processImage as a PDF question.
+  const captureHost = {
+    processImage: async (image: string) => {
       s.fromElsewhere = true;
-      s.lastSent = null;
       try {
         await host.processImage(image);
       } catch (error) {
@@ -292,18 +263,8 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
         throw error;
       }
     },
-    rerender: () => ctx.rerender(),
-    describe: (error) => ctx.describe(error),
   };
-  const selection = createSelectionCapture(captureHost);
-  const paste = createPastePanel(captureHost);
   const seen = createSeenCheck(() => ctx.rerender());
-  // The panel loads its sign-in in boot(). Wait for it (up to 3 s) so a selection saved before the
-  // panel opened goes out with the token.
-  void ready.then(async () => {
-    for (let i = 0; i < 30 && !ctx.settings?.token; i++) await new Promise((r) => setTimeout(r, 100));
-    await selection.start();
-  });
 
   /** Show a tab (and start it at the top). */
   function showTab(tab: PanelTab) {
@@ -348,61 +309,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     ctx.rerender();
   }
 
-  // ---------------------------------------------------------------- capture hooks
-
-  /**
-   * Call at the top of sidepanel.ts capture(), after activeTab(). Returns false when the
-   * capture should NOT go ahead (answer not revealed); a banner with "Capture anyway" is shown.
-   */
-  async function beforeCapture(tab: chrome.tabs.Tab): Promise<boolean> {
-    s.pageWarning = null;
-    s.checkWarnings = [];
-    s.page = null;
-    s.fromElsewhere = false;
-    const wantsPage = s.prefs.pageCheck || s.prefs.textCapture;
-    if (!wantsPage || tab.id === undefined || !isQuestionBankUrl(tab.url)) return true;
-    const read = await readQuestionBankPage(tab.id);
-    if (read) s.page = { ...read, at: Date.now(), tabId: tab.id };
-    if (s.captureAnyway) { s.captureAnyway = false; return true; }
-    // qbtext.ts only reads A to D answers, so a Math or grid-in page never looks revealed. Skip those.
-    const p = read?.parsed;
-    if (s.prefs.pageCheck && p?.qbId && !p.answerRevealed && hasChoices(p.choices) && !isMathTaxonomy(p.domain, p.skill)) {
-      s.pageWarning = `The answer to ${p.qbId} isn't showing yet. Reveal it on the page, then capture. That way the card uses the official answer and you don't spend a capture.`;
-      ctx.rerender();
-      return false;
-    }
-    return true;
-  }
-
-  /**
-   * Call in capture() right after beforeCapture(), BEFORE captureVisibleTab. If it returns an
-   * image, pass it straight to processImage() and skip the screenshot entirely.
-   */
-  async function tryTextCapture(tab: chrome.tabs.Tab): Promise<string | null> {
-    if (!s.prefs.textCapture || tab.id === undefined || !isQuestionBankUrl(tab.url)) return null;
-    let read: PageRead | null = s.page && s.page.tabId === tab.id && Date.now() - s.page.at < 15_000 ? s.page : null;
-    if (!read) read = await readQuestionBankPage(tab.id);
-    // Math goes as a screenshot: the page text loses the equations and figures.
-    if (!read || isMathTaxonomy(read.parsed.domain, read.parsed.skill) || !canTextCapture(read.parsed, read.media)) return null;
-    try {
-      const image = await renderQuestionImage(read.parsed);
-      s.lastSent = { kind: "text", image };
-      return image;
-    } catch {
-      return null;
-    }
-  }
-
-  /** Call right after the downscale in capture()/consumePendingCapture(). Returns null if the user cancels. */
-  async function transformImage(image: string): Promise<string | null> {
-    s.lastSent = { kind: "screenshot", image };
-    if (!s.prefs.cropBeforeSend) return image;
-    return new Promise((resolve) => {
-      s.cropping = { image, resolve };
-      ctx.rerender();
-    });
-  }
-
   /** Call after processImage() succeeds (state.question is set). */
   async function afterExtract(question: Question): Promise<void> {
     // Read it before the first await: the next capture resets it.
@@ -422,22 +328,8 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       }
     }
     s.confidence = null;
-    s.checkWarnings = [];
-    // No cross-check for a selection or a paste (they didn't come from the tab), or for Math, whose
-    // page text (MathJax, figures) won't match the extracted LaTeX.
-    const isMath = question.section === "math" || question.format === "spr" || isMathTaxonomy(question.domain, question.skill);
-    if (s.prefs.pageCheck && s.lastSent?.kind !== "text" && !elsewhere && !isMath) {
-      let page = s.page && Date.now() - s.page.at < 60_000 ? s.page.parsed : null;
-      if (!page) {
-        // keyboard-shortcut path: we didn't pre-read; read now
-        try {
-          const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-          if (tab?.id !== undefined && isQuestionBankUrl(tab.url)) page = (await readQuestionBankPage(tab.id))?.parsed ?? null;
-        } catch { /* ignore */ }
-      }
-      if (page) s.checkWarnings = crossCheck(question, page).warnings;
-    }
-    s.page = null;
+    void elsewhere;
+    void question;
     ctx.rerender();
   }
 
@@ -456,8 +348,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
 
   async function afterExplainInner(data: ExplainResponse | ApiExplainResponse, picked: ApiPick, typed: string | null): Promise<void> {
     const entry = entryFromExplain(data, picked, { seconds: s.prefs.timer ? s.lastSeconds : null, selfConfidence: s.confidence, typed });
-    // The card is written against the server's final answer, so capture-vs-page warnings are stale now.
-    s.checkWarnings = [];
     s.log = await recordAttempt(entry);
     s.srs = applyAttempt(s.srs, entry, entry.at);
     await writeSrs(s.srs);
@@ -1060,30 +950,10 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
 
   // ---------------------------------------------------------------- capture-area extras
 
-  function openImage(dataUrl: string) {
-    void fetch(dataUrl).then((r) => r.blob()).then((b) => {
-      const url = URL.createObjectURL(b);
-      void chrome.tabs.create({ url });
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    });
-  }
-
   function renderCaptureExtras(): (Node | null)[] {
     const out: (Node | null)[] = [];
-    if (s.cropping) {
-      const c = s.cropping;
-      out.push(renderCropper(c.image, (img) => { s.cropping = null; c.resolve(img); ctx.rerender(); }));
-    }
-    out.push(selection.render());
-    if (s.prefs.pastePanel) out.push(paste.render());
     out.push(renderSetStrip());
     if (s.prefs.timer) out.push(renderTimer(s.timer, { reset: async () => { s.timer = emptyTimer(); await writeTimer(s.timer); ctx.rerender(); } }, targetSecondsFor(host.getQuestion())));
-    if (s.lastSent?.kind === "text" && host.getQuestion())
-      out.push(h("p", { class: "small muted row" }, chip("read from page text", "good"), "No screenshot needed. ", h("button", { class: "btn link small", text: "See what was sent", onclick: () => s.lastSent && openImage(s.lastSent.image) })));
-    if (s.pageWarning)
-      out.push(h("div", { class: "banner warn", role: "alert" }, h("p", { text: s.pageWarning }),
-        h("button", { class: "btn small", style: "margin-top:6px", text: "Capture anyway", onclick: () => { s.captureAnyway = true; s.pageWarning = null; host.capture?.(); } })));
-    for (const w of s.checkWarnings) out.push(h("div", { class: "banner warn", role: "alert", text: w }));
     return out;
   }
 
@@ -1131,17 +1001,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     }
   }
 
-  /** Give back the optional "all sites" grant from the capture button. */
-  async function dropAllSites() {
-    try {
-      await chrome.permissions.remove({ origins: [ALL_URLS] });
-    } catch {
-      // Chrome refused (a required permission): nothing to give back
-    }
-    s.allSites = await hasAllSites();
-    toast(s.allSites ? "Couldn't remove it" : "Capturing is limited to the tab you click the icon on");
-  }
-
   async function setPref<K extends keyof Prefs>(key: K, value: Prefs[K]) {
     if (key === "reminders" && value === true) {
       const granted = await chrome.permissions.request({ permissions: ["notifications"] }).catch(() => false);
@@ -1186,17 +1045,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
           h("button", { class: "btn small", text: "Error log (.csv)", title: "The mistake spreadsheet tutors ask for. Opens in Excel or Numbers.", onclick: () => downloadText(errorLogFilename(scope(), Date.now()), toErrorLogCsv(errorLogRows(s.log, { scope: scope(), srs: s.srs })), "text/csv") }),
           h("button", { class: "btn small", text: "Copy for Google Sheets", onclick: () => void navigator.clipboard.writeText(toErrorLogTsv(errorLogRows(s.log, { scope: scope(), srs: s.srs }))).then(() => toast("Error log copied. Paste it into cell A1."), () => toast("Couldn't copy")) })),
         renderReportTools(() => buildWeeklyReport(s.log, s.srs, Date.now()), { notify: toast })),
-      h("section", null, h("h2", { text: "Capture" }),
-        toggle("textCapture", "Read the page text", "On the Question Bank, send a clean copy of the question instead of a screenshot. No icon click needed."),
-        toggle("pageCheck", "Check the page first", "Catches a hidden answer before you spend a capture, and flags misreads."),
-        toggle("cropBeforeSend", "Crop screenshots", "Box just the question before sending (screenshots only)."),
-        toggle("pastePanel", "Paste box", "Shows Paste a question under Capture, for text or a screenshot from any site."),
-        s.allSites
-          ? h("div", { class: "rc-toggle" },
-            h("button", { class: "btn small", text: "Stop capturing on all sites", onclick: () => void dropAllSites() }),
-            h("span", { class: "muted small", text: "Rulecard can read any tab right now. Afterwards, the Question Bank still works and other sites ask once." }))
-          : null,
-      ),
       h("section", null, h("h2", { text: "Practice" }),
         toggle("askConfidence", "Ask how sure I was", "Tracks overconfidence. Misses you were sure about are misconceptions."),
         toggle("strategies", "Show attack strategies", "A short method for each question type."),
@@ -1238,7 +1086,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       h("div", { class: "card rc-help", onclick: (ev: Event) => ev.stopPropagation() },
         h("div", { class: "row between" }, h("h2", { text: "Keyboard shortcuts" }), h("button", { class: "btn link small", text: "Close", onclick: toggleHelp })),
         h("dl", null, ...HOTKEY_HELP.flatMap(([k, v]) => [h("dt", null, h("kbd", { text: k })), h("dd", { text: v })])),
-        h("p", { class: "muted small", text: "Alt+Shift+R captures the tab from anywhere in Chrome. On any site, select a question, right-click and choose Explain this question with Rulecard." })));
+        h("p", { class: "muted small", text: "Rulecard reads questions only from SAT Suite Question Bank PDF exports. Press C to open one, or drop the PDF on the panel." })));
   }
 
   /** The tab bar. A count shows what is waiting; a dot marks a session still open on another tab. */
@@ -1309,7 +1157,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       renderSettings(),
       h("div", { class: "card" },
         h("div", { class: "row between" }, h("h2", { text: "Keyboard shortcuts" }), h("button", { class: "btn small", text: "Show", onclick: toggleHelp })),
-        h("p", { class: "small muted", text: "Press ? anywhere in the panel. Alt+Shift+R captures the tab from anywhere in Chrome." })),
+        h("p", { class: "small muted", text: "Press ? anywhere in the panel. Press C to open a Question Bank PDF." })),
     ];
   }
 
@@ -1332,9 +1180,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     accountChanged,
     state: s,
     // hooks
-    beforeCapture,
-    tryTextCapture,
-    transformImage,
     afterExtract,
     afterExplain,
     afterDrillCheck,
@@ -1354,11 +1199,9 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     renderAfterRuleCard: (): (Node | null)[] => [renderCardTools()],
     /** While a review is open, the host can hide the capture/question flow if it wants a focused screen. */
     isReviewing: () => s.review.open,
-    /** True while the cropper is waiting on the user (capture() is still "in flight"). */
-    isCropping: () => Boolean(s.cropping),
     /** True while a flashcard deck, a redo session or a Question Bank export quiz is on screen. */
     isPracticing: () => Boolean(s.practice) || Boolean(s.wordQuiz) || (Boolean(s.quiz) && !s.quizPaused),
-    destroy: () => { unhook?.(); selection.stop(); },
+    destroy: () => { unhook?.(); },
   };
 }
 

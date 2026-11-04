@@ -47,6 +47,11 @@ const STUB_MATH_EXTRACTION = {
 const STUB_CARD = {
   rule_id: "BND-01",
   rule_statement: "Two complete sentences can be joined only by a period, a semicolon, a comma plus a FANBOYS word, a colon, or a dash.",
+  key_rules: [
+    "Two complete sentences need a period, a semicolon, or a comma plus and/but/so between them.",
+    "A comma alone between two complete sentences is always wrong (a comma splice).",
+  ],
+  simple_explanation: "Both sides of the blank are full sentences, so the blank needs a strong join. Only the semicolon is one.",
   correct_letter: "B",
   correct_answer: null,
   steps: [],
@@ -67,6 +72,8 @@ const STUB_CARD = {
 const STUB_MATH_CARD = {
   rule_id: "LE1-01",
   rule_statement: "Undo the operations in order: add 2 to both sides, then divide by 17.",
+  key_rules: ["Undo the last operation first: add back what was subtracted, then divide by the coefficient."],
+  simple_explanation: "Get x alone: add 2 to both sides, then divide by 17.",
   correct_letter: null,
   correct_answer: "3/17",
   why_correct: "Adding 2 to both sides gives \\(17x = 3\\), and dividing by 17 gives \\(x = \\frac{3}{17}\\).",

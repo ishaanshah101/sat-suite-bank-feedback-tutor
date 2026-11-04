@@ -4,9 +4,9 @@ import { HttpError } from "@/lib/api";
 import type { QuestionRow } from "@/db/schema";
 import { normalizeSkill } from "@/lib/questions/taxonomy";
 import { displayAnswer, parseNumber } from "@/lib/questions/spr";
-import { explainInstructions, explainUserMessage, isGridIn, isMath } from "./prompts";
+import { cardModeFor, explainInstructions, explainUserMessage, isGridIn, isMath } from "./prompts";
 import { abortAfter, isNoOutputError, retryOnNoOutput, withFailover, type FailoverResult } from "./providers";
-import { LETTERS, RuleCardOutputSchema, type Pick, type RuleCard } from "./schemas";
+import { LETTERS, MAX_KEY_RULES, RuleCardOutputSchema, type CardMode, type Pick, type RuleCard } from "./schemas";
 
 export class NeedsAnswerError extends Error {
   constructor() {
@@ -21,9 +21,9 @@ export function hasKnownAnswer(question: QuestionRow): boolean {
 }
 
 /** Keep the model honest: the cited rule must exist in the right section, and official answers win over the model's. */
-export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: Pick, gotItRight: boolean | null): RuleCard {
+export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: Pick, gotItRight: boolean | null, mode: CardMode = cardModeFor(question)): RuleCard {
   const section = isMath(question) ? "math" : "rw";
-  const next: RuleCard = { ...card, rule_id: card.rule_id.trim().toUpperCase(), steps: [...(card.steps ?? [])], eliminations: [...(card.eliminations ?? [])] };
+  const next: RuleCard = { ...card, mode, rule_id: card.rule_id.trim().toUpperCase(), steps: [...(card.steps ?? [])], eliminations: [...(card.eliminations ?? [])] };
   const cited = getRule(next.rule_id);
   if (!cited || cited.section !== section) {
     // The prompt promised the closest general rule as the fallback; do not pin the miss on an unrelated skill.
@@ -74,6 +74,22 @@ export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: 
     next.shortcut = next.shortcut?.trim() || null;
   }
 
+  // The bullets are the card: 1 to 3 distinct, non-empty rules. A model that sent none falls back to the rule statement.
+  const seenRules = new Set<string>();
+  next.key_rules = (Array.isArray(card.key_rules) ? card.key_rules : [])
+    .map((r) => (typeof r === "string" ? r.replace(/^\s*(?:[-*\u2022]|\d+[.)])\s*/, "").replace(/\s+/g, " ").trim() : ""))
+    .filter((r) => {
+      const key = r.toLowerCase();
+      if (!r || seenRules.has(key)) return false;
+      seenRules.add(key);
+      return true;
+    })
+    .map((r) => (r.length > 320 ? `${r.slice(0, 317).trimEnd()}...` : r))
+    .slice(0, MAX_KEY_RULES);
+  if (!next.key_rules.length) next.key_rules = [next.rule_statement];
+  // Translating never adds an explanation of its own; explaining always has one.
+  next.simple_explanation = mode === "translated" ? null : card.simple_explanation?.trim() || next.why_correct;
+
   // "I got it right" is only right once an answer is known: the route grades it, and null means nobody knows yet.
   const right = gotItRight === true || (gotItRight !== false && !isGridIn(question) && picked === next.correct_letter);
   if (right) {
@@ -115,6 +131,7 @@ export async function generateRuleCard(input: {
   const fromSkill = skill ? rulesForSkill(skill).filter((r) => r.section === section) : [];
   const slice = fromSkill.length ? [...fromSkill, ...generalRules(section)] : rulesForSection(section);
   const kind = math ? "math" : "explain";
+  const mode = cardModeFor(question);
   const result = await withFailover(kind, async (provider) => {
     try {
       // `.output` is where an off-schema reply throws, so it stays inside the retry.
@@ -123,7 +140,7 @@ export async function generateRuleCard(input: {
           (
             await generateText({
               model: provider.model(kind),
-              instructions: explainInstructions(slice, !known, question),
+              instructions: explainInstructions(slice, !known, question, mode),
               messages: [{ role: "user", content: explainUserMessage(question, picked, response, reasoning) }],
               output: Output.object({ schema: RuleCardOutputSchema, name: "rule_card" }),
               providerOptions: provider.providerOptions(kind),
@@ -138,5 +155,5 @@ export async function generateRuleCard(input: {
       throw error;
     }
   });
-  return { ...result, result: sanitizeRuleCard(result.result, question, picked, gotItRight) };
+  return { ...result, result: sanitizeRuleCard(result.result, question, picked, gotItRight, mode) };
 }
