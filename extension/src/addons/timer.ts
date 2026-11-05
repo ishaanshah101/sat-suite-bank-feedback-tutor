@@ -62,7 +62,7 @@ export function renderTimer(state: TimerState, actions: { reset: () => void }, t
   return h(
     "div",
     { class: "rc-timer row between small", title: `Time on this question. Target pace is ${target}s (${target > TARGET_SECONDS ? "44 Math questions in 70 minutes" : "54 questions in 64 minutes"}).` },
-    h("span", { class: "row" }, h("span", { class: "muted", text: state.startedAt !== null ? "This question" : "Timer starts at your next capture" }), state.startedAt !== null ? clock : null),
+    h("span", { class: "row" }, h("span", { class: "muted", text: state.startedAt !== null ? "This question" : "Timer starts at your next question" }), state.startedAt !== null ? clock : null),
     h(
       "span",
       { class: "row" },

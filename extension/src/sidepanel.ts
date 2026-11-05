@@ -1,6 +1,8 @@
 import { ApiError, authenticate, DEFAULT_SERVER, loadSettings, normalizeServer, request, saveSettings, streamChat, webLink } from "./api";
+import { checkPdfFile, filterQuestions, hasAnswer, importPayload, needsVision, parseQuestionBankPdf, questionLabel, renderQuestionPages, type LoadedPdf } from "./pdf";
+import { clearStoredPdf, loadStoredPdf, storePdf } from "./pdf-store";
+import { isPracticeUrl, parsePracticePick, readPracticeTab, showsAnswer } from "./practice";
 import { downscale } from "./image";
-import { siteHost, sitePattern } from "./site";
 import { renderMathHtml } from "../../src/lib/math/render";
 import { parseSprEntry } from "../../src/lib/questions/spr";
 import {
@@ -12,7 +14,6 @@ import {
   type ExtractResponse,
   type Health,
   type Letter,
-  type PendingCapture,
   type Pick,
   type Question,
   type RecentAttempt,
@@ -20,7 +21,6 @@ import {
   type Settings,
 } from "./types";
 import { createAddons } from "./addons";
-import { PENDING_SELECTION_KEY } from "./addons/selection-bg";
 import { normalizeQuestion } from "./addons/types";
 
 interface State {
@@ -31,12 +31,23 @@ interface State {
   authMode: "signin" | "signup";
   recent: RecentAttempt[] | null;
   health: Health | null;
-  shortcut: string | null;
-  capturing: boolean;
+  /** The Question Bank PDF export the student opened, parsed on this device. */
+  pdf: LoadedPdf | null;
+  /** The PDF's bytes, kept so a Math page can be drawn for the vision reader. */
+  pdfBytes: ArrayBuffer | null;
+  pdfFilter: string;
+  pdfReading: boolean;
+  /** Index in pdf.questions of the question being opened, then of the one on screen. */
+  pdfOpening: number | null;
+  pdfCurrent: number | null;
+  /** Reading a practice-test question from the My Practice tab. */
+  practiceReading: boolean;
+  /** Shown above the pick buttons for a practice-test question ("you picked D"). */
+  practiceNote: string | null;
+  /** Whether "More detail" on the rule card is open (kept across re-renders). */
+  moreOpen: boolean;
+  /** Errors from opening a PDF or a question in it. */
   captureError: string | null;
-  needsAllSites: boolean;
-  /** Match pattern of the site Chrome refused to let us read, when a one-click grant would fix it. */
-  needsSite: string | null;
   question: Question | null;
   picked: Pick | null;
   allowSolve: boolean;
@@ -57,11 +68,16 @@ const state: State = {
   authMode: "signin",
   recent: null,
   health: null,
-  shortcut: null,
-  capturing: false,
+  pdf: null,
+  pdfBytes: null,
+  pdfFilter: "",
+  pdfReading: false,
+  pdfOpening: null,
+  pdfCurrent: null,
+  practiceReading: false,
+  practiceNote: null,
+  moreOpen: false,
   captureError: null,
-  needsAllSites: false,
-  needsSite: null,
   question: null,
   picked: null,
   allowSolve: false,
@@ -250,7 +266,7 @@ async function connect() {
     await addons.accountChanged();
     state.view = "main";
     render();
-    void consumePendingCapture();
+    await restorePdf();
     void consumePendingQuestion();
     void refreshRecent();
     await refreshHealth();
@@ -299,8 +315,14 @@ async function signOut() {
   state.settings = { ...state.settings, token: null };
   await saveSettings(state.settings);
   await dropServerPermission(state.settings.server);
-  // Captures and selections waiting in session storage belong to the account that was signed in.
-  await chrome.storage.session.remove(["pendingCapture", "pendingQuestion", PENDING_SELECTION_KEY]).catch(() => undefined);
+  // The open PDF and anything waiting in session storage belong to the account that was signed in.
+  await chrome.storage.session.remove(["pendingQuestion"]).catch(() => undefined);
+  await clearStoredPdf().catch(() => undefined);
+  state.pdf = null;
+  state.pdfBytes = null;
+  state.pdfFilter = "";
+  state.pdfCurrent = null;
+  state.captureError = null;
   resetQuestion();
   state.health = null;
   state.recent = null;
@@ -340,7 +362,7 @@ function renderMain(): Node[] {
   const tab = addons.tab();
   const nodes: (Node | null)[] = [h("div", { class: "rc-top" }, renderHeader(), addons.renderTabBar())];
   if (tab === "home") {
-    nodes.push(...addons.renderAboveCapture(), renderCapture());
+    nodes.push(...addons.renderAboveCapture(), renderPdfCard());
     if (state.question) nodes.push(renderQuestion(state.question));
     if (state.explained) {
       nodes.push(renderRuleCard(state.explained.card, state.explained.picked, state.explained.ruleName));
@@ -414,25 +436,106 @@ function renderRecent(items: RecentAttempt[]): Node {
   );
 }
 
-function renderCapture(): Node {
-  const hint = state.shortcut ? ["or press ", h("kbd", { text: state.shortcut })] : ["(set a shortcut at chrome://extensions/shortcuts)"];
-  const children: Child[] = [
-    h("button", { class: "btn primary big", disabled: state.capturing, onclick: () => void capture() }, state.capturing ? spinner() : null, state.capturing ? (addons.isCropping() ? "Crop below, then send" : "Reading the question...") : state.question ? "Capture again" : "Capture this tab"),
-    h("p", { class: "muted small" }, "Reveal the answer on the Question Bank page, then click Capture ", ...hint, ". On any other site Chrome asks once whether Rulecard may read it."),
-  ];
+const PDF_INPUT_ID = "pdf-input";
+
+/** The one way in: a SAT Suite Question Bank PDF export, opened from the computer and read on this device. */
+function renderPdfCard(): Node {
+  const pdf = state.pdf;
+  const input = h("input", {
+    id: PDF_INPUT_ID,
+    type: "file",
+    accept: "application/pdf,.pdf",
+    style: "display:none",
+    onchange: (event: Event) => {
+      const el = event.target as HTMLInputElement;
+      const file = el.files?.[0];
+      el.value = "";
+      if (file) void openPdfFile(file);
+    },
+  });
+  const openButton = h(
+    "button",
+    { id: "open-pdf", class: `btn ${pdf ? "" : "primary big"}`.trim(), disabled: state.pdfReading, onclick: () => openPdfPicker() },
+    state.pdfReading ? spinner() : null,
+    state.pdfReading ? "Reading the PDF..." : pdf ? "Open another PDF" : "Open your Question Bank PDF",
+  );
+  const children: Child[] = [input];
+  if (!pdf) {
+    children.push(
+      openButton,
+      h("p", { class: "muted small", text: "In the SAT Suite Question Bank, export the questions you worked as a PDF (include the answers and explanations if you can). Open that file here, or drop it on this panel. It is read on this device; only the question you pick is sent." }),
+    );
+  } else {
+    const shown = filterQuestions(pdf.questions, state.pdfFilter);
+    children.push(
+      h(
+        "div",
+        { class: "row between" },
+        h("div", null, h("div", { class: "small", style: "font-weight:600", text: pdf.name }), h("div", { class: "muted small", text: `${pdf.questions.length} question${pdf.questions.length === 1 ? "" : "s"} · ${pdf.totalPages} page${pdf.totalPages === 1 ? "" : "s"}` })),
+        openButton,
+      ),
+    );
+    if (!pdf.questions.length) {
+      children.push(h("div", { class: "banner warn", text: "No Question Bank questions were found in this PDF. Open a PDF exported from the SAT Suite Question Bank (each question starts with \"Question ID\")." }));
+    } else {
+      children.push(
+        h("input", {
+          id: "pdf-filter",
+          class: "input",
+          placeholder: "Find a question: type its ID (top of the page) or a skill",
+          value: state.pdfFilter,
+          autocomplete: "off",
+          oninput: (event: Event) => {
+            state.pdfFilter = (event.target as HTMLInputElement).value;
+            render();
+          },
+          onkeydown: (event: KeyboardEvent) => {
+            if (event.key !== "Enter") return;
+            const first = filterQuestions(pdf.questions, state.pdfFilter)[0];
+            if (first !== undefined) void openPdfQuestion(first);
+          },
+        }),
+        h(
+          "ol",
+          { class: "pdf-list" },
+          ...shown.map((i) => {
+            const q = pdf.questions[i];
+            const on = state.pdfCurrent === i;
+            return h(
+              "li",
+              null,
+              h(
+                "button",
+                { class: `pdf-item ${on ? "on" : ""}`.trim(), disabled: state.pdfOpening !== null, "data-qb": q.qb_id ?? "", onclick: () => void openPdfQuestion(i) },
+                h("span", { class: "pdf-num", text: String(i + 1) }),
+                h("span", { class: "pdf-label", text: questionLabel(q, i) }),
+                q.section === "math" ? chip("Math", "accent") : null,
+                hasAnswer(q) ? null : chip("no answer", "warn"),
+                state.pdfOpening === i ? spinner() : null,
+              ),
+            );
+          }),
+        ),
+        shown.length ? null : h("p", { class: "muted small", text: "No question matches that. Clear the box to see them all." }),
+      );
+    }
+  }
+  children.push(
+    h("div", { class: "or-line", text: "or" }),
+    h(
+      "button",
+      { id: "read-practice", class: "btn", disabled: state.practiceReading || state.pdfOpening !== null, onclick: () => void readPracticeQuestion() },
+      state.practiceReading ? spinner() : null,
+      state.practiceReading ? "Reading the practice question..." : "Read my practice test question",
+    ),
+    h("p", { class: "muted small", text: "After a Bluebook practice test, open a missed question in My Practice (mypractice.collegeboard.org), tick \"Show correct answer and explanation\", then click this. Only that question is read." }),
+  );
   if (state.health && !state.health.ai.live && !state.health.ai.stub && state.health.ai.configured.length === 0) {
-    children.push(h("div", { class: "banner warn" }, "The server has no AI key yet, so capture will fail until you add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel. ", link(`${state.settings.server}/health`, "Status page")));
+    children.push(h("div", { class: "banner warn" }, "The server has no AI provider right now, so explanations will fail. ", link(`${state.settings.server}/health`, "Status page")));
   }
   children.push(...addons.renderInCapture());
   if (state.captureError) children.push(h("div", { class: "banner danger", role: "alert", text: state.captureError }));
-  if (state.needsSite) {
-    const site = state.needsSite;
-    children.push(h("button", { class: "btn primary", onclick: () => void allowSite(site) }, `Allow Rulecard on ${siteHost(site)}`));
-  }
-  if (state.needsAllSites) {
-    children.push(h("button", { class: "btn", onclick: () => void allowAllSites() }, "Allow capturing on all sites (no icon click needed)"));
-  }
-  return h("div", { class: "card" }, ...children);
+  return h("div", { class: "card", id: "pdf-card" }, ...children);
 }
 
 function renderHowTo(): Node {
@@ -443,9 +546,9 @@ function renderHowTo(): Node {
     h(
       "ol",
       { class: "steps small" },
-      h("li", { text: "Work a Reading and Writing or Math question in the SAT Suite Question Bank and reveal the answer." }),
-      h("li", { text: "Press Capture. One picture of that tab is read; nothing is recorded." }),
-      h("li", { text: "Tell me what you picked or typed (and why). You get the one rule it tested, why your answer breaks it, and for Math the steps and a Desmos shortcut." }),
+      h("li", { text: "In the SAT Suite Question Bank, export your questions as a PDF, with answers and explanations if you can." }),
+      h("li", { text: "Open the PDF here and pick the question by its ID. The PDF is read on this device; only that question is sent." }),
+      h("li", { text: "Tell me what you picked. If the PDF has the official explanation, you get it translated into the 1 to 3 rules you actually need. If it has no answer, you get a simple explanation and the rules." }),
       h("li", { text: "Ask follow-ups, or press Test me for a fresh question on the same rule." }),
     ),
   );
@@ -528,13 +631,14 @@ function renderPickPanel(q: Question): Node {
     },
   });
   const children: Child[] = [h("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
+  if (state.practiceNote) children.push(h("div", { class: "banner accent", "data-testid": "practice-note", text: state.practiceNote }));
   if (needsAnswer) {
     children.push(
       h(
         "div",
         { class: "banner warn" },
-        h("p", { text: "The correct answer is not in what I read." }),
-        h("p", { class: "muted small", text: "Reveal the answer on the Question Bank tab and capture again, or let me solve it (less reliable)." }),
+        h("p", { text: "This PDF has no answer for this question." }),
+        h("p", { class: "muted small", text: "Let Rulecard solve it and explain it simply, or export the question again with answers included." }),
         h(
           "label",
           { class: "row small", style: "margin-top:6px" },
@@ -628,26 +732,9 @@ function renderRuleCard(card: RuleCard, picked: Pick, ruleName: string | null): 
   const answerLabel = card.correct_letter ?? card.correct_answer ?? "the answer";
   const pickedLabel = picked === "spr" ? state.explained?.response ?? "your answer" : picked;
   const rulePath = `/rules${math ? "?section=math" : ""}#${card.rule_id}`;
-  const children: Child[] = [
-    h(
-      "div",
-      { class: "row" },
-      chip(math && card.diagnosis === "careless" ? "computation slip" : math && card.diagnosis === "misread" ? "misread the question" : diag.label, diag.tone),
-      chip(`confidence ${Math.round(card.confidence * 100)}%`),
-      card.solved_by_model ? chip("answer worked out by the model, double check it", "warn") : null,
-      card.suggested_rule ? chip(`suggested new rule: ${card.suggested_rule}`) : null,
-    ),
-    h(
-      "div",
-      { class: "banner accent" },
-      h(
-        "div",
-        { class: "rule-id" },
-        "Rule ",
-        h("button", { class: "btn link rule-link", text: `${card.rule_id}${ruleName ? ` · ${ruleName}` : ""}`, onclick: () => void openWeb(rulePath) }),
-      ),
-      mathEl("p", card.rule_statement, { class: "rule-statement" }),
-    ),
+  const rules = card.key_rules?.length ? card.key_rules : [card.rule_statement];
+  const translated = card.mode === "translated";
+  const more: Child[] = [
     section(`Why ${answerLabel} is right`, card.why_correct),
     card.why_pick_fails && picked !== "correct" ? section(`Why ${pickedLabel} fails`, card.why_pick_fails) : null,
     card.steps?.length ? h("section", null, h("h2", { text: "Steps" }), h("ol", { class: "steps" }, ...card.steps.map((step) => mathEl("li", step)))) : null,
@@ -661,6 +748,42 @@ function renderRuleCard(card: RuleCard, picked: Pick, ruleName: string | null): 
         )
       : null,
     h("div", { class: "banner", style: "background:var(--bg)" }, h("h2", { text: "Takeaway" }), mathEl("p", card.takeaway, { class: "stem" })),
+    h("p", { class: "muted small" }, `Confidence ${Math.round(card.confidence * 100)}%`),
+  ];
+  const children: Child[] = [
+    h(
+      "div",
+      { class: "row" },
+      chip(translated ? "official explanation, translated" : "explained simply", translated ? "good" : "accent"),
+      chip(math && card.diagnosis === "careless" ? "computation slip" : math && card.diagnosis === "misread" ? "misread the question" : diag.label, diag.tone),
+      card.solved_by_model ? chip("answer worked out by the model, double check it", "warn") : null,
+    ),
+    h("div", { class: "row" }, h("strong", { class: "answer-line", text: `Answer: ${answerLabel}` })),
+    !translated && card.simple_explanation ? h("section", { class: "simple-explanation" }, h("h2", { text: "Simple explanation" }), mathEl("p", card.simple_explanation)) : null,
+    h(
+      "div",
+      { class: "banner accent", "data-testid": "key-rules" },
+      h("h2", { text: rules.length === 1 ? "The rule you need" : "The rules you need" }),
+      h("ul", { class: "key-rules" }, ...rules.map((rule) => mathEl("li", rule))),
+      h(
+        "div",
+        { class: "rule-id small" },
+        "Rule ",
+        h("button", { class: "btn link rule-link", text: `${card.rule_id}${ruleName ? ` · ${ruleName}` : ""}`, onclick: () => void openWeb(rulePath) }),
+      ),
+    ),
+    h(
+      "details",
+      {
+        class: "more",
+        open: state.moreOpen,
+        ontoggle: (event: Event) => {
+          state.moreOpen = (event.target as HTMLDetailsElement).open;
+        },
+      },
+      h("summary", { text: "More detail" }),
+      ...more,
+    ),
     renderDrill(),
   ];
   return h("div", { class: "card" }, ...children);
@@ -793,8 +916,8 @@ function renderFooter(): Node {
 function describe(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === "no_provider") return "The server has no AI key yet. Add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel, then try again.";
-    if (error.code === "extraction_failed") return "I could not find a question in that picture. Scroll so the whole question and the choices are visible, then capture again.";
-    if (error.code === "needs_answer") return "The answer was not visible. Reveal it on the Question Bank tab and capture again, or tick 'Let the model work out the answer'.";
+    if (error.code === "extraction_failed") return "I could not find a question there. For a PDF, make sure it is a Question Bank export; for a practice test, open the question with its answer showing, then try again.";
+    if (error.code === "needs_answer") return "This question has no answer to go on. Tick 'Let the model work out the answer', or export it again with answers included.";
     if (error.code === "daily_limit") return error.message;
     if (error.code === "invalid_response") return error.message;
     if (error.code === "unverified") return "Could not double-check that question. Try again.";
@@ -825,6 +948,8 @@ function resetQuestion() {
   state.explaining = false;
   state.explainError = null;
   state.explained = null;
+  state.practiceNote = null;
+  state.moreOpen = false;
   state.chat = { messages: [], busy: false, error: null };
   state.drill = emptyDrill();
 }
@@ -839,16 +964,6 @@ async function refreshHealth() {
   render();
 }
 
-async function activeTab(): Promise<chrome.tabs.Tab> {
-  // The side panel belongs to one window: its active tab is the page to capture.
-  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  if (!tab || tab.windowId === undefined) throw new Error("No active tab found. Click the Question Bank tab, then try again.");
-  const url = tab.url ?? "";
-  if (/^(chrome|chrome-extension|edge|about|devtools):/.test(url)) throw new Error("Switch to the Question Bank tab first; browser pages cannot be captured.");
-  return tab;
-}
-
 /** The capture (or paste, or selection) being extracted right now. One /api/extract at a time. */
 let inflight: Promise<void> | null = null;
 
@@ -861,106 +976,175 @@ function serialCapture(run: () => Promise<void>): Promise<void> {
   return next;
 }
 
-async function capture() {
-  if (state.capturing || inflight) return;
-  // Capturing always happens on Home, wherever the shortcut was pressed.
+function openPdfPicker() {
+  if (state.pdfReading) return;
   addons.showTab("home");
-  state.capturing = true;
-  state.captureError = null;
-  state.needsAllSites = false;
-  state.needsSite = null;
+  (document.getElementById(PDF_INPUT_ID) as HTMLInputElement | null)?.click();
+}
+
+async function openPdfFile(file: File) {
+  const problem = checkPdfFile(file);
+  state.captureError = problem;
+  if (problem) {
+    render();
+    return;
+  }
+  state.pdfReading = true;
   render();
-  await serialCapture(captureInner);
-}
-
-async function captureInner() {
   try {
-    const tab = await activeTab();
-    if (!(await addons.beforeCapture(tab))) return;
-    const textImage = await addons.tryTextCapture(tab);
-    if (textImage) {
-      await processImage(textImage);
-      return;
+    const buffer = await file.arrayBuffer();
+    const pdf = await parseQuestionBankPdf(file.name, buffer);
+    state.pdf = pdf;
+    state.pdfBytes = buffer;
+    state.pdfFilter = "";
+    state.pdfCurrent = null;
+    await storePdf(pdf, buffer).catch((error) => console.warn("Rulecard: couldn't keep the PDF for this session", error));
+    // One question in the export: open it straight away.
+    if (pdf.questions.length === 1) {
+      state.pdfReading = false;
+      await openPdfQuestion(0);
     }
-    const raw = await captureVisible(tab);
-    const image = await addons.transformImage(await downscale(raw));
-    if (!image) return;
-    await processImage(image);
   } catch (error) {
-    if (await handleAuthFailure(error)) return;
-    state.captureError = describe(error);
+    console.error("Rulecard: PDF read failed", error);
+    state.captureError = "Couldn't read that PDF. Make sure it is a Question Bank export (not a scan or a photo), then try again.";
   } finally {
-    state.capturing = false;
+    state.pdfReading = false;
     render();
   }
 }
 
-/**
- * Screenshot the tab. Chrome allows that on the Question Bank (host permission), on any site whose
- * toolbar icon was clicked (activeTab), and on sites the user granted. Anywhere else it refuses, so we
- * ask for that one site while the Capture click still counts as a user gesture, then try once more.
- * If the gesture has expired or the user said no, the panel shows an "Allow Rulecard on <site>" button.
- */
-async function captureVisible(tab: chrome.tabs.Tab): Promise<string> {
-  try {
-    return await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!/permission|activeTab|all_urls/i.test(message)) throw error;
-    const site = sitePattern(tab.url);
-    if (site) {
-      const granted = await chrome.permissions.request({ origins: [site] }).catch(() => false);
-      if (granted) return await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
-    }
-    state.needsSite = site;
-    state.needsAllSites = true;
-    throw new Error(
-      site
-        ? `Chrome hasn't let Rulecard read ${siteHost(site)} yet. Click "Allow Rulecard on ${siteHost(site)}" below (once), or click the Rulecard toolbar icon on that tab and then Capture again.`
-        : "Chrome cannot read this kind of page (browser pages, files, the Web Store). Switch to the Question Bank tab, then Capture again.",
-    );
-  }
-}
-
-/** The "Allow Rulecard on <site>" button: a direct click, so Chrome always shows its prompt. */
-async function allowSite(site: string) {
-  try {
-    const granted = await chrome.permissions.request({ origins: [site] });
-    if (granted) {
-      state.needsSite = null;
-      state.needsAllSites = false;
-      state.captureError = null;
+async function openPdfQuestion(index: number) {
+  const pdf = state.pdf;
+  const q = pdf?.questions[index];
+  if (!pdf || !q || state.pdfOpening !== null || inflight) return;
+  addons.showTab("home");
+  state.pdfOpening = index;
+  state.captureError = null;
+  render();
+  await serialCapture(async () => {
+    try {
+      if (needsVision(q)) {
+        // Math (and anything the text layer garbled) is read from a picture of its page(s).
+        const bytes = state.pdfBytes;
+        if (!bytes) throw new Error("Open the PDF again to read this Math question (the file is not kept after the browser closes).");
+        await processImage(await renderQuestionPages(bytes, q.pages));
+      } else {
+        const data = await request<{ questions: Question[] }>(state.settings, "/api/questions", { body: { questions: [importPayload(q)] } });
+        const row = data.questions[0];
+        if (!row) throw new Error("The server did not save that question. Try again.");
+        resetQuestion();
+        state.captureError = null;
+        state.question = row;
+        void addons.afterExtract(normalizeQuestion(row));
+      }
+      state.pdfCurrent = index;
+    } catch (error) {
+      if (await handleAuthFailure(error)) return;
+      state.captureError = describe(error);
+    } finally {
+      state.pdfOpening = null;
       render();
-      await capture();
     }
-  } catch (error) {
-    state.captureError = describe(error);
-    render();
-  }
+  });
+  document.querySelector(".card .stem")?.scrollIntoView({ block: "nearest" });
 }
 
 async function processImage(image: string) {
-  const data = await request<ExtractResponse>(state.settings, "/api/extract", { body: { image, source: "capture" } });
+  const data = await request<ExtractResponse>(state.settings, "/api/extract", { body: { image, source: "pdf" } });
   resetQuestion();
+  state.captureError = null;
   state.question = data.question;
   addons.showTab("home");
   void addons.afterExtract(normalizeQuestion(data.question));
 }
 
-async function allowAllSites() {
-  try {
-    const granted = await chrome.permissions.request({ origins: ["<all_urls>"] });
-    if (granted) {
-      state.needsAllSites = false;
-      state.needsSite = null;
+const PRACTICE_HELP =
+  "Open the question's review page in My Practice (mypractice.collegeboard.org: your practice test, then a question you missed), then click this again.";
+
+/** Read the missed question open in My Practice: its text (math as LaTeX), your answer, the correct answer and the rationale. */
+async function readPracticeQuestion() {
+  if (state.practiceReading || inflight) return;
+  addons.showTab("home");
+  state.practiceReading = true;
+  state.captureError = null;
+  render();
+  await serialCapture(async () => {
+    try {
+      let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tab?.id === undefined || !isPracticeUrl(tab.url)) throw new Error(PRACTICE_HELP);
+      const read = await readPracticeTab(tab.id);
+      if (!read) throw new Error("Couldn't read that page. Reload it, open the question again, then click this once more.");
+      if (!showsAnswer(read.text)) throw new Error('Tick "Show correct answer and explanation" under the question, then click this again.');
+      // A graph or picture is not in the text, so that question goes as a picture when Chrome allows it.
+      let image: string | null = null;
+      let figureNote: string | null = null;
+      if (read.hasFigure && tab.windowId !== undefined) {
+        try {
+          image = await downscale(await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" }));
+        } catch {
+          figureNote = "This question has a graph or picture that was not sent. To include it, click the Rulecard toolbar icon on that tab once, then read the question again.";
+        }
+      }
+      const data = image
+        ? await request<ExtractResponse>(state.settings, "/api/extract", { body: { image, source: "capture" } })
+        : await request<ExtractResponse>(state.settings, "/api/extract", { body: { text: read.text, source: "paste" } });
+      resetQuestion();
       state.captureError = null;
+      state.question = data.question;
+      state.pdfCurrent = null;
+      const pick = parsePracticePick(read.text);
+      let picked: string | null = null;
+      if (pick && "letter" in pick && data.question.format !== "spr") {
+        state.picked = pick.letter;
+        picked = `picked ${pick.letter}`;
+      } else if (pick && "typed" in pick && data.question.format === "spr") {
+        state.sprInput = pick.typed;
+        state.picked = "spr";
+        picked = `entered ${pick.typed}`;
+      }
+      state.practiceNote = [picked ? `From your practice test: you ${picked}. Press Explain.` : "From your practice test. Choose what you picked, then press Explain.", figureNote]
+        .filter(Boolean)
+        .join(" ");
+      void addons.afterExtract(normalizeQuestion(data.question));
+    } catch (error) {
+      if (await handleAuthFailure(error)) return;
+      state.captureError = describe(error);
+    } finally {
+      state.practiceReading = false;
       render();
-      await capture();
     }
-  } catch (error) {
-    state.captureError = describe(error);
+  });
+}
+
+/** Bring back the PDF opened earlier in this browser session (the panel forgets it when closed). */
+async function restorePdf() {
+  if (state.pdf) return;
+  try {
+    const stored = await loadStoredPdf();
+    if (!stored) return;
+    state.pdf = stored.pdf;
+    state.pdfBytes = stored.bytes;
     render();
+  } catch (error) {
+    console.warn("Rulecard: couldn't restore the PDF", error);
   }
+}
+
+/** Drop a PDF anywhere on the panel to open it. */
+function installPdfDrop() {
+  const has = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files");
+  document.addEventListener("dragover", (event) => {
+    if (!has(event) || state.view !== "main") return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  });
+  document.addEventListener("drop", (event) => {
+    if (!has(event) || state.view !== "main") return;
+    event.preventDefault();
+    const file = event.dataTransfer?.files?.[0];
+    if (file) void openPdfFile(file);
+  });
 }
 
 async function explain() {
@@ -1089,38 +1273,6 @@ async function sendChat() {
 
 // ---------- captures triggered by the keyboard shortcut (service worker) ----------
 
-async function consumePendingCapture() {
-  const stored = (await chrome.storage.session.get("pendingCapture")) as { pendingCapture?: PendingCapture };
-  const pending = stored.pendingCapture;
-  if (!pending) return;
-  // Still loading: boot() takes it. Signed out: connect() takes it (it expires after two minutes).
-  if (state.view !== "main") return;
-  if (state.capturing || inflight) return;
-  await chrome.storage.session.remove("pendingCapture");
-  if (Date.now() - pending.at > 120_000) return;
-  addons.showTab("home");
-  state.capturing = true;
-  state.captureError = null;
-  render();
-  await serialCapture(() => consumeCaptureInner(pending));
-}
-
-async function consumeCaptureInner(pending: PendingCapture) {
-  try {
-    if (pending.error) throw new Error(pending.error);
-    if (pending.image) {
-      const image = await addons.transformImage(pending.image);
-      if (image) await processImage(image);
-    }
-  } catch (error) {
-    if (await handleAuthFailure(error)) return;
-    state.captureError = describe(error);
-  } finally {
-    state.capturing = false;
-    render();
-  }
-}
-
 /**
  * A question handed to the panel from elsewhere (for example the extension's own check script, or a
  * future "send to panel" button): load it as the current question and clear the key.
@@ -1133,13 +1285,13 @@ async function consumePendingQuestion() {
   if (state.view !== "main" || !pending.id || !pending.stem) return;
   addons.showTab("home");
   resetQuestion();
+  state.captureError = null;
   state.question = pending;
   void addons.afterExtract(normalizeQuestion(pending));
   render();
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "session" && changes.pendingCapture?.newValue) void consumePendingCapture();
   if (area === "session" && changes.pendingQuestion?.newValue) void consumePendingQuestion();
 });
 
@@ -1174,12 +1326,6 @@ async function bootInner() {
   } finally {
     settingsLoaded();
   }
-  try {
-    const commands = await chrome.commands.getAll();
-    state.shortcut = commands.find((c) => c.name === "capture")?.shortcut || null;
-  } catch {
-    state.shortcut = null;
-  }
   if (!state.settings.token) {
     state.view = "connect";
     render();
@@ -1188,7 +1334,7 @@ async function bootInner() {
   await addons.accountChanged();
   state.view = "main";
   render();
-  void consumePendingCapture();
+  await restorePdf();
   void consumePendingQuestion();
   void refreshRecent();
   await refreshHealth();
@@ -1210,7 +1356,7 @@ const addons = createAddons(
       state.explained && { attemptId: state.explained.attemptId, picked: state.explained.picked === "spr" ? "correct" : state.explained.picked },
     processImage: (image) => serialCapture(() => processImage(image)),
     settingsReady,
-    capture: () => void capture(),
+    capture: () => openPdfPicker(),
     pick: (letter) => {
       const d = state.drill;
       if (d.data && !d.result) {
@@ -1228,4 +1374,5 @@ const addons = createAddons(
   },
 );
 
+installPdfDrop();
 void boot();

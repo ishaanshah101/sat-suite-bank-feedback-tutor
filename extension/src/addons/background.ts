@@ -1,33 +1,20 @@
 // Service-worker add-ons. Call installBackgroundAddons(...) from extension/src/background.ts.
 //
-//  • Right-click "Capture this question with Rulecard" on Question Bank pages. A context-menu
-//    click grants activeTab, so this also fixes the "click the toolbar icon first" friction.
 //  • Toolbar badge with the number of rules due for review (alarms, every 30 min + on change).
 //  • Optional daily reminder notification (only if the user turned it on in settings).
 //  • Welcome/onboarding tab on first install.
-//  • Right-click "Explain this question with Rulecard" on selected text on any site (selection-bg.ts).
+//  Rulecard reads questions only from Question Bank PDF exports opened in the side panel, so the worker
+//  never touches a tab: no context menus, no screenshots, no page scripts.
 
 import { readLog } from "./log";
 import { readPrefs } from "./prefs";
-import { QB_HOSTS } from "./qbtext";
-import { installSelectionCapture } from "./selection-bg";
 import { dueRules, readSrs } from "./srs";
 import { dayKey } from "./stats";
 import { KEYS } from "./store";
 
-const MENU_ID = "rulecard-capture";
 const BADGE_ALARM = "rulecard-badge";
 const REMINDER_ALARM = "rulecard-reminder";
 const QB_URL = "https://satsuitequestionbank.collegeboard.org/digital/search";
-
-export interface BackgroundHost {
-  /**
-   * The body of the existing chrome.commands "capture" handler in background.ts, pulled
-   * out into a function: open the side panel, captureVisibleTab, downscale, write
-   * pendingCapture to chrome.storage.session.
-   */
-  captureTab(tab: chrome.tabs.Tab): void;
-}
 
 export async function refreshBadge(): Promise<void> {
   const due = dueRules(await readSrs(), Date.now()).length;
@@ -73,16 +60,8 @@ async function maybeRemind(): Promise<void> {
   });
 }
 
-export function installBackgroundAddons(host: BackgroundHost): void {
+export function installBackgroundAddons(): void {
   chrome.runtime.onInstalled.addListener((details) => {
-    chrome.contextMenus.removeAll(() => {
-      chrome.contextMenus.create({
-        id: MENU_ID,
-        title: "Capture this question with Rulecard",
-        contexts: ["page", "selection", "image", "frame"],
-        documentUrlPatterns: QB_HOSTS.map((host) => `https://${host}/*`),
-      });
-    });
     chrome.alarms.create(BADGE_ALARM, { periodInMinutes: 30 });
     void refreshBadge();
     void scheduleReminder();
@@ -92,10 +71,6 @@ export function installBackgroundAddons(host: BackgroundHost): void {
   chrome.runtime.onStartup.addListener(() => {
     void refreshBadge();
     void scheduleReminder();
-  });
-
-  chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === MENU_ID && tab) host.captureTab(tab);
   });
 
   chrome.alarms.onAlarm.addListener((alarm) => {
@@ -123,7 +98,4 @@ export function installBackgroundAddons(host: BackgroundHost): void {
   };
   hookNotificationClick();
   chrome.permissions.onAdded.addListener(() => hookNotificationClick());
-
-  // Registered after the onInstalled above, so its menu item lands after our removeAll().
-  installSelectionCapture();
 }

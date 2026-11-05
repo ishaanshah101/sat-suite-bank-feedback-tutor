@@ -19,7 +19,7 @@ export const HOTKEY_HELP: [string, string][] = [
   ["1–4", "pick answer A–D (A, B, D keys work too)"],
   ["G", "I got it right, explain anyway"],
   ["Enter", "explain"],
-  ["C", "capture this tab (so use 3 for choice C)"],
+  ["C", "open a Question Bank PDF (so use 3 for choice C)"],
   ["T", "Test me (new question on the rule)"],
   ["R", "start a review"],
   ["/", "ask a follow-up"],

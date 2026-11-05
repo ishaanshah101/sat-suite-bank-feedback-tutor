@@ -54,11 +54,11 @@ const screenshot = (n, title, sub, file, opts = {}) => `<!doctype html><html><he
 </body></html>`;
 
 const shots = [
-  ["Reading and Writing", "Learn the one rule behind every miss", "Rulecard names the exact rule the question tested, why the right answer follows it, why your pick breaks it, and how to rule out the rest.", "rule.png"],
-  ["Math", "Math rules with worked steps", "Tables, graphs and equations read into real math notation, with step by step work and a Desmos shortcut when it saves time.", "math-rule.png"],
+  ["Reading and Writing", "The official explanation, in 1 to 3 rules", "Open your Question Bank PDF or a missed practice-test question. Rulecard turns College Board's long rationale into the few rules you actually need.", "rule.png"],
+  ["Math", "No explanation? Explained simply", "When your PDF has no answer, Rulecard explains the question in plain words, then gives the rules. Steps and a Desmos shortcut sit under More detail.", "math-rule.png"],
   ["Grid-ins", "Grid-in answers graded exactly", "Type what you entered. Rulecard checks it against every accepted form, like 3/17, .1764 and .1765, using the official entry rules.", "spr-rule.png"],
   ["Test me", "Practice the same rule right away", "Press Test me for a fresh question on that exact rule. Math practice questions are double-checked by a second, independent solve.", "drill.png"],
-  ["Study coach", "Capture first, today's plan right below", "Home is just Capture and a daily plan built from your misses. Progress, practice, your word bank and settings are one tap away in the tab bar.", "addons-home.png"],
+  ["Study coach", "Your questions first, today's plan below", "Home is your Question Bank PDF or practice-test question, plus a daily plan built from your misses. Progress, practice, words and settings are one tap away.", "addons-home.png"],
 ];
 
 const smallTile = `<!doctype html><html><head><style>${BASE_CSS}
@@ -71,7 +71,7 @@ const smallTile = `<!doctype html><html><head><style>${BASE_CSS}
   .tag{margin-top:22px;font-size:21px;line-height:1.35;font-weight:500;color:#e6ecff;max-width:340px}
 </style></head><body><div class="g"></div><div class="c">
   <div class="row"><div class="ic">${ICON_SVG(56)}</div><div class="name">Rulecard</div></div>
-  <div class="tag">The one rule behind every SAT Reading, Writing and Math miss</div>
+  <div class="tag">The rules behind every SAT Reading, Writing and Math miss</div>
 </div></body></html>`;
 
 const marquee = `<!doctype html><html><head><style>${BASE_CSS}
@@ -90,7 +90,7 @@ const marquee = `<!doctype html><html><head><style>${BASE_CSS}
 </style></head><body><div class="g"></div>
   <div class="c"><div class="row"><div class="ic">${ICON_SVG(40)}</div>Rulecard</div>
     <h1>Learn the rule behind every SAT miss</h1>
-    <p>Reading, Writing and Math. Capture a Question Bank question, get the one rule it tested, then practice it.</p></div>
+    <p>Open your Question Bank PDF or a missed practice-test question. Get the official explanation as 1 to 3 clear rules, then practice them.</p></div>
   <div class="panel p1"><div class="bar">${ICON_SVG(16)}Rulecard</div><img class="shot" src="${img("rule.png")}"></div>
   <div class="panel p2"><div class="bar">${ICON_SVG(16)}Rulecard</div><img class="shot" src="${img("math-rule.png")}"></div>
 </body></html>`;

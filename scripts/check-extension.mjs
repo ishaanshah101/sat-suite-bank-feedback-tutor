@@ -8,14 +8,17 @@ import path from "node:path";
 const BASE = process.env.BASE ?? "http://localhost:3100";
 const EMAIL = process.env.EMAIL ?? `ext-${Date.now()}@example.com`;
 const PASSWORD = process.env.PASSWORD ?? "extension-check-1";
+const PDF = path.resolve("tests/fixtures/qb-export-2026.pdf");
+const PRACTICE_PAGE = fs.readFileSync(path.resolve("tests/fixtures/mypractice-question.html"), "utf8");
+const PRACTICE_URL = "https://mypractice.collegeboard.org/details?fp_8dbea909-c37c-43c1-bde0-b3c056674757";
 const results = [];
 const ok = (name, cond, extra = "") => {
   results.push(!!cond);
   console.log(`${cond ? "PASS" : "FAIL"} | ${name}${extra ? " | " + String(extra).slice(0, 200) : ""}`);
 };
 
-// Copy the extension and grant all sites up front. Automation cannot click the toolbar icon (which is what grants
-// activeTab in real use) or accept the native permission prompt, so the copy carries <all_urls> instead.
+// Copy the extension and grant the local test server up front: automation cannot accept the native
+// permission prompt that a custom server asks for in real use.
 const source = path.resolve("extension");
 const ext = fs.mkdtempSync(path.join(os.tmpdir(), "rulecard-ext-"));
 fs.cpSync(source, ext, { recursive: true });
@@ -61,26 +64,33 @@ try {
   await panel.locator("#email").fill(EMAIL);
   await panel.locator("#password").fill(PASSWORD);
   await panel.getByRole("button", { name: "Create account", exact: true }).click();
-  await panel.getByRole("button", { name: "Capture this tab" }).waitFor({ timeout: 15000 });
+  await panel.getByRole("button", { name: "Open your Question Bank PDF" }).waitFor({ timeout: 15000 });
   const stored = await worker.evaluate(() => chrome.storage.local.get("settings"));
   ok("account created and token stored", typeof stored.settings?.token === "string" && stored.settings.token.split(".").length === 3 && stored.settings.email === EMAIL);
   await panel.locator(".dot.good").waitFor({ timeout: 15000 });
   ok("health dot is green (db + stub AI)", true);
 
-  // Click path: make the page the active tab of the window, then drive the panel without activating it.
-  const origin = new URL(BASE).origin;
-  const pageTab = await worker.evaluate(async (origin) => {
-    const [tab] = await chrome.tabs.query({ url: `${origin}/*` });
-    await chrome.tabs.update(tab.id, { active: true });
-    return { id: tab.id, windowId: tab.windowId };
-  }, origin);
-  await panel.getByRole("button", { name: "Capture this tab" }).click();
+  // The only way in: open a Question Bank PDF export. It is parsed in the panel; nothing is sent until a pick.
+  const granted = await worker.evaluate(() => chrome.runtime.getManifest());
+  ok(
+    "permissions: no tabs, no all-sites; page access only on My Practice",
+    JSON.stringify(granted.permissions) === JSON.stringify(["sidePanel", "storage", "alarms", "scripting", "activeTab"]) &&
+      granted.host_permissions.filter((h) => h !== "<all_urls>").join(",") === "https://rulecard.vercel.app/*,https://mypractice.collegeboard.org/*",
+  );
+  await panel.locator("#pdf-input").setInputFiles(PDF);
+  await panel.locator('.pdf-item[data-qb="5b0e9c21"]').waitFor({ timeout: 30000 });
+  const items = await panel.locator(".pdf-item").allInnerTexts();
+  ok("PDF parsed in the panel: both questions listed, the one without a key is marked", items.length === 2 && /22a41819.*Words in Context.*Hard/.test(items[0]) && /no answer/.test(items[1]), items.join(" | "));
+  await panel.locator("#pdf-filter").fill("5b0e");
+  ok("the ID filter narrows the list", (await panel.locator(".pdf-item").count()) === 1);
+  await panel.locator("#pdf-filter").fill("");
+  await panel.locator('.pdf-item[data-qb="22a41819"]').click();
   const captured = await Promise.race([
     panel.getByText("Which did you pick?").waitFor({ timeout: 60000 }).then(() => "question"),
     panel.locator(".banner.danger").first().waitFor({ timeout: 60000 }).then(async () => "error: " + (await panel.locator(".banner.danger").first().innerText())),
   ]).catch((e) => "timeout: " + e.message.split("\n")[0]);
-  ok("capture via captureVisibleTab reached /api/extract and rendered a question", captured === "question" && (await panel.locator(".choice").count()) === 4, captured);
-  if (captured !== "question") throw new Error("capture failed: " + captured);
+  ok("picking a PDF question opens it with its four choices (no AI call)", captured === "question" && (await panel.locator(".choice").count()) === 4 && (await panel.getByText("dogmatic").count()) >= 1, captured);
+  if (captured !== "question") throw new Error("PDF question failed: " + captured);
 
   await panel.locator(".pick", { hasText: /^A$/ }).click();
   await panel.locator("#reasoning").fill("I thought a comma was fine");
@@ -88,7 +98,16 @@ try {
   await panel.locator(".rule-id").waitFor({ timeout: 60000 });
   const ruleText = await panel.locator(".rule-id").innerText();
   ok("rule card shows the rule id and name", /BND-01/.test(ruleText) && ruleText.includes("·"), ruleText);
-  ok("why right / why pick fails / takeaway sections", (await panel.getByText(/Why B is right/).count()) === 1 && (await panel.getByText(/Why A fails/).count()) === 1 && (await panel.getByText("Takeaway").count()) === 1);
+  ok(
+    "translated card: official rationale in the PDF, so answer + 1 to 3 rules and no extra explanation",
+    (await panel.getByText("official explanation, translated").count()) === 1 &&
+      (await panel.locator('[data-testid="key-rules"] li').count()) === 2 &&
+      (await panel.getByText("Answer: B").count()) === 1 &&
+      (await panel.getByText("Simple explanation").count()) === 0,
+  );
+  ok("the long explanation is folded away", !(await panel.getByText(/Why B is right/).isVisible()));
+  await panel.getByText("More detail").click();
+  ok("More detail holds why right / why pick fails / takeaway", (await panel.getByText(/Why B is right/).isVisible()) && (await panel.getByText(/Why A fails/).count()) === 1 && (await panel.getByText("Takeaway").count()) === 1);
   ok("correct choice highlighted", (await panel.locator(".choice.correct").count()) === 1 && (await panel.locator(".choice.picked").count()) === 1);
 
   await panel.locator("#chat-input").fill("Why not a comma?");
@@ -106,18 +125,63 @@ try {
   ok("tab bar has Home, Progress, Practice, Words, Settings", (await panel.locator(".rc-tabbtn").allInnerTexts()).map((t) => t.replace(/\d+/g, "").trim()).join(",") === "Home,Progress,Practice,Words,Settings");
   await panel.getByRole("tab", { name: /^Progress/ }).click();
   await panel.locator(".recent").first().waitFor({ timeout: 15000 });
-  ok("Progress tab shows recent reviews and hides the capture flow", (await panel.getByRole("button", { name: "Capture again" }).count()) === 0 && (await panel.locator(".recent").count()) >= 1);
+  ok("Progress tab shows recent reviews and hides the PDF flow", (await panel.getByRole("button", { name: "Open another PDF" }).count()) === 0 && (await panel.locator(".recent").count()) >= 1);
   await panel.getByRole("tab", { name: /^Settings/ }).click();
   ok("Settings tab holds How it works and settings", (await panel.getByText("How it works").count()) === 1 && (await panel.getByText("Export & settings").count()) === 1);
 
-  // Shortcut path: the service worker stores a capture, the panel picks it up (and switches back to Home).
-  await worker.evaluate(async ({ id, windowId }) => {
-    await chrome.tabs.update(id, { active: true });
-    const image = await chrome.tabs.captureVisibleTab(windowId, { format: "png" });
-    await chrome.storage.session.set({ pendingCapture: { image, at: Date.now(), tabTitle: "test" } });
-  }, pageTab);
-  await panel.getByText("Which did you pick?").waitFor({ timeout: 60000 });
-  ok("pending capture from the shortcut path is consumed and shows Home", (await panel.locator(".rc-tabbtn.active").innerText()) === "Home");
+  // The PDF survives closing the panel (session storage), and a question without an answer key is explained simply.
+  await panel.reload();
+  await panel.locator('.pdf-item[data-qb="5b0e9c21"]').waitFor({ timeout: 15000 });
+  ok("the opened PDF is still there after the panel reloads", (await panel.locator(".pdf-item").count()) === 2);
+  await panel.locator('.pdf-item[data-qb="5b0e9c21"]').click();
+  await panel.getByText("This PDF has no answer for this question.").waitFor({ timeout: 30000 });
+  ok("no answer key: the panel offers to solve it", (await panel.locator("#explain-button").isDisabled()) === true);
+  await panel.getByText("Let the model work out the answer").click();
+  await panel.locator(".pick", { hasText: /^C$/ }).click();
+  await panel.getByRole("button", { name: "Explain", exact: true }).click();
+  await panel.locator('[data-testid="key-rules"]').waitFor({ timeout: 60000 });
+  ok(
+    "explained card: no official explanation, so a simple explanation plus the rules",
+    (await panel.getByText("explained simply").count()) === 1 && (await panel.getByText("Simple explanation").count()) === 1 && (await panel.locator('[data-testid="key-rules"] li').count()) >= 1,
+  );
+  ok("returning to Home after the reload", (await panel.locator(".rc-tabbtn.active").innerText()) === "Home");
+
+  // A missed practice-test question in My Practice: the panel reads the page text (math back to LaTeX),
+  // keeps the student's pick, and sends the text, not a screenshot.
+  await context.route("https://mypractice.collegeboard.org/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: PRACTICE_PAGE }));
+  const practice = await context.newPage();
+  await practice.goto(PRACTICE_URL);
+  await worker.evaluate(async (url) => {
+    const [tab] = await chrome.tabs.query({ url: "https://mypractice.collegeboard.org/*" });
+    await chrome.tabs.update(tab.id, { active: true });
+    return url;
+  }, PRACTICE_URL);
+  let sent = null;
+  const onRequest = (r) => {
+    if (r.url().endsWith("/api/extract") && r.method() === "POST") sent = r.postData();
+  };
+  panel.on("request", onRequest);
+  await panel.locator("#read-practice").click();
+  await panel.locator('[data-testid="practice-note"]').waitFor({ timeout: 60000 }).catch(() => undefined);
+  panel.off("request", onRequest);
+  const body = sent ? JSON.parse(sent) : {};
+  ok(
+    "practice test: page text read with math as LaTeX, the pick and the answer line included",
+    body.source === "paste" && /\\\(f\(x\)=a\{x\}\^\{2\}\+bx\+c\\\)/.test(body.text ?? "") && /You selected answer D\. The correct answer is A\./.test(body.text ?? "") && !/Previous|Show correct answer/.test(body.text ?? ""),
+    (body.text ?? "").slice(0, 200),
+  );
+  ok(
+    "practice test: the panel keeps the student's pick (D) and says where it came from",
+    (await panel.locator('[data-testid="practice-note"]').innerText().catch(() => "")).includes("you picked D") && (await panel.locator(".pick.on").innerText().catch(() => "")) === "D",
+  );
+  const help = await worker.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ url: "https://mypractice.collegeboard.org/*" });
+    await chrome.tabs.remove(tab.id);
+    return true;
+  });
+  await panel.locator("#read-practice").click();
+  await panel.locator(".banner.danger").filter({ hasText: "My Practice" }).waitFor({ timeout: 15000 }).catch(() => undefined);
+  ok("practice test: on any other page it says where to go instead of reading it", help && (await panel.locator(".banner.danger").filter({ hasText: "My Practice" }).count()) === 1);
 
   // Recent list and the signed-in link into the web app.
   await panel.locator(".recent").first().waitFor({ timeout: 15000 }).catch(() => undefined);
@@ -126,7 +190,7 @@ try {
     // The pending capture left a question open; the list shows once it is cleared, so check the API directly.
     const { token, server } = (await worker.evaluate(() => chrome.storage.local.get("settings"))).settings;
     const res = await worker.evaluate(async ({ token, server }) => (await fetch(server + "/api/attempts?limit=5", { headers: { authorization: `Bearer ${token}` } })).json(), { token, server });
-    ok("recent history API returns this account's review", res.attempts?.length === 1 && res.attempts[0].ruleId === "BND-01", JSON.stringify(res).slice(0, 120));
+    ok("recent history API returns this account's reviews", res.attempts?.length === 2 && res.attempts.every((a) => a.ruleId === "BND-01"), JSON.stringify(res).slice(0, 120));
   } else {
     ok("recent list shows the review", recentCount >= 1);
   }
@@ -161,7 +225,9 @@ try {
   ok("grid-in input rejects a mixed number and disables Explain", (await panel.getByText(/Mixed numbers are not allowed/).count()) === 1 && (await panel.locator("#explain-button").isDisabled()));
   await panel.locator("#spr-input").fill("3/17");
   await panel.locator("#explain-button").click();
-  await panel.locator(".steps").first().waitFor({ timeout: 60000 });
+  await panel.locator('[data-testid="key-rules"]').waitFor({ timeout: 60000 });
+  await panel.getByText("More detail").click();
+  await panel.locator(".steps").first().waitFor({ timeout: 10000 });
   const mathRule = await panel.locator(".rule-id").innerText();
   ok("math rule card shows a Math rule, steps and the graded grid-in answer", /(LE1|LFN|LE2|SYS|INQ|EQX|NLE|NLF|RAT|PCT|ONE|TWO|PRB|SMP|EVS|ARV|LAT|TRG|CIR|MTH)-\d{2}/.test(mathRule) && (await panel.locator(".spr-result .tag.good").count()) === 1, mathRule);
   await panel.getByRole("button", { name: "Test me" }).click();
@@ -174,7 +240,8 @@ try {
   await panel.getByRole("button", { name: "Sign out" }).click();
   await panel.locator("#password").waitFor({ timeout: 10000 });
   const cleared = await worker.evaluate(() => chrome.storage.local.get("settings"));
-  ok("sign out forgets the token", cleared.settings?.token === null);
+  const session = await worker.evaluate(() => chrome.storage.session.get(null));
+  ok("sign out forgets the token and the opened PDF", cleared.settings?.token === null && !("rc.pdf.v1" in session));
 } catch (error) {
   ok("script completed", false, error && error.message);
 } finally {

@@ -62,7 +62,7 @@ const errors = [];
 try {
   await context.route("https://rulecard.vercel.app/**", (route) => {
     const p = new URL(route.request().url()).pathname;
-    if (p === "/api/health") return route.fulfill({ json: { ok: true, version: "0.6.2", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } } });
+    if (p === "/api/health") return route.fulfill({ json: { ok: true, version: "0.7.0", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } } });
     if (p === "/api/attempts") return route.fulfill({ json: { attempts: [] } });
     return route.fulfill({ json: {} });
   });

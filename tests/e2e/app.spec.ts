@@ -103,6 +103,11 @@ test("paste, explain, chat, test me, history and rules", async ({ page }) => {
   const card = page.getByTestId("rule-card");
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(card).toContainText("BND-01");
+  // The card leads with the answer and the 1 to 3 rules; the long explanation waits under "More detail".
+  await expect(page.getByTestId("card-answer")).toHaveText("Answer: B");
+  await expect(page.getByTestId("key-rules").locator("li")).toHaveCount(2);
+  await expect(card).toContainText("official explanation, translated");
+  await card.getByText("More detail").click();
   await expect(card).toContainText("Why B is right");
   await expect(card).toContainText("Why A fails");
   await expect(card).toContainText("Takeaway");
@@ -150,6 +155,8 @@ test("Math grid-in: type an answer, rule card with steps, chat, verified drill, 
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(card).toContainText("LE1-01");
   await expect(card).toContainText("3/17");
+  await expect(page.getByTestId("key-rules")).toBeVisible();
+  await card.getByText("More detail").click();
   await expect(page.getByTestId("rule-steps")).toBeVisible();
   await expect(page.getByTestId("rule-shortcut")).toContainText("Desmos");
 

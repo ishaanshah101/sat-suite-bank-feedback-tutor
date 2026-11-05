@@ -4,7 +4,6 @@ import { entryFromExplain, importEntries, readLog, recordAttempt, recordDrill, u
 import { memoryKV, setKV } from "../../../extension/src/addons/store";
 import { formatClock, lap, sessionStats, emptyTimer } from "../../../extension/src/addons/timer";
 import { actionFor } from "../../../extension/src/addons/hotkeys";
-import { toNaturalRect } from "../../../extension/src/addons/crop";
 import { nextAt } from "../../../extension/src/addons/background";
 import type { ExplainResponse } from "../../../extension/src/addons/types";
 import { entry } from "./helpers";
@@ -69,12 +68,6 @@ test("hotkey mapping: c captures, 3 picks C", () => {
   assert.deepEqual(actionFor("c"), { name: "capture" });
   assert.deepEqual(actionFor("Enter"), { name: "explain" });
   assert.equal(actionFor("x"), null);
-});
-
-test("crop rect maps display px to natural px and rejects tiny drags", () => {
-  assert.deepEqual(toNaturalRect({ x: 10, y: 20 }, { x: 110, y: 70 }, { w: 200, h: 100 }, { w: 400, h: 200 }), { x: 20, y: 40, w: 200, h: 100 });
-  assert.deepEqual(toNaturalRect({ x: 110, y: 70 }, { x: -50, y: 500 }, { w: 200, h: 100 }, { w: 200, h: 100 }), { x: 0, y: 70, w: 110, h: 30 });
-  assert.equal(toNaturalRect({ x: 5, y: 5 }, { x: 8, y: 9 }, { w: 200, h: 100 }, { w: 200, h: 100 }), null);
 });
 
 test("reminder time rolls to tomorrow once passed", () => {
