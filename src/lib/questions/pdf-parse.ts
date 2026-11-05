@@ -42,14 +42,38 @@ export const MAX_PDF_PAGES = 400;
 export const MAX_ITEMS_PER_PAGE = 5000;
 const NOISE = [/^page\s*\d+\s*of\s*\d+$/i, /collegeboard\.org/i, /^\d{1,2}\/\d{1,2}\/\d{2,4},?\s*\d{1,2}:\d{2}/];
 
+/** A space inside one text run, between two letters ("Ear th", "deser t", "they’ ll"). */
+const INNER_SPACE = /(?<=[\p{L}’'])\s(?=[\p{L}’'])/gu;
+
+/**
+ * Question Bank exports write every real word gap as its own run, so a space inside a run is a kerning
+ * artifact from pdf.js ("Ear th", "par ticipants", "Rober t"). Across six real exports, 581 of 124,799 runs
+ * had one, and all of them were artifacts. Only documents built that way (inner spaces in under 2% of runs)
+ * are repaired; a PDF that writes whole phrases per run keeps its spaces.
+ */
+export function repairKerningSplits(pages: PageItems[]): PageItems[] {
+  let runs = 0;
+  let withInner = 0;
+  for (const p of pages) {
+    for (const it of p.items) {
+      if (!it.str.trim()) continue;
+      runs++;
+      if (/\S\s\S/.test(it.str)) withInner++;
+    }
+  }
+  if (runs < 200 || withInner === 0 || withInner / runs >= 0.02) return pages;
+  return pages.map((p) => ({ ...p, items: p.items.map((it) => (/\S\s\S/.test(it.str) ? { ...it, str: it.str.replace(INNER_SPACE, "") } : it)) }));
+}
+
 /** pdf.js text runs per page, trimmed to the fields the parser uses. A page with too many runs is refused. */
 export function pagesFromTextItems(items: ReadonlyArray<ReadonlyArray<TextItem>>): PageItems[] {
-  return items.map((pageItems, index) => {
+  const pages = items.map((pageItems, index) => {
     if (pageItems.length > MAX_ITEMS_PER_PAGE) {
       throw new Error(`Page ${index + 1} has over ${MAX_ITEMS_PER_PAGE} text runs; this does not look like a Question Bank export.`);
     }
     return { page: index + 1, items: pageItems.map((it) => ({ str: it.str, x: it.x, y: it.y, width: it.width, height: it.height })) };
   });
+  return repairKerningSplits(pages);
 }
 
 export function linesFromItems(page: PageItems): Line[] {
@@ -74,8 +98,10 @@ export function linesFromItems(page: PageItems): Line[] {
   for (let i = lines.length - 1; i >= 0; i--) {
     const l = lines[i];
     const text = l.parts.map((p) => p.str).join("").trim();
-    if (l.parts.length !== 1 || text.length === 0 || text.length > 2) continue;
-    const height = l.parts[0].height || 6;
+    // pdf.js adds zero-height space runs next to a superscript ("km" + "2" + " "); they do not count.
+    const inked = l.parts.filter((p) => p.str.trim().length > 0);
+    if (inked.length !== 1 || text.length === 0 || text.length > 2) continue;
+    const height = inked[0].height || 6;
     const neighbours = [lines[i - 1], lines[i + 1]].filter((n): n is typeof l => Boolean(n));
     const host = neighbours
       .map((n) => ({ n, dy: Math.abs(n.y - l.y), h: Math.max(...n.parts.map((p) => p.height || 9)) }))

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Rulecard",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Learn the rules behind your SAT misses: open a Question Bank PDF or a missed practice-test question, get 1 to 3 clear rules.",
   "minimum_chrome_version": "116",
   "icons": {

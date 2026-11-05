@@ -137,6 +137,16 @@ function RuleBlock({ rule, stat, compact }: { rule: Rule; stat?: RuleStat; compa
           <span className="font-semibold text-accent">Shortcut:</span> <MathText text={rule.shortcut} />
         </p>
       ) : null}
+      {rule.tips?.length && !compact ? (
+        <div className="mt-2 rounded-lg border border-line px-3 py-2 text-sm" data-testid="rule-tips">
+          <span className="font-semibold">Tips:</span>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            {rule.tips.map((tip, i) => (
+              <MathText key={i} as="li" text={tip} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </Card>
   );
 }

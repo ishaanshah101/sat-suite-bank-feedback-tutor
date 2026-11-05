@@ -1,4 +1,4 @@
-# Publishing Rulecard 0.7.0: your checklist
+# Publishing Rulecard 0.7.1: your checklist
 
 Everything else is done: the web app is live at https://rulecard.vercel.app, the server uses only the free
 Vercel AI Gateway, and every file below is in this `store/` folder.
@@ -10,22 +10,22 @@ blocks paid providers even if a value were set, and no copy exists in the repo. 
 Anthropic for your other projects. If you ever want it fully revoked: https://console.anthropic.com →
 Settings → API Keys → Delete.
 
-## 2. Upload the extension: 0.7.0 is the one to upload (store id `lhkjgpalkmpbpholdakoejpkhghplidi`)
+## 2. Upload the extension: 0.7.1 is the one to upload (store id `lhkjgpalkmpbpholdakoejpkhghplidi`)
 
-0.7.0 reads questions from Question Bank PDF exports and from missed practice-test questions in My Practice,
+0.7.1 (0.7.0 plus fixes from real exports) reads questions from Question Bank PDF exports and from missed practice-test questions in My Practice,
 and gives every card the same shape: the answer and 1 to 3 rules (the official explanation translated, or a
 simple explanation when there is none). If an older version is still "pending review", cancel that review
 when the dashboard asks, then upload this package. Because the permissions changed, also paste the new
 permission justifications from `LISTING.md` (Privacy practices tab) before you submit, and replace the five
 screenshots and both promo tiles with the new ones in this folder.
 
-Material: `rulecard-extension-0.7.0.zip`
+Material: `rulecard-extension-0.7.1.zip`
 
 1. Go to https://chrome.google.com/webstore/devconsole and sign in with your Google account.
    - First time only: accept the developer agreement and pay the one-time $5 registration fee.
 2. **If Rulecard is already listed (any status):** click **Rulecard → Package → Upload new package**, choose
-   `rulecard-extension-0.7.0.zip`, and confirm. The version must read 0.7.0.
-3. **If this is the first upload:** click **+ New item**, choose `rulecard-extension-0.7.0.zip`, then fill the
+   `rulecard-extension-0.7.1.zip`, and confirm. The version must read 0.7.1.
+3. **If this is the first upload:** click **+ New item**, choose `rulecard-extension-0.7.1.zip`, then fill the
    tabs in steps 3 to 5.
 
 ## 3. Store listing tab
