@@ -50,7 +50,7 @@ describe("rule library", () => {
     expect(getRule("bnd-01")?.id).toBe("BND-01");
     expect(getRule("NOPE-99")).toBeNull();
     expect(GENERAL_RULES.map((r) => r.id)).toEqual(["GEN-01", "GEN-02", "GEN-03"]);
-    expect(generalRules("math").map((r) => r.id)).toEqual(["MTH-01", "MTH-02", "MTH-03", "MTH-04"]);
+    expect(generalRules("math").map((r) => r.id)).toEqual(["MTH-01", "MTH-02", "MTH-03", "MTH-04", "MTH-05"]);
     expect(RULE_BY_ID.size).toBe(RULES.length);
   });
 

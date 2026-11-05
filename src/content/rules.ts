@@ -1,5 +1,7 @@
 import type { Domain, Section, Skill } from "@/lib/questions/taxonomy";
 import { MATH_RULES } from "./math-rules";
+import { EXTRA_MATH_RULES, EXTRA_RW_RULES } from "./rules-extra";
+import { RULE_TIPS } from "./rule-tips";
 
 export interface Rule {
   id: string;
@@ -19,6 +21,8 @@ export interface Rule {
   example: { wrong: string; right: string };
   /** Math only: the fastest reliable route, often in the built-in Desmos calculator. */
   shortcut?: string;
+  /** Extra one-line tips from the owner's study materials (see rule-tips.ts). */
+  tips?: string[];
 }
 
 const SEC = "Standard English Conventions" as const;
@@ -588,7 +592,10 @@ const RW_RULES: Omit<Rule, "section">[] = [
   },
 ];
 
-export const RULES: Rule[] = [...RW_RULES.map((r) => ({ ...r, section: "rw" as const })), ...MATH_RULES];
+/** Every rule, with its study-material tips attached. Within a skill, rules keep their id order. */
+export const RULES: Rule[] = [...RW_RULES.map((r) => ({ ...r, section: "rw" as const })), ...EXTRA_RW_RULES, ...MATH_RULES, ...EXTRA_MATH_RULES].map((r) =>
+  RULE_TIPS[r.id] ? { ...r, tips: [...(r.tips ?? []), ...RULE_TIPS[r.id]] } : r,
+);
 
 export const RULE_BY_ID: ReadonlyMap<string, Rule> = new Map(RULES.map((r) => [r.id, r]));
 
@@ -617,7 +624,7 @@ export function formatRulesForPrompt(rules: Rule[]): string {
   return rules
     .map(
       (r) =>
-        `${r.id} ${r.name}\n  Rule: ${r.statement}\n  Spot it: ${r.spot_it}\n  Test: ${r.test}\n  Trap: ${r.trap}${r.shortcut ? `\n  Shortcut: ${r.shortcut}` : ""}`,
+        `${r.id} ${r.name}\n  Rule: ${r.statement}\n  Spot it: ${r.spot_it}\n  Test: ${r.test}\n  Trap: ${r.trap}${r.shortcut ? `\n  Shortcut: ${r.shortcut}` : ""}${r.tips?.length ? `\n  Tips: ${r.tips.join(" | ")}` : ""}`,
     )
     .join("\n");
 }

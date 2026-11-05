@@ -39920,13 +39920,28 @@ var LINE_TOLERANCE_PT = 2;
 var MAX_PDF_PAGES = 400;
 var MAX_ITEMS_PER_PAGE = 5e3;
 var NOISE = [/^page\s*\d+\s*of\s*\d+$/i, /collegeboard\.org/i, /^\d{1,2}\/\d{1,2}\/\d{2,4},?\s*\d{1,2}:\d{2}/];
+var INNER_SPACE = /(?<=[\p{L}’'])\s(?=[\p{L}’'])/gu;
+function repairKerningSplits(pages) {
+  let runs = 0;
+  let withInner = 0;
+  for (const p2 of pages) {
+    for (const it2 of p2.items) {
+      if (!it2.str.trim()) continue;
+      runs++;
+      if (/\S\s\S/.test(it2.str)) withInner++;
+    }
+  }
+  if (runs < 200 || withInner === 0 || withInner / runs >= 0.02) return pages;
+  return pages.map((p2) => ({ ...p2, items: p2.items.map((it2) => /\S\s\S/.test(it2.str) ? { ...it2, str: it2.str.replace(INNER_SPACE, "") } : it2) }));
+}
 function pagesFromTextItems(items) {
-  return items.map((pageItems, index) => {
+  const pages = items.map((pageItems, index) => {
     if (pageItems.length > MAX_ITEMS_PER_PAGE) {
       throw new Error(`Page ${index + 1} has over ${MAX_ITEMS_PER_PAGE} text runs; this does not look like a Question Bank export.`);
     }
     return { page: index + 1, items: pageItems.map((it2) => ({ str: it2.str, x: it2.x, y: it2.y, width: it2.width, height: it2.height })) };
   });
+  return repairKerningSplits(pages);
 }
 function linesFromItems(page) {
   const items = page.items.map((it2) => ({ ...it2, str: it2.str.replace(/\s+/g, " ") })).filter((it2) => it2.str.trim().length > 0 || it2.str === " ").sort((a2, b2) => b2.y - a2.y || a2.x - b2.x);
@@ -39944,8 +39959,9 @@ function linesFromItems(page) {
   for (let i3 = lines.length - 1; i3 >= 0; i3--) {
     const l2 = lines[i3];
     const text2 = l2.parts.map((p2) => p2.str).join("").trim();
-    if (l2.parts.length !== 1 || text2.length === 0 || text2.length > 2) continue;
-    const height = l2.parts[0].height || 6;
+    const inked = l2.parts.filter((p2) => p2.str.trim().length > 0);
+    if (inked.length !== 1 || text2.length === 0 || text2.length > 2) continue;
+    const height = inked[0].height || 6;
     const neighbours = [lines[i3 - 1], lines[i3 + 1]].filter((n2) => Boolean(n2));
     const host = neighbours.map((n2) => ({ n: n2, dy: Math.abs(n2.y - l2.y), h: Math.max(...n2.parts.map((p2) => p2.height || 9)) })).filter(({ dy, h: h4 }) => dy <= Math.max(h4, height) && dy > 0).sort((a2, b2) => a2.dy - b2.dy)[0];
     if (!host) continue;
