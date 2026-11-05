@@ -40421,6 +40421,123 @@ async function clearStoredPdf() {
   await chrome.storage.session.remove(KEY);
 }
 
+// extension/src/practice.ts
+var PRACTICE_HOST = "mypractice.collegeboard.org";
+function isPracticeUrl(url) {
+  if (!url) return false;
+  try {
+    const u2 = new URL(url);
+    return u2.protocol === "https:" && u2.hostname === PRACTICE_HOST;
+  } catch {
+    return false;
+  }
+}
+function parsePracticePick(text2) {
+  const letter = /you\s+selected\s+(?:answer\s+)?(?:choice\s+)?([A-D])\b/i.exec(text2);
+  if (letter) return { letter: letter[1].toUpperCase() };
+  const typed = /you\s+(?:entered|answered|selected|typed)\s+(?:answer\s+)?:?\s*(-?[\d./]+)/i.exec(text2);
+  if (typed) return { typed: typed[1].replace(/\.$/, "") };
+  return null;
+}
+function showsAnswer(text2) {
+  return /correct answer/i.test(text2) && /rationale|is correct|best answer/i.test(text2);
+}
+function cleanPracticeText(text2) {
+  return text2.replace(/ /g, " ").split("\n").map((l2) => l2.replace(/[ \t]+/g, " ").trim()).filter((l2) => !/^(previous|next|close|show correct answer and explanation)$/i.test(l2)).join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 18e3);
+}
+function readPracticePageInPage() {
+  const tex = (n2) => {
+    const t2 = n2.localName;
+    const c2 = Array.from(n2.children);
+    const all = () => c2.map(tex).join("");
+    switch (t2) {
+      case "annotation":
+      case "annotation-xml":
+        return "";
+      case "semantics":
+        return c2[0] ? tex(c2[0]) : "";
+      case "mi":
+      case "mn":
+      case "mtext":
+      case "ms":
+        return (n2.textContent ?? "").trim();
+      case "mo": {
+        const s2 = (n2.textContent ?? "").trim();
+        return s2 === "\u2212" ? "-" : s2 === "\u2264" ? "\\le " : s2 === "\u2265" ? "\\ge " : s2 === "\xD7" ? "\\times " : s2;
+      }
+      case "mspace":
+        return " ";
+      case "msup":
+        return `{${c2[0] ? tex(c2[0]) : ""}}^{${c2[1] ? tex(c2[1]) : ""}}`;
+      case "msub":
+        return `{${c2[0] ? tex(c2[0]) : ""}}_{${c2[1] ? tex(c2[1]) : ""}}`;
+      case "msubsup":
+        return `{${c2[0] ? tex(c2[0]) : ""}}_{${c2[1] ? tex(c2[1]) : ""}}^{${c2[2] ? tex(c2[2]) : ""}}`;
+      case "mfrac":
+        return `\\frac{${c2[0] ? tex(c2[0]) : ""}}{${c2[1] ? tex(c2[1]) : ""}}`;
+      case "msqrt":
+        return `\\sqrt{${all()}}`;
+      case "mroot":
+        return `\\sqrt[${c2[1] ? tex(c2[1]) : ""}]{${c2[0] ? tex(c2[0]) : ""}}`;
+      case "mfenced":
+        return `${n2.getAttribute("open") ?? "("}${c2.map(tex).join(n2.getAttribute("separators") ?? ",")}${n2.getAttribute("close") ?? ")"}`;
+      case "mover":
+      case "munder":
+      case "munderover":
+        return c2[0] ? tex(c2[0]) : "";
+      default:
+        return all();
+    }
+  };
+  const dialogs = Array.from(document.querySelectorAll('[role="dialog"], [aria-modal="true"], dialog'));
+  const root = dialogs.find((d2) => /rationale|correct answer/i.test(d2.textContent ?? "")) ?? dialogs[0] ?? document.querySelector("main") ?? document.body;
+  const hasFigure = Array.from(root.querySelectorAll("img, svg, canvas")).some((el) => {
+    if (el.closest("button, header, nav, math, .katex, mjx-container")) return false;
+    const r2 = el.getBoundingClientRect();
+    return r2.width > 80 && r2.height > 60;
+  });
+  const clone = root.cloneNode(true);
+  const swap = (el, latex) => el.replaceWith(document.createTextNode(` \\(${latex.trim()}\\) `));
+  clone.querySelectorAll(".katex").forEach((k2) => {
+    const ann = k2.querySelector('annotation[encoding="application/x-tex"]');
+    const m2 = k2.querySelector("math");
+    if (ann?.textContent) swap(k2, ann.textContent);
+    else if (m2) swap(k2, tex(m2));
+  });
+  clone.querySelectorAll('script[type^="math/tex"]').forEach((s2) => {
+    let prev = s2.previousElementSibling;
+    while (prev && /MathJax/.test(prev.className.toString())) {
+      const p2 = prev.previousElementSibling;
+      prev.remove();
+      prev = p2;
+    }
+    swap(s2, s2.textContent ?? "");
+  });
+  clone.querySelectorAll("mjx-container").forEach((m2) => {
+    const ml = m2.querySelector("math");
+    if (ml) swap(m2, tex(ml));
+  });
+  clone.querySelectorAll("math").forEach((m2) => swap(m2, tex(m2)));
+  clone.querySelectorAll('script, style, noscript, button, svg, img, canvas, [aria-hidden="true"]').forEach((e2) => e2.remove());
+  const holder = document.createElement("div");
+  holder.style.cssText = "position:fixed;left:-100000px;top:0;width:900px;white-space:normal;";
+  holder.append(clone);
+  document.body.append(holder);
+  const text2 = holder.innerText;
+  holder.remove();
+  return { text: text2.slice(0, 4e4), hasFigure };
+}
+async function readPracticeTab(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, func: readPracticePageInPage });
+    const reads = results.map((r2) => r2.result).filter((r2) => Boolean(r2 && typeof r2.text === "string" && r2.text.trim()));
+    const best = reads.sort((a2, b2) => Number(showsAnswer(b2.text)) - Number(showsAnswer(a2.text)) || b2.text.length - a2.text.length)[0];
+    return best ? { text: cleanPracticeText(best.text), hasFigure: Boolean(best.hasFigure) } : null;
+  } catch {
+    return null;
+  }
+}
+
 // node_modules/.pnpm/katex@0.18.11/node_modules/katex/dist/katex.mjs
 var ParseError = class _ParseError extends Error {
   // The underlying error message without any context added.
@@ -55983,7 +56100,7 @@ var HOTKEY_HELP = [
   ["1\u20134", "pick answer A\u2013D (A, B, D keys work too)"],
   ["G", "I got it right, explain anyway"],
   ["Enter", "explain"],
-  ["C", "capture this tab (so use 3 for choice C)"],
+  ["C", "open a Question Bank PDF (so use 3 for choice C)"],
   ["T", "Test me (new question on the rule)"],
   ["R", "start a review"],
   ["/", "ask a follow-up"],
@@ -59084,7 +59201,7 @@ function renderTimer(state2, actions, target = TARGET_SECONDS) {
   return h2(
     "div",
     { class: "rc-timer row between small", title: `Time on this question. Target pace is ${target}s (${target > TARGET_SECONDS ? "44 Math questions in 70 minutes" : "54 questions in 64 minutes"}).` },
-    h2("span", { class: "row" }, h2("span", { class: "muted", text: state2.startedAt !== null ? "This question" : "Timer starts at your next capture" }), state2.startedAt !== null ? clock2 : null),
+    h2("span", { class: "row" }, h2("span", { class: "muted", text: state2.startedAt !== null ? "This question" : "Timer starts at your next question" }), state2.startedAt !== null ? clock2 : null),
     h2(
       "span",
       { class: "row" },
@@ -61210,7 +61327,7 @@ function createAddons(ctx, host) {
         { class: "card rc-help", onclick: (ev) => ev.stopPropagation() },
         h2("div", { class: "row between" }, h2("h2", { text: "Keyboard shortcuts" }), h2("button", { class: "btn link small", text: "Close", onclick: toggleHelp })),
         h2("dl", null, ...HOTKEY_HELP.flatMap(([k2, v2]) => [h2("dt", null, h2("kbd", { text: k2 })), h2("dd", { text: v2 })])),
-        h2("p", { class: "muted small", text: "Alt+Shift+R captures the tab from anywhere in Chrome. On any site, select a question, right-click and choose Explain this question with Rulecard." })
+        h2("p", { class: "muted small", text: "Rulecard reads questions only from SAT Suite Question Bank PDF exports. Press C to open one, or drop the PDF on the panel." })
       )
     );
   }
@@ -61288,7 +61405,7 @@ function createAddons(ctx, host) {
         "div",
         { class: "card" },
         h2("div", { class: "row between" }, h2("h2", { text: "Keyboard shortcuts" }), h2("button", { class: "btn small", text: "Show", onclick: toggleHelp })),
-        h2("p", { class: "small muted", text: "Press ? anywhere in the panel. Alt+Shift+R captures the tab from anywhere in Chrome." })
+        h2("p", { class: "small muted", text: "Press ? anywhere in the panel. Press C to open a Question Bank PDF." })
       )
     ];
   }
@@ -61349,6 +61466,8 @@ var state = {
   pdfReading: false,
   pdfOpening: null,
   pdfCurrent: null,
+  practiceReading: false,
+  practiceNote: null,
   moreOpen: false,
   captureError: null,
   question: null,
@@ -61746,6 +61865,16 @@ function renderPdfCard() {
       );
     }
   }
+  children.push(
+    h3("div", { class: "or-line", text: "or" }),
+    h3(
+      "button",
+      { id: "read-practice", class: "btn", disabled: state.practiceReading || state.pdfOpening !== null, onclick: () => void readPracticeQuestion() },
+      state.practiceReading ? spinner2() : null,
+      state.practiceReading ? "Reading the practice question..." : "Read my practice test question"
+    ),
+    h3("p", { class: "muted small", text: 'After a Bluebook practice test, open a missed question in My Practice (mypractice.collegeboard.org), tick "Show correct answer and explanation", then click this. Only that question is read.' })
+  );
   if (state.health && !state.health.ai.live && !state.health.ai.stub && state.health.ai.configured.length === 0) {
     children.push(h3("div", { class: "banner warn" }, "The server has no AI provider right now, so explanations will fail. ", link(`${state.settings.server}/health`, "Status page")));
   }
@@ -61841,6 +61970,7 @@ function renderPickPanel(q2) {
     }
   });
   const children = [h3("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
+  if (state.practiceNote) children.push(h3("div", { class: "banner accent", "data-testid": "practice-note", text: state.practiceNote }));
   if (needsAnswer) {
     children.push(
       h3(
@@ -62114,8 +62244,8 @@ function renderFooter() {
 function describe(error) {
   if (error instanceof ApiError) {
     if (error.code === "no_provider") return "The server has no AI key yet. Add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel, then try again.";
-    if (error.code === "extraction_failed") return "I could not find a question in that picture. Scroll so the whole question and the choices are visible, then capture again.";
-    if (error.code === "needs_answer") return "The answer was not visible. Reveal it on the Question Bank tab and capture again, or tick 'Let the model work out the answer'.";
+    if (error.code === "extraction_failed") return "I could not find a question there. For a PDF, make sure it is a Question Bank export; for a practice test, open the question with its answer showing, then try again.";
+    if (error.code === "needs_answer") return "This question has no answer to go on. Tick 'Let the model work out the answer', or export it again with answers included.";
     if (error.code === "daily_limit") return error.message;
     if (error.code === "invalid_response") return error.message;
     if (error.code === "unverified") return "Could not double-check that question. Try again.";
@@ -62144,6 +62274,7 @@ function resetQuestion() {
   state.explaining = false;
   state.explainError = null;
   state.explained = null;
+  state.practiceNote = null;
   state.moreOpen = false;
   state.chat = { messages: [], busy: false, error: null };
   state.drill = emptyDrill();
@@ -62218,6 +62349,7 @@ async function openPdfQuestion(index) {
         const row = data.questions[0];
         if (!row) throw new Error("The server did not save that question. Try again.");
         resetQuestion();
+        state.captureError = null;
         state.question = row;
         void addons.afterExtract(normalizeQuestion(row));
       }
@@ -62235,9 +62367,60 @@ async function openPdfQuestion(index) {
 async function processImage(image) {
   const data = await request(state.settings, "/api/extract", { body: { image, source: "pdf" } });
   resetQuestion();
+  state.captureError = null;
   state.question = data.question;
   addons.showTab("home");
   void addons.afterExtract(normalizeQuestion(data.question));
+}
+var PRACTICE_HELP = "Open the question's review page in My Practice (mypractice.collegeboard.org: your practice test, then a question you missed), then click this again.";
+async function readPracticeQuestion() {
+  if (state.practiceReading || inflight) return;
+  addons.showTab("home");
+  state.practiceReading = true;
+  state.captureError = null;
+  render3();
+  await serialCapture(async () => {
+    try {
+      let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tab?.id === void 0 || !isPracticeUrl(tab.url)) throw new Error(PRACTICE_HELP);
+      const read = await readPracticeTab(tab.id);
+      if (!read) throw new Error("Couldn't read that page. Reload it, open the question again, then click this once more.");
+      if (!showsAnswer(read.text)) throw new Error('Tick "Show correct answer and explanation" under the question, then click this again.');
+      let image = null;
+      let figureNote = null;
+      if (read.hasFigure && tab.windowId !== void 0) {
+        try {
+          image = await downscale(await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" }));
+        } catch {
+          figureNote = "This question has a graph or picture that was not sent. To include it, click the Rulecard toolbar icon on that tab once, then read the question again.";
+        }
+      }
+      const data = image ? await request(state.settings, "/api/extract", { body: { image, source: "capture" } }) : await request(state.settings, "/api/extract", { body: { text: read.text, source: "paste" } });
+      resetQuestion();
+      state.captureError = null;
+      state.question = data.question;
+      state.pdfCurrent = null;
+      const pick = parsePracticePick(read.text);
+      let picked = null;
+      if (pick && "letter" in pick && data.question.format !== "spr") {
+        state.picked = pick.letter;
+        picked = `picked ${pick.letter}`;
+      } else if (pick && "typed" in pick && data.question.format === "spr") {
+        state.sprInput = pick.typed;
+        state.picked = "spr";
+        picked = `entered ${pick.typed}`;
+      }
+      state.practiceNote = [picked ? `From your practice test: you ${picked}. Press Explain.` : "From your practice test. Choose what you picked, then press Explain.", figureNote].filter(Boolean).join(" ");
+      void addons.afterExtract(normalizeQuestion(data.question));
+    } catch (error) {
+      if (await handleAuthFailure(error)) return;
+      state.captureError = describe(error);
+    } finally {
+      state.practiceReading = false;
+      render3();
+    }
+  });
 }
 async function restorePdf() {
   if (state.pdf) return;
@@ -62392,6 +62575,7 @@ async function consumePendingQuestion() {
   if (state.view !== "main" || !pending.id || !pending.stem) return;
   addons.showTab("home");
   resetQuestion();
+  state.captureError = null;
   state.question = pending;
   void addons.afterExtract(normalizeQuestion(pending));
   render3();

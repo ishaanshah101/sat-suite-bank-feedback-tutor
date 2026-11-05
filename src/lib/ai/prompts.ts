@@ -7,7 +7,9 @@ import { MAX_KEY_RULES } from "./schemas";
 
 export const EXTRACT_INSTRUCTIONS = `You extract Digital SAT questions (Reading and Writing, or Math) from College Board's SAT Suite Question Bank into structured data.
 
-The input is either a screenshot of the Question Bank question window, a rendered page of a Question Bank PDF export, or pasted text. The window title reads "Question ID: xxxxxxxx" (8 hex characters). Ignore browser chrome, site navigation, buttons and anything that is not part of the question.
+The input is a screenshot or the text of a Question Bank question window, a rendered page of a Question Bank PDF export, pasted text, or a missed question from a Bluebook practice test as shown in My Practice (mypractice.collegeboard.org). A Question Bank window title reads "Question ID: xxxxxxxx" (8 hex characters). Ignore browser chrome, site navigation, buttons and anything that is not part of the question.
+
+My Practice practice-test pages look like: "SAT Practice 6 - October 31, 2026", "Knowledge and Skills: Advanced Math" (that is the domain), "Math: Question 22" or "Reading and Writing: Question 5", the question and choices, then "Answer", a line like "You selected answer D. The correct answer is A.", and "Rationale". There is no Question ID, so qb_id is null. The correct answer is the one after "The correct answer is", never the student's selection. Set visible_answer_panel to true when that line is shown. The rationale is everything under "Rationale". Math in page text is LaTeX inside \( \); keep it.
 
 Section and format:
 - section is "math" for Math questions (algebra, functions, equations, data, geometry, trigonometry; test "SAT Math" or a Math domain such as Algebra, Advanced Math, Problem-Solving and Data Analysis, Geometry and Trigonometry) and "rw" for Reading and Writing.

@@ -6,12 +6,12 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
 ## Store listing tab
 
 - **Name:** Rulecard
-- **Summary (132 characters max):** Open your SAT Question Bank PDF and get the official explanation translated into the 1 to 3 rules you actually need.
+- **Summary (132 characters max):** Learn the rules behind your SAT misses: open a Question Bank PDF or a missed practice-test question, get 1 to 3 clear rules.
 - **Category:** Education
 - **Language:** English
 - **Description:**
 
-  Rulecard is built for one thing: SAT Suite Question Bank PDF exports. It turns College Board's long, confusing explanations into the 1 to 3 rules you actually need, Reading and Writing or Math.
+  Rulecard is built for two places your SAT questions live: SAT Suite Question Bank PDF exports, and the missed questions of a Bluebook practice test in My Practice. It turns College Board's long, confusing explanations into the 1 to 3 rules you actually need, Reading and Writing or Math.
 
   How it works:
   1. In the SAT Suite Question Bank, export the questions you worked as a PDF (with answers and explanations if you can).
@@ -21,6 +21,7 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
      - The PDF has the official explanation: Rulecard translates it into 1 to 3 plain rules. Nothing else.
      - The PDF has no answer or explanation: Rulecard explains the question simply, then gives the 1 to 3 rules.
      The longer detail (why your pick fails, the other choices, Math steps and a Desmos shortcut) is one tap away under More detail.
+  Practice tests: after a Bluebook practice test, open a missed question in My Practice (mypractice.collegeboard.org), tick "Show correct answer and explanation", and press "Read my practice test question". Rulecard reads that question, your answer and the official rationale, and your pick is filled in for you.
   5. Ask follow-up questions, or press Test me for a fresh practice question on the same rule. Math practice questions are checked by an independent second solve before you see them.
 
   Math support: equations and expressions shown as real math notation, graphs and tables read and described, student-produced response (grid-in) answers checked by the official entry rules (fractions, decimals, and accepted forms), and a rule library covering all 19 official Math skills alongside the 10 Reading and Writing skills.
@@ -56,17 +57,20 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
 
 ## Privacy practices tab
 
-- **Single purpose:** Help students learn from SAT Suite Question Bank practice questions: read the Question Bank PDF export the user opens, turn the official explanation into the rules the student needs (or explain the question simply when there is none), and help them practice those rules.
+- **Single purpose:** Help students learn from their SAT practice questions: read the Question Bank PDF export the user opens, or the missed practice-test question the user opens in My Practice, turn the official explanation into the rules the student needs (or explain the question simply when there is none), and help them practice those rules.
 - **Permission justifications:**
   - `sidePanel`: the whole interface lives in Chrome's side panel next to the Question Bank tab.
   - `storage`: keep the user's sign-in token and study log on this device, and the PDF the user opened for the rest of the browser session (in memory only, cleared on sign-out).
+  - `scripting`: on My Practice (mypractice.collegeboard.org) only, when the user presses "Read my practice test question", read the text of the question dialog that is open (question, choices, the user's answer, the correct answer and the rationale). No other site is ever read.
+  - `activeTab`: only for a practice-test question that has a graph or picture: after the user clicks the toolbar icon on that tab, take one picture of it so the graph can be read. Never used otherwise.
   - `alarms`: refresh the toolbar badge with the number of rules due for review, and schedule the optional daily study reminder.
   - Optional `notifications`: requested only when the user turns on the daily reminder in settings.
   - Host permission `rulecard.vercel.app`: the Rulecard server that reads the question and writes the explanation.
+  - Host permission `mypractice.collegeboard.org`: read the open practice-test question when the user presses "Read my practice test question".
   - Optional host permission `https://*/*`: only requested if the user points the extension at their own Rulecard server in settings, for that one server's address.
-- **No tab access:** Rulecard never reads, scripts or screenshots any web page. The only input is a PDF file the user chooses.
+- **Narrow page access:** Rulecard reads no web page except the My Practice question the user asks it to read. Its other input is a PDF file the user chooses.
 - **Remote code:** No, the extension does not run remote code. All JavaScript is in the package.
-- **Data usage, check:** Personally identifiable information (email address), Authentication information (password, sent once to sign in; only a token is stored), Website content (the text of the one question the user picks from their PDF, or for Math a picture of that question's page).
+- **Data usage, check:** Personally identifiable information (email address), Authentication information (password, sent once to sign in; only a token is stored), Website content (the text of the one question the user picks from their PDF or reads from My Practice, or for Math and graphs a picture of it).
 - **Certify:** data is not sold to third parties, not used or transferred for purposes unrelated to the single purpose, not used for creditworthiness or lending.
 - **Privacy policy URL:** https://rulecard.vercel.app/privacy
 

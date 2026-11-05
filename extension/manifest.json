@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Rulecard",
   "version": "0.7.0",
-  "description": "Learn the rule behind each SAT Question Bank question: open your Question Bank PDF export and get the official explanation translated into 1 to 3 rules.",
+  "description": "Learn the rules behind your SAT misses: open a Question Bank PDF or a missed practice-test question, get 1 to 3 clear rules.",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",
@@ -29,10 +29,13 @@
   "permissions": [
     "sidePanel",
     "storage",
-    "alarms"
+    "alarms",
+    "scripting",
+    "activeTab"
   ],
   "host_permissions": [
-    "https://rulecard.vercel.app/*"
+    "https://rulecard.vercel.app/*",
+    "https://mypractice.collegeboard.org/*"
   ],
   "homepage_url": "https://rulecard.vercel.app",
   "optional_permissions": [

@@ -204,3 +204,16 @@ details.more[open] > summary {
   margin: 4px 0 0;
   line-height: 1.5;
 }
+.or-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.or-line::before,
+.or-line::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--line);
+}

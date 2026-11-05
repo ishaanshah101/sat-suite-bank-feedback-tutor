@@ -1,6 +1,8 @@
 import { ApiError, authenticate, DEFAULT_SERVER, loadSettings, normalizeServer, request, saveSettings, streamChat, webLink } from "./api";
 import { checkPdfFile, filterQuestions, hasAnswer, importPayload, needsVision, parseQuestionBankPdf, questionLabel, renderQuestionPages, type LoadedPdf } from "./pdf";
 import { clearStoredPdf, loadStoredPdf, storePdf } from "./pdf-store";
+import { isPracticeUrl, parsePracticePick, readPracticeTab, showsAnswer } from "./practice";
+import { downscale } from "./image";
 import { renderMathHtml } from "../../src/lib/math/render";
 import { parseSprEntry } from "../../src/lib/questions/spr";
 import {
@@ -38,6 +40,10 @@ interface State {
   /** Index in pdf.questions of the question being opened, then of the one on screen. */
   pdfOpening: number | null;
   pdfCurrent: number | null;
+  /** Reading a practice-test question from the My Practice tab. */
+  practiceReading: boolean;
+  /** Shown above the pick buttons for a practice-test question ("you picked D"). */
+  practiceNote: string | null;
   /** Whether "More detail" on the rule card is open (kept across re-renders). */
   moreOpen: boolean;
   /** Errors from opening a PDF or a question in it. */
@@ -68,6 +74,8 @@ const state: State = {
   pdfReading: false,
   pdfOpening: null,
   pdfCurrent: null,
+  practiceReading: false,
+  practiceNote: null,
   moreOpen: false,
   captureError: null,
   question: null,
@@ -512,6 +520,16 @@ function renderPdfCard(): Node {
       );
     }
   }
+  children.push(
+    h("div", { class: "or-line", text: "or" }),
+    h(
+      "button",
+      { id: "read-practice", class: "btn", disabled: state.practiceReading || state.pdfOpening !== null, onclick: () => void readPracticeQuestion() },
+      state.practiceReading ? spinner() : null,
+      state.practiceReading ? "Reading the practice question..." : "Read my practice test question",
+    ),
+    h("p", { class: "muted small", text: "After a Bluebook practice test, open a missed question in My Practice (mypractice.collegeboard.org), tick \"Show correct answer and explanation\", then click this. Only that question is read." }),
+  );
   if (state.health && !state.health.ai.live && !state.health.ai.stub && state.health.ai.configured.length === 0) {
     children.push(h("div", { class: "banner warn" }, "The server has no AI provider right now, so explanations will fail. ", link(`${state.settings.server}/health`, "Status page")));
   }
@@ -613,6 +631,7 @@ function renderPickPanel(q: Question): Node {
     },
   });
   const children: Child[] = [h("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
+  if (state.practiceNote) children.push(h("div", { class: "banner accent", "data-testid": "practice-note", text: state.practiceNote }));
   if (needsAnswer) {
     children.push(
       h(
@@ -897,8 +916,8 @@ function renderFooter(): Node {
 function describe(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === "no_provider") return "The server has no AI key yet. Add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel, then try again.";
-    if (error.code === "extraction_failed") return "I could not find a question in that picture. Scroll so the whole question and the choices are visible, then capture again.";
-    if (error.code === "needs_answer") return "The answer was not visible. Reveal it on the Question Bank tab and capture again, or tick 'Let the model work out the answer'.";
+    if (error.code === "extraction_failed") return "I could not find a question there. For a PDF, make sure it is a Question Bank export; for a practice test, open the question with its answer showing, then try again.";
+    if (error.code === "needs_answer") return "This question has no answer to go on. Tick 'Let the model work out the answer', or export it again with answers included.";
     if (error.code === "daily_limit") return error.message;
     if (error.code === "invalid_response") return error.message;
     if (error.code === "unverified") return "Could not double-check that question. Try again.";
@@ -929,6 +948,7 @@ function resetQuestion() {
   state.explaining = false;
   state.explainError = null;
   state.explained = null;
+  state.practiceNote = null;
   state.moreOpen = false;
   state.chat = { messages: [], busy: false, error: null };
   state.drill = emptyDrill();
@@ -1013,6 +1033,7 @@ async function openPdfQuestion(index: number) {
         const row = data.questions[0];
         if (!row) throw new Error("The server did not save that question. Try again.");
         resetQuestion();
+        state.captureError = null;
         state.question = row;
         void addons.afterExtract(normalizeQuestion(row));
       }
@@ -1031,9 +1052,69 @@ async function openPdfQuestion(index: number) {
 async function processImage(image: string) {
   const data = await request<ExtractResponse>(state.settings, "/api/extract", { body: { image, source: "pdf" } });
   resetQuestion();
+  state.captureError = null;
   state.question = data.question;
   addons.showTab("home");
   void addons.afterExtract(normalizeQuestion(data.question));
+}
+
+const PRACTICE_HELP =
+  "Open the question's review page in My Practice (mypractice.collegeboard.org: your practice test, then a question you missed), then click this again.";
+
+/** Read the missed question open in My Practice: its text (math as LaTeX), your answer, the correct answer and the rationale. */
+async function readPracticeQuestion() {
+  if (state.practiceReading || inflight) return;
+  addons.showTab("home");
+  state.practiceReading = true;
+  state.captureError = null;
+  render();
+  await serialCapture(async () => {
+    try {
+      let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tab?.id === undefined || !isPracticeUrl(tab.url)) throw new Error(PRACTICE_HELP);
+      const read = await readPracticeTab(tab.id);
+      if (!read) throw new Error("Couldn't read that page. Reload it, open the question again, then click this once more.");
+      if (!showsAnswer(read.text)) throw new Error('Tick "Show correct answer and explanation" under the question, then click this again.');
+      // A graph or picture is not in the text, so that question goes as a picture when Chrome allows it.
+      let image: string | null = null;
+      let figureNote: string | null = null;
+      if (read.hasFigure && tab.windowId !== undefined) {
+        try {
+          image = await downscale(await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" }));
+        } catch {
+          figureNote = "This question has a graph or picture that was not sent. To include it, click the Rulecard toolbar icon on that tab once, then read the question again.";
+        }
+      }
+      const data = image
+        ? await request<ExtractResponse>(state.settings, "/api/extract", { body: { image, source: "capture" } })
+        : await request<ExtractResponse>(state.settings, "/api/extract", { body: { text: read.text, source: "paste" } });
+      resetQuestion();
+      state.captureError = null;
+      state.question = data.question;
+      state.pdfCurrent = null;
+      const pick = parsePracticePick(read.text);
+      let picked: string | null = null;
+      if (pick && "letter" in pick && data.question.format !== "spr") {
+        state.picked = pick.letter;
+        picked = `picked ${pick.letter}`;
+      } else if (pick && "typed" in pick && data.question.format === "spr") {
+        state.sprInput = pick.typed;
+        state.picked = "spr";
+        picked = `entered ${pick.typed}`;
+      }
+      state.practiceNote = [picked ? `From your practice test: you ${picked}. Press Explain.` : "From your practice test. Choose what you picked, then press Explain.", figureNote]
+        .filter(Boolean)
+        .join(" ");
+      void addons.afterExtract(normalizeQuestion(data.question));
+    } catch (error) {
+      if (await handleAuthFailure(error)) return;
+      state.captureError = describe(error);
+    } finally {
+      state.practiceReading = false;
+      render();
+    }
+  });
 }
 
 /** Bring back the PDF opened earlier in this browser session (the panel forgets it when closed). */
@@ -1204,6 +1285,7 @@ async function consumePendingQuestion() {
   if (state.view !== "main" || !pending.id || !pending.stem) return;
   addons.showTab("home");
   resetQuestion();
+  state.captureError = null;
   state.question = pending;
   void addons.afterExtract(normalizeQuestion(pending));
   render();

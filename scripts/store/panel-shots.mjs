@@ -20,6 +20,12 @@ const rwQuestion = {
 const rwCard = {
   rule_id: "BND-01",
   rule_statement: "Two complete sentences can be joined only by a period, a semicolon, a comma plus a FANBOYS word, a colon, or a dash.",
+  mode: "translated",
+  key_rules: [
+    "Two complete sentences need a period, a semicolon, or a comma plus and/but/so between them.",
+    "A comma alone between two complete sentences is always wrong (a comma splice).",
+  ],
+  simple_explanation: null,
   correct_letter: "B", correct_answer: null,
   why_correct: "Both halves are complete sentences, and a semicolon is one of the legal joins.",
   why_pick_fails: "A comma alone between two complete sentences is a comma splice.",
@@ -53,6 +59,12 @@ const mathQuestion = {
 const mathCard = {
   rule_id: "LFN-03",
   rule_statement: "In a table, the slope is the change in \\(f(x)\\) divided by the change in \\(x\\), not the change from one row to the next.",
+  mode: "explained",
+  simple_explanation: "The table goes up 6 every time \\(x\\) goes up 2, so each 1 step in \\(x\\) adds 3. That makes \\(f(x) = 3x + 7\\) and \\(f(10) = 37\\).",
+  key_rules: [
+    "Slope from a table is (change in \\(f(x)\\)) ÷ (change in \\(x\\)), so check how far \\(x\\) jumps between rows.",
+    "Once you have the slope, plug in one row to find the starting value \\(b\\).",
+  ],
   correct_letter: "B", correct_answer: null,
   why_correct: "Each row adds 2 to \\(x\\) and 6 to \\(f(x)\\), so the slope is \\(\\frac{6}{2} = 3\\) and \\(f(x) = 3x + 7\\), giving \\(f(10) = 37\\).",
   why_pick_fails: "67 comes from treating 6 as the slope, which ignores that \\(x\\) jumps by 2 each row.",
@@ -73,6 +85,9 @@ const sprQuestion = {
 const sprCard = {
   rule_id: "LE1-01",
   rule_statement: "Undo the operations in reverse order: add 2 to both sides, then divide by 17.",
+  mode: "translated",
+  simple_explanation: null,
+  key_rules: ["Undo the last operation first: add back what was subtracted, then divide by the number in front of \\(x\\)."],
   correct_letter: null, correct_answer: "3/17",
   why_correct: "Adding 2 to both sides gives \\(17x = 3\\), and dividing by 17 gives \\(x = \\frac{3}{17}\\).",
   why_pick_fails: "Subtracting 2 instead of adding it gives \\(17x = -1\\), a sign slip.",
@@ -103,7 +118,7 @@ const recent = [
   const json = (route, body) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   await context.route("https://rulecard.vercel.app/**", async (route) => {
     const p = new URL(route.request().url()).pathname;
-    if (p === "/api/health") return json(route, { ok: true, version: "0.6.2", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
+    if (p === "/api/health") return json(route, { ok: true, version: "0.7.0", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
     if (p === "/api/attempts") return json(route, { attempts: recent });
     const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : rwQuestion;
     if (p === "/api/extract") return json(route, { question: q, provider: "anthropic", model: "x" });
@@ -127,12 +142,14 @@ const recent = [
     await panel.screenshot({ path: path.join(OUT, name), fullPage: true, clip: { x: 0, y: Math.max(0, top), width: 400, height: 900 } });
   };
   const topOf = (sel) => panel.evaluate((s) => document.querySelector(s).getBoundingClientRect().top + window.scrollY, sel);
+  // Hand the panel the question for the current mode, as if it had been picked from a Question Bank PDF.
   const capture = async () => {
-    await worker.evaluate(async () => chrome.storage.session.set({ pendingCapture: { image: "data:image/png;base64,iVBORw0KGgo=", at: Date.now() } }));
+    const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : rwQuestion;
+    await worker.evaluate(async (question) => chrome.storage.session.set({ pendingQuestion: question }), q);
   };
 
   await panel.goto(`chrome-extension://${id}/sidepanel.html`);
-  await panel.getByRole("button", { name: "Capture this tab" }).waitFor();
+  await panel.getByRole("button", { name: "Open your Question Bank PDF" }).waitFor();
   await shot("home.png");
 
   // RW
@@ -143,8 +160,8 @@ const recent = [
   await panel.locator("#reasoning").fill("I thought a comma was enough");
   await shot("question.png");
   await panel.getByRole("button", { name: "Explain", exact: true }).click();
-  await panel.locator(".rule-id").waitFor();
-  await shot("rule.png", (await topOf(".rule-id")) - 300);
+  await panel.locator('[data-testid="key-rules"]').waitFor();
+  await shot("rule.png", (await topOf('[data-testid="key-rules"]')) - 300);
   await panel.getByRole("button", { name: "Test me" }).click();
   await panel.getByText("Test me · BND-01").waitFor();
   await panel.locator(".choice.selectable", { hasText: "March, and commuters" }).click();
@@ -160,8 +177,8 @@ const recent = [
   await panel.locator("#reasoning").fill("Each row goes up by 6, so the slope is 6");
   await shot("math-question.png", (await topOf(".card:nth-of-type(2)")) - 12);
   await panel.getByRole("button", { name: "Explain", exact: true }).click();
-  await panel.locator(".rule-id").waitFor();
-  await shot("math-rule.png", (await topOf(".rule-id")) - 120);
+  await panel.locator('[data-testid="key-rules"]').waitFor();
+  await shot("math-rule.png", (await topOf('[data-testid="key-rules"]')) - 200);
 
   // Math grid-in
   mode = "spr";
@@ -170,7 +187,7 @@ const recent = [
   await panel.locator("#spr-input").fill("-1/17");
   await panel.locator("#spr-input").dispatchEvent("input");
   await panel.getByRole("button", { name: "Explain", exact: true }).click();
-  await panel.locator(".rule-id").waitFor();
-  await shot("spr-rule.png", (await topOf(".rule-id")) - 330);
+  await panel.locator('[data-testid="key-rules"]').waitFor();
+  await shot("spr-rule.png", (await topOf('[data-testid="key-rules"]')) - 330);
   await context.close();
 })();

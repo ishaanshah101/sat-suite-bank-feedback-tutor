@@ -9,6 +9,8 @@ const BASE = process.env.BASE ?? "http://localhost:3100";
 const EMAIL = process.env.EMAIL ?? `ext-${Date.now()}@example.com`;
 const PASSWORD = process.env.PASSWORD ?? "extension-check-1";
 const PDF = path.resolve("tests/fixtures/qb-export-2026.pdf");
+const PRACTICE_PAGE = fs.readFileSync(path.resolve("tests/fixtures/mypractice-question.html"), "utf8");
+const PRACTICE_URL = "https://mypractice.collegeboard.org/details?fp_8dbea909-c37c-43c1-bde0-b3c056674757";
 const results = [];
 const ok = (name, cond, extra = "") => {
   results.push(!!cond);
@@ -69,7 +71,12 @@ try {
   ok("health dot is green (db + stub AI)", true);
 
   // The only way in: open a Question Bank PDF export. It is parsed in the panel; nothing is sent until a pick.
-  ok("permissions are only sidePanel, storage and alarms", JSON.stringify((await worker.evaluate(() => chrome.runtime.getManifest())).permissions) === JSON.stringify(["sidePanel", "storage", "alarms"]));
+  const granted = await worker.evaluate(() => chrome.runtime.getManifest());
+  ok(
+    "permissions: no tabs, no all-sites; page access only on My Practice",
+    JSON.stringify(granted.permissions) === JSON.stringify(["sidePanel", "storage", "alarms", "scripting", "activeTab"]) &&
+      granted.host_permissions.filter((h) => h !== "<all_urls>").join(",") === "https://rulecard.vercel.app/*,https://mypractice.collegeboard.org/*",
+  );
   await panel.locator("#pdf-input").setInputFiles(PDF);
   await panel.locator('.pdf-item[data-qb="5b0e9c21"]').waitFor({ timeout: 30000 });
   const items = await panel.locator(".pdf-item").allInnerTexts();
@@ -138,6 +145,43 @@ try {
     (await panel.getByText("explained simply").count()) === 1 && (await panel.getByText("Simple explanation").count()) === 1 && (await panel.locator('[data-testid="key-rules"] li').count()) >= 1,
   );
   ok("returning to Home after the reload", (await panel.locator(".rc-tabbtn.active").innerText()) === "Home");
+
+  // A missed practice-test question in My Practice: the panel reads the page text (math back to LaTeX),
+  // keeps the student's pick, and sends the text, not a screenshot.
+  await context.route("https://mypractice.collegeboard.org/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: PRACTICE_PAGE }));
+  const practice = await context.newPage();
+  await practice.goto(PRACTICE_URL);
+  await worker.evaluate(async (url) => {
+    const [tab] = await chrome.tabs.query({ url: "https://mypractice.collegeboard.org/*" });
+    await chrome.tabs.update(tab.id, { active: true });
+    return url;
+  }, PRACTICE_URL);
+  let sent = null;
+  const onRequest = (r) => {
+    if (r.url().endsWith("/api/extract") && r.method() === "POST") sent = r.postData();
+  };
+  panel.on("request", onRequest);
+  await panel.locator("#read-practice").click();
+  await panel.locator('[data-testid="practice-note"]').waitFor({ timeout: 60000 }).catch(() => undefined);
+  panel.off("request", onRequest);
+  const body = sent ? JSON.parse(sent) : {};
+  ok(
+    "practice test: page text read with math as LaTeX, the pick and the answer line included",
+    body.source === "paste" && /\\\(f\(x\)=a\{x\}\^\{2\}\+bx\+c\\\)/.test(body.text ?? "") && /You selected answer D\. The correct answer is A\./.test(body.text ?? "") && !/Previous|Show correct answer/.test(body.text ?? ""),
+    (body.text ?? "").slice(0, 200),
+  );
+  ok(
+    "practice test: the panel keeps the student's pick (D) and says where it came from",
+    (await panel.locator('[data-testid="practice-note"]').innerText().catch(() => "")).includes("you picked D") && (await panel.locator(".pick.on").innerText().catch(() => "")) === "D",
+  );
+  const help = await worker.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ url: "https://mypractice.collegeboard.org/*" });
+    await chrome.tabs.remove(tab.id);
+    return true;
+  });
+  await panel.locator("#read-practice").click();
+  await panel.locator(".banner.danger").filter({ hasText: "My Practice" }).waitFor({ timeout: 15000 }).catch(() => undefined);
+  ok("practice test: on any other page it says where to go instead of reading it", help && (await panel.locator(".banner.danger").filter({ hasText: "My Practice" }).count()) === 1);
 
   // Recent list and the signed-in link into the web app.
   await panel.locator(".recent").first().waitFor({ timeout: 15000 }).catch(() => undefined);
