@@ -73,7 +73,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                     <td className="px-4 py-2">{rule ? `${rule.id} ${rule.name}` : (attempt.ruleId ?? "pending")}</td>
                     <td className="px-4 py-2">{yours}</td>
                     <td className="px-4 py-2">{correct}</td>
-                    <td className="px-4 py-2">{right === null ? <Chip>unknown</Chip> : right ? <Chip tone="good">right</Chip> : <Chip tone="danger">missed</Chip>}</td>
+                    <td className="px-4 py-2">{right === null ? <Chip>unknown</Chip> : right ? <Chip tone="good">right</Chip> : <Chip tone="miss">missed</Chip>}</td>
                   </tr>
                 );
               })}

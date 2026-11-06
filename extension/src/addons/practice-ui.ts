@@ -315,11 +315,11 @@ function flashSummaryView(state: DeckState, hs: PracticeHandlers): HTMLElement {
       h("p", { class: "stem", text: `Done. You knew ${s.hard + s.good} of ${plural(s.graded, "rule")}.` }),
       h("p", { class: "small", text: s.again ? "Rules you marked Again come back tomorrow. The rest wait longer." : "Each rule now waits longer before it comes back." })),
     h("div", { class: "row" },
-      chip(`Again ${s.again}`, s.again ? "danger" : ""),
+      chip(`Again ${s.again}`, s.again ? "miss" : ""),
       chip(`Hard ${s.hard}`, s.hard ? "warn" : ""),
       chip(`Good ${s.good}`, s.good ? "good" : "")),
     s.againRules.length
-      ? h("div", null, h("h2", { text: "Back tomorrow" }), h("div", { class: "row" }, ...s.againRules.map((r) => chip(ruleLabel(r.ruleId, r.ruleName), "danger"))))
+      ? h("div", null, h("h2", { text: "Back tomorrow" }), h("div", { class: "row" }, ...s.againRules.map((r) => chip(ruleLabel(r.ruleId, r.ruleName), "miss"))))
       : null,
     done);
 }
@@ -374,7 +374,7 @@ function redoQuestionView(state: RedoState, item: RedoItem, hs: PracticeHandlers
       : picked === first ? `You picked ${picked} again, same as the first time.` : first ? `You picked ${picked}. The first time you picked ${first}.` : `You picked ${picked}.`;
     const left = total - state.index - 1;
     kids.push(
-      h("div", { class: `banner ${right ? "good" : "danger"}`, role: "status" },
+      h("div", { class: `banner ${right ? "good" : "miss"}`, role: "status" },
         h("p", { class: "stem", text: right ? `Right. The answer is ${e.correct}.` : `Not yet. The answer is ${e.correct}.` }),
         detail ? h("p", { class: "small", text: detail }) : null),
       h("div", { class: "rc-redo-why" },
@@ -408,10 +408,10 @@ function redoSummaryView(state: RedoState, hs: PracticeHandlers, stats: RedoStat
       h("p", { class: "small", text: "Right answers leave your redo list. Wrong and skipped ones stay for next time." })),
     h("div", { class: "row" },
       chip(`Right ${s.right}`, s.right ? "good" : ""),
-      chip(`Wrong ${s.wrong}`, s.wrong ? "danger" : ""),
+      chip(`Wrong ${s.wrong}`, s.wrong ? "miss" : ""),
       s.skipped ? chip(`Skipped ${s.skipped}`) : null),
     s.missedAgain.length
-      ? h("div", null, h("h2", { text: "Missed again" }), h("div", { class: "row" }, ...s.missedAgain.map((r) => chip(`${ruleLabel(r.ruleId, r.ruleName)}${r.count > 1 ? ` (${r.count})` : ""}`, "danger"))))
+      ? h("div", null, h("h2", { text: "Missed again" }), h("div", { class: "row" }, ...s.missedAgain.map((r) => chip(`${ruleLabel(r.ruleId, r.ruleName)}${r.count > 1 ? ` (${r.count})` : ""}`, "miss"))))
       : null,
     allTime,
     done);

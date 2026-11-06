@@ -113,6 +113,9 @@ then optionally say which letter they picked and see why it's wrong. The PDF pic
 - **Tabs:** Home (Capture + card only), **Plan** (today's plan, practice sets, pacing timer), Progress, Practice,
   Words, Settings. Chat, Test me, strategies and card tools are off Home.
 - The web app's review page is unchanged (paste, image or PDF, pick first).
+- **0.8.1 (colors):** red now means only "something went wrong" (a failed capture, sign-in). Wrong picks, misses and
+  weak skills use a calm blue (`--miss` in `extension/sidepanel.css`, `--color-miss` in `src/app/globals.css`), in the
+  extension and on the website.
 
 ## Publishing the extension on the Chrome Web Store (only you can do this)
 

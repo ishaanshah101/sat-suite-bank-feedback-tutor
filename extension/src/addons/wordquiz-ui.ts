@@ -129,7 +129,7 @@ function feedback(q: WordQuestion, ans: WordAnswer): HTMLElement {
     ? ["Right. The word is ", h("b", { text: q.word }), "."]
     : ["Not quite. You picked ", h("b", { text: q.choices[ans.picked] }), ". The word is ", h("b", { text: q.word }), "."];
   return h("div", { class: "rc-wq-feedback" },
-    h("div", { class: `banner ${ans.correct ? "good" : "danger"}`, role: "status" }, h("p", { class: "stem" }, ...said)),
+    h("div", { class: `banner ${ans.correct ? "good" : "miss"}`, role: "status" }, h("p", { class: "stem" }, ...said)),
     q.sentence ? h("p", { class: "rc-wq-sentence" }, ...withWord(q.sentence, q.word)) : null,
     q.meaning ? h("p", { class: "small rc-wq-meaning" }, ...withWord(q.meaning, q.word)) : null);
 }
@@ -179,7 +179,7 @@ function missItem(m: WordMiss): HTMLElement {
 export function renderWordQuizResult(summary: WordQuizSummary, handlers: WordQuizResultHandlers): HTMLElement {
   const s = summary;
   const misses = s.misses.length;
-  const tone = s.accuracy === null ? "" : s.accuracy >= 0.8 ? "good" : s.accuracy >= 0.5 ? "warn" : "danger";
+  const tone = s.accuracy === null ? "" : s.accuracy >= 0.8 ? "good" : s.accuracy >= 0.5 ? "warn" : "miss";
   const top = head("Word quiz results", null, s.answered ? chip(pct(s.accuracy), tone) : null, null);
   const actions = h("div", { class: "row rc-wq-actions" },
     h("button", { type: "button", class: misses ? "btn primary" : "btn", onclick: () => handlers.again() }, "Again"),

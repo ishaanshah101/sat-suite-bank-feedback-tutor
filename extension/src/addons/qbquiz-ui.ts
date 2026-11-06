@@ -291,7 +291,7 @@ export function renderQuiz(state: QuizState, handlers: QuizHandlers, opts: QuizR
     const right = ans.correct;
     const pace = ans.seconds > target ? `over the ${target} s pace` : `within the ${target} s pace`;
     kids.push(
-      h("div", { class: `banner ${right ? "good" : "danger"}`, role: "status" },
+      h("div", { class: `banner ${right ? "good" : "miss"}`, role: "status" },
         h("p", { class: "stem", text: right ? `Right. The answer is ${q.correct}.` : `Not quite. You picked ${ans.picked}. The answer is ${q.correct}.` }),
         state.timed ? h("p", { class: "small", text: `You took ${secs(ans.seconds)}, ${pace}.` }) : null),
       h("details", { class: "rc-quiz-rationale" },

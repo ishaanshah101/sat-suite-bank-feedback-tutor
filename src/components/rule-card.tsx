@@ -6,10 +6,10 @@ import { Chip } from "./ui";
 
 const DIAGNOSIS: Record<
   RuleCardData["diagnosis"],
-  { label: string; tone: "neutral" | "accent" | "good" | "danger" | "warn" }
+  { label: string; tone: "neutral" | "accent" | "good" | "danger" | "warn" | "miss" }
 > = {
   misread: { label: "misread the question", tone: "warn" },
-  rule_gap: { label: "rule gap", tone: "danger" },
+  rule_gap: { label: "rule gap", tone: "miss" },
   careless: { label: "careless slip", tone: "warn" },
   got_it_right: { label: "you got it", tone: "good" },
   unknown: { label: "no reasoning given", tone: "neutral" },

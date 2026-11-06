@@ -85,7 +85,7 @@ export function renderJournal(entries: LogEntry[], f: JournalFilter, actions: Jo
       onclick: () => { if (isOpen) expanded.delete(e.attemptId); else expanded.add(e.attemptId); rerender(); },
     },
       h("span", { class: "row rc-wrap" },
-        chip(e.result === "right" ? "right" : "missed", e.result === "right" ? "good" : "danger"),
+        chip(e.result === "right" ? "right" : "missed", e.result === "right" ? "good" : "miss"),
         h("span", { class: "small", text: e.ruleName ? `${e.ruleId} · ${e.ruleName}` : e.ruleId }),
         e.starred ? h("span", { class: "small", text: "★" }) : null,
         h("span", { class: "small muted", text: new Date(e.at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) })),

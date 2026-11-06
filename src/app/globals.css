@@ -12,6 +12,9 @@
   --color-good-soft: #e7f6ec;
   --color-danger: #b42318;
   --color-danger-soft: #fdecea;
+  /* Misses and wrong picks: a calm blue. Red is only for things that actually went wrong. */
+  --color-miss: #3f5bc7;
+  --color-miss-soft: #edf1fd;
   --color-warn: #b45309;
   --color-warn-soft: #fff4e5;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -30,6 +33,8 @@
     --color-good-soft: #10261a;
     --color-danger: #f87171;
     --color-danger-soft: #3a1512;
+    --color-miss: #93a6ff;
+    --color-miss-soft: #1c2340;
     --color-warn: #fbbf24;
     --color-warn-soft: #3a2a0a;
   }
