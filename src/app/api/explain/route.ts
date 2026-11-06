@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     const question = await getQuestion(session.userId, body.questionId);
     if (!question) throw new HttpError(404, "Question not found");
     const gridIn = question.format === "spr";
-    if (gridIn && body.picked !== "spr" && body.picked !== "correct") throw new HttpError(400, "This question has no answer choices. Type your answer.", "invalid_response");
+    if (gridIn && body.picked !== "spr" && body.picked !== "correct" && body.picked !== "none") throw new HttpError(400, "This question has no answer choices. Type your answer.", "invalid_response");
     if (!gridIn && body.picked === "spr") throw new HttpError(400, "Pick a letter for this question.", "invalid_response");
     let response: string | null = null;
     if (body.picked === "spr") {

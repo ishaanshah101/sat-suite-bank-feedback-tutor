@@ -79,8 +79,9 @@ try {
   await panel.goto(`chrome-extension://${id}/sidepanel.html`);
   await panel.waitForTimeout(1500);
   const shot = async (name) => { await panel.waitForTimeout(300); await panel.screenshot({ path: path.join(OUT, name), fullPage: true }); };
-  await shot("addons-home.png");
   const tab = async (name) => { await panel.getByRole("tab", { name: new RegExp(`^${name}`) }).click(); await panel.waitForTimeout(300); };
+  await tab("Plan");
+  await shot("addons-plan.png");
   await tab("Progress");
   for (const label of ["Activity", "Skill map"]) {
     const s = panel.locator("summary", { hasText: label }).first();

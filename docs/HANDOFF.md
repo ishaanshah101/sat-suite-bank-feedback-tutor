@@ -87,6 +87,33 @@ The owner shared his SAT study folder (89 files: College Board's Assessment Fram
 - **Parser fixes from the six real exports (291 questions):** pdf.js splits "rt" kerning pairs inside a text run ("Ear th", "deser t", "Rober t"); those are rejoined when a document writes word gaps as separate runs (inner spaces in under 2% of runs), and a superscript with a zero-height space beside it (km²) now attaches to its line instead of blocking the choices.
 - **Not fully read:** the 27.7 MB Kaplan math book; the Drive tools stop at 10 MB and the cloud network blocks direct Drive downloads, so only its first chapter was read.
 
+## Extension 0.8.0: one Capture button (2026-11-06)
+
+What the student asked for: open the panel, press one button, get the answer and 2 or 3 bullets, nothing else;
+then optionally say which letter they picked and see why it's wrong. The PDF picker is gone.
+
+- **Capture this tab** screenshots the tab on screen (`extension/src/capture.ts`) and sends it to `/api/extract`.
+  On mypractice.collegeboard.org it reads the question dialog's text instead (more accurate for long passages),
+  falling back to a screenshot when the question has a graph.
+- **Getting past Chrome's capture rules:** the toolbar icon no longer just opens the panel. `background.ts` handles
+  the click itself (`openPanelOnActionClick: false`), opens the panel, and tells an already-open panel to capture.
+  The click also grants `activeTab`, which is the only way to capture another extension's PDF viewer (Adobe
+  Acrobat's) or a tab the panel wasn't opened on. The shortcut is Alt+Shift+R (`_execute_action`). When the button
+  is refused, the panel says why and offers the fix: a one-time optional `<all_urls>` grant (the **Allow** button),
+  "Allow access to file URLs" for a PDF saved on the computer, or "click the toolbar icon". Chrome's own pages and
+  the Web Store can never be captured.
+- **The card ("quick" mode):** `/api/explain` with `picked: "none"` writes the answer, 2 or 3 bullets (first the
+  general rule the way a cheat sheet says it, then how it decides this question), and a reason for **every**
+  wrong choice. The official rationale, if it was on screen, is only a fact check.
+- **Which did you pick?** `POST /api/explain/pick {attemptId, picked}` grades the pick and returns that choice's
+  reason with no model call, so it is instant. Grid-ins are graded by the official entry rules and show the steps.
+  The local study log (Plan, Progress, Practice) records a capture once the student says what they picked.
+- **Database:** migration `0008_quick_cards.sql` allows `picked = 'none'` and keeps unpicked cards out of the miss
+  counts (`rule_stats`). Applied to Supabase before the deploy.
+- **Tabs:** Home (Capture + card only), **Plan** (today's plan, practice sets, pacing timer), Progress, Practice,
+  Words, Settings. Chat, Test me, strategies and card tools are off Home.
+- The web app's review page is unchanged (paste, image or PDF, pick first).
+
 ## Publishing the extension on the Chrome Web Store (only you can do this)
 
 1. Register as a Chrome Web Store developer at https://chrome.google.com/webstore/devconsole with your Google account and pay the one-time $5 fee.

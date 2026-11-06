@@ -20,18 +20,20 @@ const rwQuestion = {
 const rwCard = {
   rule_id: "BND-01",
   rule_statement: "Two complete sentences can be joined only by a period, a semicolon, a comma plus a FANBOYS word, a colon, or a dash.",
-  mode: "translated",
+  mode: "quick",
   key_rules: [
     "Two complete sentences need a period, a semicolon, or a comma plus and/but/so between them.",
-    "A comma alone between two complete sentences is always wrong (a comma splice).",
+    "\"The study ended in 2019\" and \"the results were published a year later\" are both complete sentences.",
+    "So the semicolon in B is the only clean join; a comma alone (A) is a comma splice.",
   ],
   simple_explanation: null,
   correct_letter: "B", correct_answer: null,
   why_correct: "Both halves are complete sentences, and a semicolon is one of the legal joins.",
   why_pick_fails: "A comma alone between two complete sentences is a comma splice.",
   eliminations: [
-    { letter: "C", reason: "Nothing between two sentences makes a run-on." },
-    { letter: "D", reason: "A comma plus 'and' is legal, but 'and the' leaves the second clause without a subject here." },
+    { letter: "A", reason: "A comma alone between two complete sentences is a comma splice, the most common Boundaries trap. B's semicolon is a legal join." },
+    { letter: "C", reason: "Nothing between two complete sentences makes a run-on. B fixes it with a semicolon." },
+    { letter: "D", reason: "Comma plus 'and' would be legal, but it adds a second join on top of the sentence break. B keeps it to one clean join." },
   ],
   steps: [], shortcut: null,
   takeaway: "Two sentences, one comma: never.",
@@ -59,16 +61,21 @@ const mathQuestion = {
 const mathCard = {
   rule_id: "LFN-03",
   rule_statement: "In a table, the slope is the change in \\(f(x)\\) divided by the change in \\(x\\), not the change from one row to the next.",
-  mode: "explained",
-  simple_explanation: "The table goes up 6 every time \\(x\\) goes up 2, so each 1 step in \\(x\\) adds 3. That makes \\(f(x) = 3x + 7\\) and \\(f(10) = 37\\).",
+  mode: "quick",
+  simple_explanation: null,
   key_rules: [
     "Slope from a table is (change in \\(f(x)\\)) ÷ (change in \\(x\\)), so check how far \\(x\\) jumps between rows.",
-    "Once you have the slope, plug in one row to find the starting value \\(b\\).",
+    "Here \\(x\\) jumps by 2 and \\(f(x)\\) by 6, so the slope is 3 and \\(f(x) = 3x + 7\\).",
+    "Fastest: from \\(x = 6\\) to \\(x = 10\\) is 4 more, so add \\(4 \\times 3 = 12\\) to 25: \\(f(10) = 37\\).",
   ],
   correct_letter: "B", correct_answer: null,
   why_correct: "Each row adds 2 to \\(x\\) and 6 to \\(f(x)\\), so the slope is \\(\\frac{6}{2} = 3\\) and \\(f(x) = 3x + 7\\), giving \\(f(10) = 37\\).",
-  why_pick_fails: "67 comes from treating 6 as the slope, which ignores that \\(x\\) jumps by 2 each row.",
-  eliminations: [],
+  why_pick_fails: null,
+  eliminations: [
+    { letter: "A", reason: "31 adds only one row's jump of 6 to 25. From \\(x = 6\\) to \\(x = 10\\) is two jumps: 37." },
+    { letter: "C", reason: "67 treats 6 as the slope, but \\(x\\) goes up by 2 each row, so the slope is \\(\\frac{6}{2} = 3\\). That gives 37." },
+    { letter: "D", reason: "43 adds three jumps of 6 instead of two. From 6 to 10 is two steps of 2: 37." },
+  ],
   steps: ["Slope: \\(\\frac{19 - 13}{4 - 2} = 3\\).", "Intercept: \\(13 = 3(2) + b\\), so \\(b = 7\\).", "\\(f(10) = 3(10) + 7 = 37\\)."],
   shortcut: "In Desmos, enter the table and type \\(y_1 \\sim mx_1 + b\\) to fit the line, then evaluate at \\(x = 10\\).",
   takeaway: "Divide by the step in \\(x\\), not by 1.",
@@ -85,12 +92,15 @@ const sprQuestion = {
 const sprCard = {
   rule_id: "LE1-01",
   rule_statement: "Undo the operations in reverse order: add 2 to both sides, then divide by 17.",
-  mode: "translated",
+  mode: "quick",
   simple_explanation: null,
-  key_rules: ["Undo the last operation first: add back what was subtracted, then divide by the number in front of \\(x\\)."],
+  key_rules: [
+    "To solve for \\(x\\), undo the last operation first: add back what was subtracted, then divide by the number in front of \\(x\\).",
+    "Add 2 to both sides: \\(17x = 3\\). Divide by 17: \\(x = \\frac{3}{17}\\).",
+  ],
   correct_letter: null, correct_answer: "3/17",
   why_correct: "Adding 2 to both sides gives \\(17x = 3\\), and dividing by 17 gives \\(x = \\frac{3}{17}\\).",
-  why_pick_fails: "Subtracting 2 instead of adding it gives \\(17x = -1\\), a sign slip.",
+  why_pick_fails: null,
   eliminations: [],
   steps: ["Add 2 to both sides: \\(17x = 3\\).", "Divide both sides by 17: \\(x = \\frac{3}{17}\\).", "Enter 3/17 (or .1764 or .1765)."],
   shortcut: "Graph \\(y = 17x - 2\\) and \\(y = 1\\) in Desmos and read the x-value where they cross.",
@@ -118,7 +128,7 @@ const recent = [
   const json = (route, body) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   await context.route("https://rulecard.vercel.app/**", async (route) => {
     const p = new URL(route.request().url()).pathname;
-    if (p === "/api/health") return json(route, { ok: true, version: "0.7.1", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
+    if (p === "/api/health") return json(route, { ok: true, version: "0.8.0", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
     if (p === "/api/attempts") return json(route, { attempts: recent });
     const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : rwQuestion;
     if (p === "/api/extract") return json(route, { question: q, provider: "anthropic", model: "x" });
@@ -126,6 +136,13 @@ const recent = [
       if (mode === "math") return json(route, { attemptId: "att2", card: mathCard, question: q, rule: { id: "LFN-03", name: "Equal steps in tables" }, isCorrect: false });
       if (mode === "spr") return json(route, { attemptId: "att3", card: sprCard, question: q, rule: { id: "LE1-01", name: "Undo operations in order" }, isCorrect: false });
       return json(route, { attemptId: "att1", card: rwCard, question: q, rule: { id: "BND-01", name: "Joining two complete sentences" }, isCorrect: false });
+    }
+    if (p === "/api/explain/pick") {
+      const body = route.request().postDataJSON();
+      const card = mode === "math" ? mathCard : mode === "spr" ? sprCard : rwCard;
+      const isCorrect = mode === "spr" ? body.response === "3/17" : body.picked === card.correct_letter;
+      const why = card.eliminations.find((e) => e.letter === body.picked)?.reason ?? null;
+      return json(route, { attemptId: "att", card: { ...card, why_pick_fails: isCorrect ? null : why }, picked: body.picked, response: body.response ?? null, isCorrect });
     }
     if (p === "/api/drill") return json(route, rwDrill);
     if (p === "/api/drill/check") return json(route, rwCheck);
@@ -141,53 +158,40 @@ const recent = [
     await panel.waitForTimeout(500);
     await panel.screenshot({ path: path.join(OUT, name), fullPage: true, clip: { x: 0, y: Math.max(0, top), width: 400, height: 900 } });
   };
-  const topOf = (sel) => panel.evaluate((s) => document.querySelector(s).getBoundingClientRect().top + window.scrollY, sel);
-  // Hand the panel the question for the current mode, as if it had been picked from a Question Bank PDF.
+  // Hand the panel the question for the current mode, as if it had just been captured.
   const capture = async () => {
     const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : rwQuestion;
     await worker.evaluate(async (question) => chrome.storage.session.set({ pendingQuestion: question }), q);
   };
 
   await panel.goto(`chrome-extension://${id}/sidepanel.html`);
-  await panel.getByRole("button", { name: "Open your Question Bank PDF" }).waitFor();
+  await panel.getByRole("button", { name: "Capture this tab" }).waitFor();
   await shot("home.png");
 
-  // RW
+  // Reading and Writing: the card, then "Which did you pick?" -> A.
   mode = "rw";
   await capture();
   await panel.getByText("Which did you pick?").waitFor();
+  await shot("card.png");
   await panel.locator(".pick", { hasText: /^A$/ }).click();
-  await panel.locator("#reasoning").fill("I thought a comma was enough");
-  await shot("question.png");
-  await panel.getByRole("button", { name: "Explain", exact: true }).click();
-  await panel.locator('[data-testid="key-rules"]').waitFor();
-  await shot("rule.png", (await topOf('[data-testid="key-rules"]')) - 300);
-  await panel.getByRole("button", { name: "Test me" }).click();
-  await panel.getByText("Test me · BND-01").waitFor();
-  await panel.locator(".choice.selectable", { hasText: "March, and commuters" }).click();
-  await panel.getByText("Another one").waitFor();
-  const drillTop = await panel.evaluate(() => [...document.querySelectorAll("h2")].find((e) => e.textContent.startsWith("Test me")).getBoundingClientRect().top + window.scrollY);
-  await shot("drill.png", drillTop - 330);
+  await panel.locator('[data-testid="pick-why"]').waitFor();
+  await shot("rule.png");
 
-  // Math MCQ with table
+  // Math multiple choice with a table, picked C.
   mode = "math";
   await capture();
-  await panel.getByText("What is the value of").first().waitFor();
+  await panel.getByText("Answer: B").waitFor();
   await panel.locator(".pick", { hasText: /^C$/ }).click();
-  await panel.locator("#reasoning").fill("Each row goes up by 6, so the slope is 6");
-  await shot("math-question.png", (await topOf(".card:nth-of-type(2)")) - 12);
-  await panel.getByRole("button", { name: "Explain", exact: true }).click();
-  await panel.locator('[data-testid="key-rules"]').waitFor();
-  await shot("math-rule.png", (await topOf('[data-testid="key-rules"]')) - 200);
+  await panel.locator('[data-testid="pick-why"]').waitFor();
+  await shot("math-rule.png");
 
-  // Math grid-in
+  // Math grid-in, entered wrong.
   mode = "spr";
   await capture();
   await panel.getByText("What did you enter?").waitFor();
   await panel.locator("#spr-input").fill("-1/17");
-  await panel.locator("#spr-input").dispatchEvent("input");
-  await panel.getByRole("button", { name: "Explain", exact: true }).click();
-  await panel.locator('[data-testid="key-rules"]').waitFor();
-  await shot("spr-rule.png", (await topOf('[data-testid="key-rules"]')) - 330);
+  await panel.locator("#spr-check").click();
+  await panel.locator('[data-testid="pick-why"]').waitFor();
+  await shot("spr-rule.png");
   await context.close();
 })();

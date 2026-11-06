@@ -54,11 +54,11 @@ const screenshot = (n, title, sub, file, opts = {}) => `<!doctype html><html><he
 </body></html>`;
 
 const shots = [
-  ["Reading and Writing", "The official explanation, in 1 to 3 rules", "Open your Question Bank PDF or a missed practice-test question. Rulecard turns College Board's long rationale into the few rules you actually need.", "rule.png"],
-  ["Math", "No explanation? Explained simply", "When your PDF has no answer, Rulecard explains the question in plain words, then gives the rules. Steps and a Desmos shortcut sit under More detail.", "math-rule.png"],
-  ["Grid-ins", "Grid-in answers graded exactly", "Type what you entered. Rulecard checks it against every accepted form, like 3/17, .1764 and .1765, using the official entry rules.", "spr-rule.png"],
-  ["Test me", "Practice the same rule right away", "Press Test me for a fresh question on that exact rule. Math practice questions are double-checked by a second, independent solve.", "drill.png"],
-  ["Study coach", "Your questions first, today's plan below", "Home is your Question Bank PDF or practice-test question, plus a daily plan built from your misses. Progress, practice, words and settings are one tap away.", "addons-home.png"],
+  ["Capture", "One button: capture this tab", "Open a Question Bank PDF, or a practice-test question you're reviewing. Press Capture this tab (or click the Rulecard icon). That's it.", "home.png"],
+  ["Reading and Writing", "The answer and the 2 or 3 rules behind it", "No long College Board rationale: just the real rule, in plain words, and how it picks the answer. Tap the letter you picked to see why it's wrong.", "rule.png"],
+  ["Math", "The fastest route, not the textbook one", "Math cards use the shortcuts from the best SAT cheat sheets: Desmos moves, plugging in, and the trap behind each wrong choice.", "math-rule.png"],
+  ["Grid-ins", "Grid-in answers graded exactly", "Type what you entered. Rulecard checks it against every accepted form, like 3/17, .1764 and .1765, and shows the steps when it's wrong.", "spr-rule.png"],
+  ["Study plan", "Your plan, progress and review, one tap away", "Home stays a single button. Today's plan, progress, spaced review, flashcards and your word bank live in their own tabs.", "addons-plan.png"],
 ];
 
 const smallTile = `<!doctype html><html><head><style>${BASE_CSS}
@@ -90,7 +90,7 @@ const marquee = `<!doctype html><html><head><style>${BASE_CSS}
 </style></head><body><div class="g"></div>
   <div class="c"><div class="row"><div class="ic">${ICON_SVG(40)}</div>Rulecard</div>
     <h1>Learn the rule behind every SAT miss</h1>
-    <p>Open your Question Bank PDF or a missed practice-test question. Get the official explanation as 1 to 3 clear rules, then practice them.</p></div>
+    <p>Capture any Question Bank or practice-test question on screen. Get the answer and the 2 or 3 rules behind it, in plain words.</p></div>
   <div class="panel p1"><div class="bar">${ICON_SVG(16)}Rulecard</div><img class="shot" src="${img("rule.png")}"></div>
   <div class="panel p2"><div class="bar">${ICON_SVG(16)}Rulecard</div><img class="shot" src="${img("math-rule.png")}"></div>
 </body></html>`;

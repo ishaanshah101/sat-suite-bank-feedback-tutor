@@ -21,8 +21,8 @@ async function createPglite(url: string): Promise<Db> {
   const exists = await db.execute(sql`select to_regclass('public.questions') as t`);
   const row = (exists as unknown as { rows?: Array<{ t: string | null }> }).rows?.[0] ?? (exists as unknown as Array<{ t: string | null }>)[0];
   const migrations = row?.t
-    ? ["0004_accounts.sql", "0005_math.sql", "0006_hardening.sql", "0007_sessions.sql"]
-    : ["0001_init.sql", "0004_accounts.sql", "0005_math.sql", "0006_hardening.sql", "0007_sessions.sql"];
+    ? ["0004_accounts.sql", "0005_math.sql", "0006_hardening.sql", "0007_sessions.sql", "0008_quick_cards.sql"]
+    : ["0001_init.sql", "0004_accounts.sql", "0005_math.sql", "0006_hardening.sql", "0007_sessions.sql", "0008_quick_cards.sql"];
   for (const file of migrations) {
     await client.exec(fs.readFileSync(path.join(process.cwd(), "src", "db", "migrations", file), "utf8"));
   }

@@ -1,5 +1,5 @@
 export type Letter = "A" | "B" | "C" | "D";
-export type Pick = Letter | "correct" | "spr";
+export type Pick = Letter | "correct" | "spr" | "none";
 export type Section = "rw" | "math";
 export type QuestionFormat = "mcq" | "spr";
 export const LETTERS: Letter[] = ["A", "B", "C", "D"];
@@ -41,8 +41,9 @@ export interface RuleCard {
   key_rules?: string[];
   /** "explained" cards only: the question explained simply. */
   simple_explanation?: string | null;
-  /** "translated": the official rationale turned into rules. "explained": no official explanation, so a simple one. */
-  mode?: "translated" | "explained";
+  /** "quick": a captured question, explained before the student says what they picked (the extension's card).
+   *  "translated" / "explained": the web app's pick-first cards. */
+  mode?: "translated" | "explained" | "quick";
   correct_letter: Letter | null;
   correct_answer: string | null;
   why_correct: string;
@@ -69,6 +70,15 @@ export interface ExplainResponse {
   question: Question;
   rule?: { id: string; name: string | null };
   isCorrect?: boolean | null;
+}
+
+/** POST /api/explain/pick: the student's pick on a quick card, graded, with the card's reason it fails. */
+export interface PickResponse {
+  attemptId: string;
+  card: RuleCard;
+  picked: Letter | "spr" | "correct";
+  response: string | null;
+  isCorrect: boolean | null;
 }
 
 export interface DrillResponse {

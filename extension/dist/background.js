@@ -240,7 +240,7 @@ async function refreshBadge() {
   const due = dueRules(await readSrs(), Date.now()).length;
   await chrome.action.setBadgeBackgroundColor({ color: "#2f5bea" });
   await chrome.action.setBadgeText({ text: due ? String(Math.min(due, 99)) : "" });
-  await chrome.action.setTitle({ title: due ? `Rulecard \xB7 ${due} rule${due === 1 ? "" : "s"} due for review` : "Open Rulecard" });
+  await chrome.action.setTitle({ title: due ? `Rulecard \xB7 ${due} rule${due === 1 ? "" : "s"} due for review` : "Rulecard: capture this question" });
 }
 function nextAt(hour, now = Date.now()) {
   const d = new Date(now);
@@ -305,9 +305,14 @@ function installBackgroundAddons() {
 }
 
 // extension/src/background.ts
-var openOnClick = () => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => void 0);
+var useOwnClickHandler = () => {
+  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => void 0);
 };
-chrome.runtime.onInstalled.addListener(openOnClick);
-chrome.runtime.onStartup.addListener(openOnClick);
+chrome.runtime.onInstalled.addListener(useOwnClickHandler);
+chrome.runtime.onStartup.addListener(useOwnClickHandler);
+chrome.action.onClicked.addListener((tab) => {
+  const windowId = tab.windowId;
+  void chrome.sidePanel.open({ windowId }).catch(() => void 0);
+  void chrome.runtime.sendMessage({ type: "rc-toolbar-click", windowId, tabId: tab.id }).catch(() => void 0);
+});
 installBackgroundAddons();

@@ -25,14 +25,12 @@ import { DEFAULT_PREFS, readPrefs, writePrefs, type Prefs } from "./prefs";
 import { renderProgress } from "./progress";
 import { createRedo, readRedo, recordRedo, REDO_KEY, redoQueue, redoStats, writeRedo, type RedoState, type RedoStore } from "./redo";
 import { buildWeeklyReport, renderReportTools } from "./report";
-import { createSeenCheck } from "./seen";
 import { renderSkillMap, skillMap } from "./skillmap";
 import { addToSet, emptySets, endSet, readSets, startSet, writeSets, type SetState } from "./sets";
 import { KEYS, kv } from "./store";
 import { downloadDataUrl, renderShareImage } from "./share";
 import { applyAttempt, applyReview, describeDue, dueRules, nextDue, readSrs, rebuildFromLog, writeSrs, type RuleSrs, type SrsState } from "./srs";
 import { countdown, insights, MATH_TARGET_SECONDS, summarize, TARGET_SECONDS, targetSecondsFor, type Summary } from "./stats";
-import { strategyFor } from "./strategies";
 import { renderQuestionImage } from "./textcapture";
 import { renderTraps, trapReport } from "./traps";
 import { emptyTimer, formatClock, lap, readTimer, renderTimer, writeTimer, type TimerState } from "./timer";
@@ -51,8 +49,8 @@ import { renderWordQuiz, renderWordQuizEntry, renderWordQuizResult } from "./wor
 export interface HostBridge {
   getQuestion(): Question | null;
   getExplained(): { attemptId: string; picked: Letter | "correct" } | null;
-  /** sidepanel.ts processImage(image): POST /api/extract and show the question. */
-  processImage(image: string): Promise<void>;
+  /** sidepanel.ts: read the question in this picture, explain it, and record `picked` when it is known. */
+  processImage(image: string, picked?: Letter | null): Promise<void>;
   /** Resolves once the host has read its saved settings (boot), so ready() knows whose data it loads. */
   settingsReady?: Promise<void>;
   capture?(): void;
@@ -90,18 +88,14 @@ interface ReviewUi {
 const freshReview = (): ReviewUi => ({ open: false, forced: null, rule: null, drill: null, picked: null, result: null, loading: false, error: null, skipped: [], done: 0, correct: 0 });
 
 /** The review has no typed-answer box, so a grid-in drill is skipped with this message. */
-const GRID_IN_SKIP = "This one needs a typed answer. Use Test me on the card.";
+const GRID_IN_SKIP = "This one needs a typed answer, so it is skipped here.";
 
-const CONFIDENCE: { key: SelfConfidence; label: string; hint: string }[] = [
-  { key: "sure", label: "Sure", hint: "I knew it" },
-  { key: "unsure", label: "Unsure", hint: "50/50" },
-  { key: "guess", label: "Guessed", hint: "no idea" },
-];
 
 /** The side panel's tabs. Home is the capture-and-explain flow; everything else waits one click away. */
-export type PanelTab = "home" | "progress" | "practice" | "words" | "settings";
+export type PanelTab = "home" | "plan" | "progress" | "practice" | "words" | "settings";
 export const PANEL_TABS: { id: PanelTab; label: string }[] = [
   { id: "home", label: "Home" },
+  { id: "plan", label: "Plan" },
   { id: "progress", label: "Progress" },
   { id: "practice", label: "Practice" },
   { id: "words", label: "Words" },
@@ -254,17 +248,16 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
 
   // A miss from the Question Bank export quiz goes through the same processImage as a PDF question.
   const captureHost = {
-    processImage: async (image: string) => {
+    processImage: async (image: string, picked: Letter | null = null) => {
       s.fromElsewhere = true;
       try {
-        await host.processImage(image);
+        await host.processImage(image, picked);
       } catch (error) {
         s.fromElsewhere = false;
         throw error;
       }
     },
   };
-  const seen = createSeenCheck(() => ctx.rerender());
 
   /** Show a tab (and start it at the top). */
   function showTab(tab: PanelTab) {
@@ -294,11 +287,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     if (s.tab !== "home") return { capture: () => host.capture?.(), help: toggleHelp };
     return {
       pick: (l: Letter) => host.pick?.(l),
-      pickCorrect: () => host.pick?.("correct"),
-      explain: () => host.explain?.(),
       capture: () => host.capture?.(),
-      testMe: () => host.testMe?.(),
-      focusChat: () => host.focusChat?.(),
       review: s.review.loading ? undefined : () => void startReview(),
       copyCard: () => void copyCurrentCard(),
       help: toggleHelp,
@@ -704,9 +693,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     try {
       const image = await renderQuestionImage(toParsedQB(q));
       s.quizSeconds = qi >= 0 ? st.answers[qi]?.seconds ?? null : null;
-      await captureHost.processImage(image);
-      host.pick?.(picked);
-      host.explain?.();
+      await captureHost.processImage(image, picked);
     } catch (error) {
       s.quizSeconds = null;
       s.quizPaused = false;
@@ -849,35 +836,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
         h("button", { class: "btn small", text: "Another set", onclick: () => void beginSet(r.count || 10) })));
   }
 
-  // ---------------------------------------------------------------- question + pick extras
-
-  function renderQuestionExtras(q: Question): (Node | null)[] {
-    const out: (Node | null)[] = [];
-    // Leave out the attempt just explained, or the question would match itself.
-    if (s.prefs.seenBefore) out.push(seen.render(s.log, q, { excludeAttemptIds: [host.getExplained()?.attemptId] }));
-    const st = s.prefs.strategies ? strategyFor(q.skill) : null;
-    if (!st) return out;
-    out.push(h("details", { class: "rc-strategy", open: s.strategyOpen ? "" : null, ontoggle: (ev: Event) => { s.strategyOpen = (ev.target as HTMLDetailsElement).open; } },
-      h("summary", { class: "small", text: `How to attack ${st.skill}` }),
-      h("ol", { class: "steps small" }, ...st.steps.map((t) => h("li", { text: t }))),
-      h("p", { class: "small muted" }, h("b", { text: "Traps: " }), st.traps.join(" · "))));
-    return out;
-  }
-
-  function renderPickExtras(): (Node | null)[] {
-    if (!s.prefs.askConfidence) return [];
-    return [h("div", { class: "rc-confidence row rc-wrap", role: "radiogroup", "aria-label": "How sure were you?" },
-      h("span", { class: "small muted", text: "How sure were you?" }),
-      ...CONFIDENCE.map((c) => h("button", {
-        class: `btn small ${s.confidence === c.key ? "on" : ""}`.trim(),
-        role: "radio",
-        "aria-checked": String(s.confidence === c.key),
-        title: c.hint,
-        text: c.label,
-        onclick: () => { s.confidence = s.confidence === c.key ? null : c.key; ctx.rerender(); },
-      })))];
-  }
-
   // ---------------------------------------------------------------- card tools
 
   const currentEntry = () => {
@@ -902,50 +860,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.02;
     speechSynthesis.speak(u);
-  }
-
-  let noteTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Text typed but not saved yet, so a re-render inside the debounce doesn't put the old note back. */
-  let noteDraft: { attemptId: string; value: string } | null = null;
-  function renderCardTools(): HTMLElement | null {
-    const e = currentEntry();
-    if (!e) return null;
-    const note = h("textarea", { id: `rc-note-${e.attemptId}`, class: "input rc-note", rows: "2", placeholder: "Your own note on this mistake (saved on this device, goes into exports)" });
-    note.value = noteDraft?.attemptId === e.attemptId ? noteDraft.value : e.note;
-    note.addEventListener("input", () => {
-      noteDraft = { attemptId: e.attemptId, value: note.value };
-      if (noteTimer) clearTimeout(noteTimer);
-      noteTimer = setTimeout(async () => {
-        const value = note.value;
-        await updateEntry(e.attemptId, { note: value }).catch(() => null);
-        e.note = value;
-        if (noteDraft?.attemptId === e.attemptId && noteDraft.value === value) noteDraft = null;
-      }, 400);
-    });
-    const dueInfo = s.srs[e.ruleId];
-    return h(
-      "div",
-      { class: "card rc-tools" },
-      h(
-        "div",
-        { class: "row rc-wrap" },
-        h("button", { class: "btn small", onclick: () => void copyCurrentCard(), title: "Y" }, "Copy card"),
-        h("button", { class: "btn small", onclick: () => speak(`${e.ruleName ?? ""}. ${e.ruleStatement}. Takeaway: ${e.takeaway}`) }, "Read aloud"),
-        h("button", {
-          class: `btn small ${e.starred ? "on" : ""}`.trim(),
-          "aria-pressed": String(e.starred),
-          onclick: async () => {
-            await updateEntry(e.attemptId, { starred: !e.starred });
-            e.starred = !e.starred;
-            ctx.rerender();
-          },
-        }, e.starred ? "★ Starred" : "☆ Star"),
-        e.seconds !== null ? chip(`${e.seconds}s`, e.seconds > targetSecondsFor(e) ? "warn" : "good") : null,
-        e.selfConfidence === "sure" && e.result === "missed" ? chip("sure but wrong", "danger") : null,
-        dueInfo ? chip(`review ${describeDue(dueInfo.due, Date.now())}`) : null,
-      ),
-      note,
-    );
   }
 
   // ---------------------------------------------------------------- capture-area extras
@@ -1046,9 +960,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
           h("button", { class: "btn small", text: "Copy for Google Sheets", onclick: () => void navigator.clipboard.writeText(toErrorLogTsv(errorLogRows(s.log, { scope: scope(), srs: s.srs }))).then(() => toast("Error log copied. Paste it into cell A1."), () => toast("Couldn't copy")) })),
         renderReportTools(() => buildWeeklyReport(s.log, s.srs, Date.now()), { notify: toast })),
       h("section", null, h("h2", { text: "Practice" }),
-        toggle("askConfidence", "Ask how sure I was", "Tracks overconfidence. Misses you were sure about are misconceptions."),
-        toggle("strategies", "Show attack strategies", "A short method for each question type."),
-        toggle("seenBefore", "Flag repeats", "Says when a question is already in your log, with your old card."),
         toggle("practice", "Offline practice", "Rule flashcards and redo my misses. No connection needed."),
         toggle("qbQuiz", "Question Bank export quiz", "Paste an exported Question Bank PDF and practice it here, graded with the official answer key."),
         toggle("timer", "Pacing timer", `Times each question between captures. Target ${TARGET_SECONDS}s for Reading and Writing, ${MATH_TARGET_SECONDS}s for Math.`),
@@ -1086,7 +997,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       h("div", { class: "card rc-help", onclick: (ev: Event) => ev.stopPropagation() },
         h("div", { class: "row between" }, h("h2", { text: "Keyboard shortcuts" }), h("button", { class: "btn link small", text: "Close", onclick: toggleHelp })),
         h("dl", null, ...HOTKEY_HELP.flatMap(([k, v]) => [h("dt", null, h("kbd", { text: k })), h("dd", { text: v })])),
-        h("p", { class: "muted small", text: "Rulecard reads questions only from SAT Suite Question Bank PDF exports. Press C to open one, or drop the PDF on the panel." })));
+        h("p", { class: "muted small", text: "Press C (or click the Rulecard icon in Chrome's toolbar) to capture the question on screen." })));
   }
 
   /** The tab bar. A count shows what is waiting; a dot marks a session still open on another tab. */
@@ -1113,9 +1024,11 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       }));
   }
 
-  /** Home, below the question flow: today's plan. */
-  function renderHomeBelow(): (Node | null)[] {
-    return [renderPlanCard()];
+  /** Plan: today's checklist, with the practice set and the timer that go with it. */
+  function renderPlanTab(): (Node | null)[] {
+    const out: (Node | null)[] = [renderRecap(), ...renderCaptureExtras(), renderPlanCard()];
+    if (!s.prefs.plan) out.push(h("div", { class: "card" }, h("h2", { text: "Today's plan" }), h("p", { class: "small muted", text: "Today's plan is switched off. Turn it on in Settings." })));
+    return out;
   }
 
   function renderProgressTab(): (Node | null)[] {
@@ -1157,12 +1070,13 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       renderSettings(),
       h("div", { class: "card" },
         h("div", { class: "row between" }, h("h2", { text: "Keyboard shortcuts" }), h("button", { class: "btn small", text: "Show", onclick: toggleHelp })),
-        h("p", { class: "small muted", text: "Press ? anywhere in the panel. Press C to open a Question Bank PDF." })),
+        h("p", { class: "small muted", text: "Press ? anywhere in the panel. Press C to capture this tab." })),
     ];
   }
 
   /** One tab's content (Home's question flow is drawn by sidepanel.ts). */
   function renderTab(tab: PanelTab): (Node | null)[] {
+    if (tab === "plan") return renderPlanTab();
     if (tab === "progress") return renderProgressTab();
     if (tab === "practice") return renderPracticeTab();
     if (tab === "words") return renderWordsTab();
@@ -1189,14 +1103,10 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     showTab,
     renderTabBar,
     renderTab,
-    renderHomeBelow,
     renderOverlays,
     // render slots (Home)
-    renderAboveCapture: (): (Node | null)[] => [s.quiz && s.quizPaused ? renderQuizSlot() : null, renderRecap()],
-    renderInCapture: renderCaptureExtras,
-    renderQuestionExtras,
-    renderPickExtras,
-    renderAfterRuleCard: (): (Node | null)[] => [renderCardTools()],
+    /** Home shows only the capture card; a quiz set aside while one of its misses is explained sits above it. */
+    renderAboveCapture: (): (Node | null)[] => [s.quiz && s.quizPaused ? renderQuizSlot() : null],
     /** While a review is open, the host can hide the capture/question flow if it wants a focused screen. */
     isReviewing: () => s.review.open,
     /** True while a flashcard deck, a redo session or a Question Bank export quiz is on screen. */

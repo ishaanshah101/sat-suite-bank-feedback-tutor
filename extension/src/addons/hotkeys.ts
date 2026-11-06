@@ -16,13 +16,9 @@ export interface HotkeyActions {
 }
 
 export const HOTKEY_HELP: [string, string][] = [
-  ["1–4", "pick answer A–D (A, B, D keys work too)"],
-  ["G", "I got it right, explain anyway"],
-  ["Enter", "explain"],
-  ["C", "open a Question Bank PDF (so use 3 for choice C)"],
-  ["T", "Test me (new question on the rule)"],
+  ["C", "capture this tab (so use 3 for choice C)"],
+  ["1–4", "the letter you picked, A–D (A, B, D keys work too)"],
   ["R", "start a review"],
-  ["/", "ask a follow-up"],
   ["Y", "copy the rule card"],
   ["?", "show these shortcuts"],
   ["Esc", "leave a text box, or quit practice"],

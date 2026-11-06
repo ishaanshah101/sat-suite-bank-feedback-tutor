@@ -112,7 +112,7 @@ export async function setModelGridInAnswer(userId: string, id: string, answer: s
 
 export async function createAttempt(
   userId: string,
-  input: { questionId: string; picked: Letter | "correct" | "spr"; response?: string | null; reasoning: string | null },
+  input: { questionId: string; picked: Letter | "correct" | "spr" | "none"; response?: string | null; reasoning: string | null },
 ): Promise<AttemptRow> {
   const db = await getDb();
   const [row] = await db
@@ -131,6 +131,19 @@ export async function finishAttempt(
   await db
     .update(attempts)
     .set({ explanation: input.explanation, ruleId: input.ruleId, provider: input.provider, model: input.model, isCorrect: input.isCorrect ?? null, updatedAt: new Date() })
+    .where(and(eq(attempts.id, id), eq(attempts.userId, userId)));
+}
+
+/** Record what the student picked on a card that was explained first (picked was 'none'). */
+export async function recordAttemptPick(
+  userId: string,
+  id: string,
+  input: { picked: Letter | "correct" | "spr"; response: string | null; isCorrect: boolean | null; explanation: Record<string, unknown> },
+): Promise<void> {
+  const db = await getDb();
+  await db
+    .update(attempts)
+    .set({ picked: input.picked, response: input.response, isCorrect: input.isCorrect, explanation: input.explanation, updatedAt: new Date() })
     .where(and(eq(attempts.id, id), eq(attempts.userId, userId)));
 }
 

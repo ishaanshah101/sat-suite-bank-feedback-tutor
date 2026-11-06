@@ -38,15 +38,20 @@ export function RuleCardView({
         : "your answer"
       : picked;
   const showPickFails = Boolean(
-    card.why_pick_fails && picked && picked !== "correct",
+    card.why_pick_fails && picked && picked !== "correct" && picked !== "none",
   );
   const rules = card.key_rules.length ? card.key_rules : [card.rule_statement];
   const translated = card.mode === "translated";
+  const quick = card.mode === "quick";
   return (
     <div className="space-y-4" data-testid="rule-card">
       <div className="flex flex-wrap items-center gap-2">
         <Chip tone={translated ? "good" : "accent"}>
-          {translated ? "official explanation, translated" : "explained simply"}
+          {translated
+            ? "official explanation, translated"
+            : quick
+              ? "captured from your screen"
+              : "explained simply"}
         </Chip>
         <Chip tone={diag.tone}>{diag.label}</Chip>
         {card.solved_by_model ? (

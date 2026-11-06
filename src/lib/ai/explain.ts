@@ -21,7 +21,12 @@ export function hasKnownAnswer(question: QuestionRow): boolean {
 }
 
 /** Keep the model honest: the cited rule must exist in the right section, and official answers win over the model's. */
-export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: Pick, gotItRight: boolean | null, mode: CardMode = cardModeFor(question)): RuleCard {
+/** The card's job: "quick" when nothing was picked yet, otherwise decided by what the question carries. */
+export function cardModeForPick(question: QuestionRow, picked: Pick): CardMode {
+  return picked === "none" ? "quick" : cardModeFor(question);
+}
+
+export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: Pick, gotItRight: boolean | null, mode: CardMode = cardModeForPick(question, picked)): RuleCard {
   const section = isMath(question) ? "math" : "rw";
   const next: RuleCard = { ...card, mode, rule_id: card.rule_id.trim().toUpperCase(), steps: [...(card.steps ?? [])], eliminations: [...(card.eliminations ?? [])] };
   const cited = getRule(next.rule_id);
@@ -54,7 +59,7 @@ export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: 
     } else {
       next.solved_by_model = true;
     }
-    const exclude = new Set<string>([...(next.correct_letter ? [next.correct_letter] : []), ...(picked === "correct" || picked === "spr" ? [] : [picked])]);
+    const exclude = new Set<string>([...(next.correct_letter ? [next.correct_letter] : []), ...(picked === "correct" || picked === "spr" || picked === "none" ? [] : [picked])]);
     const seen = new Set<string>();
     next.eliminations = next.eliminations.filter((e) => {
       if (exclude.has(e.letter) || seen.has(e.letter)) return false;
@@ -87,8 +92,15 @@ export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: 
     .map((r) => (r.length > 320 ? `${r.slice(0, 317).trimEnd()}...` : r))
     .slice(0, MAX_KEY_RULES);
   if (!next.key_rules.length) next.key_rules = [next.rule_statement];
-  // Translating never adds an explanation of its own; explaining always has one.
-  next.simple_explanation = mode === "translated" ? null : card.simple_explanation?.trim() || next.why_correct;
+  // Translating (and the quick card) never adds an explanation of its own; explaining always has one.
+  next.simple_explanation = mode === "explained" ? card.simple_explanation?.trim() || next.why_correct : null;
+  // Nothing picked yet: no pick to fault, no reasoning to diagnose. The pick route fills these in later.
+  if (picked === "none") {
+    next.why_pick_fails = null;
+    next.diagnosis = "unknown";
+    next.confidence = Math.max(0, Math.min(1, Number.isFinite(next.confidence) ? next.confidence : 0.5));
+    return next;
+  }
 
   // "I got it right" is only right once an answer is known: the route grades it, and null means nobody knows yet.
   const right = gotItRight === true || (gotItRight !== false && !isGridIn(question) && picked === next.correct_letter);
@@ -131,7 +143,7 @@ export async function generateRuleCard(input: {
   const fromSkill = skill ? rulesForSkill(skill).filter((r) => r.section === section) : [];
   const slice = fromSkill.length ? [...fromSkill, ...generalRules(section)] : rulesForSection(section);
   const kind = math ? "math" : "explain";
-  const mode = cardModeFor(question);
+  const mode = cardModeForPick(question, picked);
   const result = await withFailover(kind, async (provider) => {
     try {
       // `.output` is where an off-schema reply throws, so it stays inside the retry.
