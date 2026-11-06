@@ -59,7 +59,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                 const rule = getRule(attempt.ruleId);
                 const right = attempt.isCorrect ?? isPickCorrect(question, attempt.picked as Pick, attempt.response);
                 const gridIn = question.format === "spr";
-                const yours = attempt.picked === "correct" ? "right" : attempt.picked === "spr" ? (attempt.response ?? "?") : attempt.picked;
+                const yours = attempt.picked === "correct" ? "right" : attempt.picked === "none" ? "not given" : attempt.picked === "spr" ? (attempt.response ?? "?") : attempt.picked;
                 const correct = gridIn ? (question.answers?.[0] ?? "?") : (question.correct ?? "?");
                 return (
                   <tr key={attempt.id} className="border-b border-line last:border-0 hover:bg-bg">

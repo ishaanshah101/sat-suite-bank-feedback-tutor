@@ -15,11 +15,11 @@ export default function PrivacyPage() {
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>Your email address and a salted hash of your password (never the password itself).</li>
         <li>
-          The SAT practice questions (Reading and Writing or Math) you send it. In the Chrome extension, that is only the one question you pick
-          from a SAT Suite Question Bank PDF you open (its text, or for Math a picture of its page), or the one missed practice-test question you
-          ask it to read in My Practice (its text, your answer, the correct answer and the explanation). The PDF itself is read on your device
-          and is never uploaded. On the website you can also send a PDF page, an image or pasted text. Rulecard reads the question out of it,
-          including equations and a written description of any graph, table or figure, and saves that text, not the picture.
+          The SAT practice questions (Reading and Writing or Math) you send it. In the Chrome extension, that is one screenshot of the tab
+          you are on, taken only when you press &quot;Capture this tab&quot; (or click the Rulecard icon with the panel open). On a My Practice
+          question page it reads the question&apos;s text instead (with a screenshot when the question has a graph). On the website you can
+          also send a PDF page, an image or pasted text. Rulecard reads the question out of it, including equations and a written
+          description of any graph, table or figure, and saves that text, not the picture.
         </li>
         <li>Your answer choice or typed answer, any reasoning you type, the explanations, chat messages and practice drills that follow.</li>
         <li>A count of AI requests per account, for the daily limit, and a short-lived record of sign-in tries per network address, to slow down password guessing.</li>
@@ -29,9 +29,8 @@ export default function PrivacyPage() {
       <p className="mt-2">
         Only to give you feedback and to show you your own history. Question text and your answers are sent to an AI model provider (OpenAI,
         Anthropic or Google, through Vercel&apos;s AI Gateway) to write the explanation. Rulecard does not sell data, show ads, or share it for
-        any other purpose. The extension reads no web page except the My Practice question you press &quot;Read my practice test question&quot;
-        on, and takes a picture of that tab only for a question with a graph, after you click its toolbar icon there. It keeps an opened
-        PDF in the browser&apos;s memory until the browser closes or you sign out.
+        any other purpose. The extension looks at a tab only when you press Capture (or click its toolbar icon with the panel open), and
+        only that one tab, at that moment. It never reads pages in the background.
       </p>
 
       <h2 className="mt-8 text-base font-semibold">Where it is stored</h2>

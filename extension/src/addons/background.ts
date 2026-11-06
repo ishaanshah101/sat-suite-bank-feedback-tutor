@@ -3,8 +3,8 @@
 //  • Toolbar badge with the number of rules due for review (alarms, every 30 min + on change).
 //  • Optional daily reminder notification (only if the user turned it on in settings).
 //  • Welcome/onboarding tab on first install.
-//  Rulecard reads questions only from Question Bank PDF exports opened in the side panel, so the worker
-//  never touches a tab: no context menus, no screenshots, no page scripts.
+//  The worker never reads a tab itself: no context menus, no page scripts. The panel takes the one
+//  screenshot, when the student presses Capture (or clicks the toolbar icon with the panel open).
 
 import { readLog } from "./log";
 import { readPrefs } from "./prefs";
@@ -20,7 +20,7 @@ export async function refreshBadge(): Promise<void> {
   const due = dueRules(await readSrs(), Date.now()).length;
   await chrome.action.setBadgeBackgroundColor({ color: "#2f5bea" });
   await chrome.action.setBadgeText({ text: due ? String(Math.min(due, 99)) : "" });
-  await chrome.action.setTitle({ title: due ? `Rulecard · ${due} rule${due === 1 ? "" : "s"} due for review` : "Open Rulecard" });
+  await chrome.action.setTitle({ title: due ? `Rulecard · ${due} rule${due === 1 ? "" : "s"} due for review` : "Rulecard: capture this question" });
 }
 
 /** Next time the clock hits `hour`:00 local time. */

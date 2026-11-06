@@ -69,6 +69,23 @@ const STUB_CARD = {
   suggested_rule: null,
 };
 
+/** The capture card: no pick yet, so every wrong choice carries its reason. */
+const STUB_QUICK_CARD = {
+  ...STUB_CARD,
+  key_rules: [
+    "Two complete sentences need a period, a semicolon, or a comma plus and/but/so between them.",
+    "Both sides of the blank are complete sentences, so only the semicolon in B joins them correctly.",
+  ],
+  simple_explanation: null,
+  why_pick_fails: null,
+  eliminations: [
+    { letter: "A", reason: "A comma alone between two complete sentences is a comma splice. B's semicolon is a legal join." },
+    { letter: "C", reason: "Nothing between two complete sentences is a run-on. B's semicolon fixes it." },
+    { letter: "D", reason: "'and the' leaves the second clause without a subject. B keeps two full sentences joined by a semicolon." },
+  ],
+  diagnosis: "unknown",
+};
+
 const STUB_MATH_CARD = {
   rule_id: "LE1-01",
   rule_statement: "Undo the operations in order: add 2 to both sides, then divide by 17.",
@@ -132,7 +149,7 @@ function jsonFor(kind: TaskKind, prompt: string, userText: string): string {
     if (/fresh practice question for the Digital SAT Math/.test(prompt)) return JSON.stringify(STUB_MATH_DRILL);
     return JSON.stringify(STUB_MATH_CARD);
   }
-  return JSON.stringify(STUB_CARD);
+  return JSON.stringify(/QUICK EXPLANATION/.test(prompt) ? STUB_QUICK_CARD : STUB_CARD);
 }
 
 function promptText(options: unknown): string {

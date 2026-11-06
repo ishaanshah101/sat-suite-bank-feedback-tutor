@@ -1,27 +1,27 @@
-import { ApiError, authenticate, DEFAULT_SERVER, loadSettings, normalizeServer, request, saveSettings, streamChat, webLink } from "./api";
-import { checkPdfFile, filterQuestions, hasAnswer, importPayload, needsVision, parseQuestionBankPdf, questionLabel, renderQuestionPages, type LoadedPdf } from "./pdf";
-import { clearStoredPdf, loadStoredPdf, storePdf } from "./pdf-store";
-import { isPracticeUrl, parsePracticePick, readPracticeTab, showsAnswer } from "./practice";
+import { ApiError, authenticate, DEFAULT_SERVER, loadSettings, normalizeServer, request, saveSettings, webLink } from "./api";
+import { activeTabIn, captureTab, CaptureBlocked, HELP, openExtensionSettings, requestAllSites, type CaptureFix } from "./capture";
+import { isPracticeUrl, readPracticeTab } from "./practice";
 import { downscale } from "./image";
 import { renderMathHtml } from "../../src/lib/math/render";
 import { parseSprEntry } from "../../src/lib/questions/spr";
-import {
-  LETTERS,
-  type ChatMessage,
-  type CheckResponse,
-  type DrillResponse,
-  type ExplainResponse,
-  type ExtractResponse,
-  type Health,
-  type Letter,
-  type Pick,
-  type Question,
-  type RecentAttempt,
-  type RuleCard,
-  type Settings,
-} from "./types";
+import { LETTERS, type ExplainResponse, type ExtractResponse, type Health, type Letter, type PickResponse, type Question, type RecentAttempt, type RuleCard, type Settings } from "./types";
 import { createAddons } from "./addons";
 import { normalizeQuestion } from "./addons/types";
+
+/** What the student said they picked on the card, once they have. */
+interface PickResult {
+  picked: Letter | "spr" | "correct";
+  response: string | null;
+  isCorrect: boolean | null;
+}
+
+/** The card for the captured question: the answer and 2 to 3 bullets, then (optionally) why their pick fails. */
+interface CardResult {
+  attemptId: string;
+  card: RuleCard;
+  ruleName: string | null;
+  pick: PickResult | null;
+}
 
 interface State {
   view: "loading" | "connect" | "main";
@@ -31,33 +31,20 @@ interface State {
   authMode: "signin" | "signup";
   recent: RecentAttempt[] | null;
   health: Health | null;
-  /** The Question Bank PDF export the student opened, parsed on this device. */
-  pdf: LoadedPdf | null;
-  /** The PDF's bytes, kept so a Math page can be drawn for the vision reader. */
-  pdfBytes: ArrayBuffer | null;
-  pdfFilter: string;
-  pdfReading: boolean;
-  /** Index in pdf.questions of the question being opened, then of the one on screen. */
-  pdfOpening: number | null;
-  pdfCurrent: number | null;
-  /** Reading a practice-test question from the My Practice tab. */
-  practiceReading: boolean;
-  /** Shown above the pick buttons for a practice-test question ("you picked D"). */
-  practiceNote: string | null;
-  /** Whether "More detail" on the rule card is open (kept across re-renders). */
-  moreOpen: boolean;
-  /** Errors from opening a PDF or a question in it. */
+  /** Which step of a capture is running: reading the question, then writing the bullets. */
+  capturing: null | "reading" | "explaining";
   captureError: string | null;
+  /** A one-click way past the capture error, when there is one. */
+  captureFix: CaptureFix | null;
   question: Question | null;
-  picked: Pick | null;
-  allowSolve: boolean;
-  explaining: boolean;
-  explainError: string | null;
+  result: CardResult | null;
+  /** Saving "which did you pick". */
+  picking: boolean;
+  pickError: string | null;
   /** What the student typed for a grid-in question. */
   sprInput: string;
-  explained: { attemptId: string; card: RuleCard; ruleName: string | null; picked: Pick; response: string | null; isCorrect: boolean | null } | null;
-  chat: { messages: ChatMessage[]; busy: boolean; error: string | null };
-  drill: { data: DrillResponse | null; picked: Letter | "spr" | null; response: string; result: CheckResponse | null; loading: boolean; error: string | null };
+  /** Whether "Question it read" is open (kept across re-renders). */
+  questionOpen: boolean;
 }
 
 const state: State = {
@@ -68,38 +55,20 @@ const state: State = {
   authMode: "signin",
   recent: null,
   health: null,
-  pdf: null,
-  pdfBytes: null,
-  pdfFilter: "",
-  pdfReading: false,
-  pdfOpening: null,
-  pdfCurrent: null,
-  practiceReading: false,
-  practiceNote: null,
-  moreOpen: false,
+  capturing: null,
   captureError: null,
+  captureFix: null,
   question: null,
-  picked: null,
-  allowSolve: false,
-  explaining: false,
-  explainError: null,
+  result: null,
+  picking: false,
+  pickError: null,
   sprInput: "",
-  explained: null,
-  chat: { messages: [], busy: false, error: null },
-  drill: emptyDrill(),
+  questionOpen: false,
 };
 
-function emptyDrill(): State["drill"] {
-  return { data: null, picked: null, response: "", result: null, loading: false, error: null };
-}
-
-const DIAGNOSIS: Record<RuleCard["diagnosis"], { label: string; tone: string }> = {
-  misread: { label: "misread the sentence", tone: "warn" },
-  rule_gap: { label: "rule gap", tone: "danger" },
-  careless: { label: "careless slip", tone: "warn" },
-  got_it_right: { label: "you got it", tone: "good" },
-  unknown: { label: "no reasoning given", tone: "" },
-};
+/** The browser window this panel belongs to (the toolbar icon sends its clicks per window). */
+let panelWindowId: number | null = null;
+const bootedAt = Date.now();
 
 // ---------- tiny DOM helpers ----------
 
@@ -210,7 +179,7 @@ function renderConnect(): Node[] {
       "div",
       { class: "card" },
       h("h1", { text: "Rulecard" }),
-      h("p", { class: "muted small", text: "Capture a Reading and Writing or Math question from the Question Bank and learn the one rule it tested. Your history is saved to your account, on the web app too." }),
+      h("p", { class: "muted small", text: "Capture a Reading and Writing or Math question from a Question Bank PDF or a practice test and get the answer plus the 2 or 3 rules behind it. Your history is saved to your account, on the web app too." }),
       h("div", { class: "tabs", role: "tablist" }, tab("signin", "Sign in"), tab("signup", "Create account")),
       h("label", { class: "field" }, "Email", email),
       h("label", { class: "field" }, "Password", password),
@@ -266,7 +235,6 @@ async function connect() {
     await addons.accountChanged();
     state.view = "main";
     render();
-    await restorePdf();
     void consumePendingQuestion();
     void refreshRecent();
     await refreshHealth();
@@ -315,14 +283,10 @@ async function signOut() {
   state.settings = { ...state.settings, token: null };
   await saveSettings(state.settings);
   await dropServerPermission(state.settings.server);
-  // The open PDF and anything waiting in session storage belong to the account that was signed in.
+  // Anything waiting in session storage belongs to the account that was signed in.
   await chrome.storage.session.remove(["pendingQuestion"]).catch(() => undefined);
-  await clearStoredPdf().catch(() => undefined);
-  state.pdf = null;
-  state.pdfBytes = null;
-  state.pdfFilter = "";
-  state.pdfCurrent = null;
   state.captureError = null;
+  state.captureFix = null;
   resetQuestion();
   state.health = null;
   state.recent = null;
@@ -362,14 +326,9 @@ function renderMain(): Node[] {
   const tab = addons.tab();
   const nodes: (Node | null)[] = [h("div", { class: "rc-top" }, renderHeader(), addons.renderTabBar())];
   if (tab === "home") {
-    nodes.push(...addons.renderAboveCapture(), renderPdfCard());
-    if (state.question) nodes.push(renderQuestion(state.question));
-    if (state.explained) {
-      nodes.push(renderRuleCard(state.explained.card, state.explained.picked, state.explained.ruleName));
-      nodes.push(...addons.renderAfterRuleCard());
-      nodes.push(renderChat());
-    }
-    nodes.push(...addons.renderHomeBelow());
+    // Home is only this: one button, then the answer and its 2 to 3 bullets, then "Which did you pick?".
+    nodes.push(...addons.renderAboveCapture(), renderCaptureCard());
+    if (state.result && state.question) nodes.push(renderResult(state.result, state.question));
   } else {
     if (tab === "progress" && state.recent?.length) nodes.push(renderRecent(state.recent));
     if (tab === "settings") nodes.push(renderHowTo());
@@ -393,7 +352,7 @@ function renderHeader(): Node {
       title = `AI: ${health.ai.live ?? health.ai.configured[0] ?? "stub"} · database ok`;
     } else {
       dot = "warn";
-      title = "No AI key on the server yet (add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel)";
+      title = "No AI provider on the server right now";
     }
   }
   return h(
@@ -436,106 +395,44 @@ function renderRecent(items: RecentAttempt[]): Node {
   );
 }
 
-const PDF_INPUT_ID = "pdf-input";
-
-/** The one way in: a SAT Suite Question Bank PDF export, opened from the computer and read on this device. */
-function renderPdfCard(): Node {
-  const pdf = state.pdf;
-  const input = h("input", {
-    id: PDF_INPUT_ID,
-    type: "file",
-    accept: "application/pdf,.pdf",
-    style: "display:none",
-    onchange: (event: Event) => {
-      const el = event.target as HTMLInputElement;
-      const file = el.files?.[0];
-      el.value = "";
-      if (file) void openPdfFile(file);
-    },
-  });
-  const openButton = h(
-    "button",
-    { id: "open-pdf", class: `btn ${pdf ? "" : "primary big"}`.trim(), disabled: state.pdfReading, onclick: () => openPdfPicker() },
-    state.pdfReading ? spinner() : null,
-    state.pdfReading ? "Reading the PDF..." : pdf ? "Open another PDF" : "Open your Question Bank PDF",
-  );
-  const children: Child[] = [input];
-  if (!pdf) {
+/** The one button. Everything on Home starts here. */
+function renderCaptureCard(): Node {
+  const busy = state.capturing !== null;
+  const label =
+    state.capturing === "reading"
+      ? "Reading the question..."
+      : state.capturing === "explaining"
+        ? "Writing your explanation..."
+        : state.result
+          ? "Capture another question"
+          : "Capture this tab";
+  const children: Child[] = [
+    h("button", { id: "capture-tab", class: "btn primary big", disabled: busy, onclick: () => void captureThisTab() }, busy ? spinner() : null, label),
+  ];
+  if (!state.result && !busy) {
     children.push(
-      openButton,
-      h("p", { class: "muted small", text: "In the SAT Suite Question Bank, export the questions you worked as a PDF (include the answers and explanations if you can). Open that file here, or drop it on this panel. It is read on this device; only the question you pick is sent." }),
+      h("p", {
+        class: "muted small",
+        text: "Open a Question Bank PDF, or a practice-test question you're reviewing, so the whole question is on screen. Press Capture: you get the answer and the 2 or 3 rules that explain it.",
+      }),
+      h("p", { class: "muted small", text: "Tip: clicking the Rulecard icon in Chrome's toolbar captures too." }),
     );
-  } else {
-    const shown = filterQuestions(pdf.questions, state.pdfFilter);
-    children.push(
-      h(
-        "div",
-        { class: "row between" },
-        h("div", null, h("div", { class: "small", style: "font-weight:600", text: pdf.name }), h("div", { class: "muted small", text: `${pdf.questions.length} question${pdf.questions.length === 1 ? "" : "s"} · ${pdf.totalPages} page${pdf.totalPages === 1 ? "" : "s"}` })),
-        openButton,
-      ),
-    );
-    if (!pdf.questions.length) {
-      children.push(h("div", { class: "banner warn", text: "No Question Bank questions were found in this PDF. Open a PDF exported from the SAT Suite Question Bank (each question starts with \"Question ID\")." }));
-    } else {
-      children.push(
-        h("input", {
-          id: "pdf-filter",
-          class: "input",
-          placeholder: "Find a question: type its ID (top of the page) or a skill",
-          value: state.pdfFilter,
-          autocomplete: "off",
-          oninput: (event: Event) => {
-            state.pdfFilter = (event.target as HTMLInputElement).value;
-            render();
-          },
-          onkeydown: (event: KeyboardEvent) => {
-            if (event.key !== "Enter") return;
-            const first = filterQuestions(pdf.questions, state.pdfFilter)[0];
-            if (first !== undefined) void openPdfQuestion(first);
-          },
-        }),
-        h(
-          "ol",
-          { class: "pdf-list" },
-          ...shown.map((i) => {
-            const q = pdf.questions[i];
-            const on = state.pdfCurrent === i;
-            return h(
-              "li",
-              null,
-              h(
-                "button",
-                { class: `pdf-item ${on ? "on" : ""}`.trim(), disabled: state.pdfOpening !== null, "data-qb": q.qb_id ?? "", onclick: () => void openPdfQuestion(i) },
-                h("span", { class: "pdf-num", text: String(i + 1) }),
-                h("span", { class: "pdf-label", text: questionLabel(q, i) }),
-                q.section === "math" ? chip("Math", "accent") : null,
-                hasAnswer(q) ? null : chip("no answer", "warn"),
-                state.pdfOpening === i ? spinner() : null,
-              ),
-            );
-          }),
-        ),
-        shown.length ? null : h("p", { class: "muted small", text: "No question matches that. Clear the box to see them all." }),
-      );
-    }
   }
-  children.push(
-    h("div", { class: "or-line", text: "or" }),
-    h(
-      "button",
-      { id: "read-practice", class: "btn", disabled: state.practiceReading || state.pdfOpening !== null, onclick: () => void readPracticeQuestion() },
-      state.practiceReading ? spinner() : null,
-      state.practiceReading ? "Reading the practice question..." : "Read my practice test question",
-    ),
-    h("p", { class: "muted small", text: "After a Bluebook practice test, open a missed question in My Practice (mypractice.collegeboard.org), tick \"Show correct answer and explanation\", then click this. Only that question is read." }),
-  );
   if (state.health && !state.health.ai.live && !state.health.ai.stub && state.health.ai.configured.length === 0) {
-    children.push(h("div", { class: "banner warn" }, "The server has no AI provider right now, so explanations will fail. ", link(`${state.settings.server}/health`, "Status page")));
+    children.push(h("div", { class: "banner warn" }, "The server has no AI provider right now, so captures will fail. ", link(`${state.settings.server}/health`, "Status page")));
   }
-  children.push(...addons.renderInCapture());
-  if (state.captureError) children.push(h("div", { class: "banner danger", role: "alert", text: state.captureError }));
-  return h("div", { class: "card", id: "pdf-card" }, ...children);
+  if (state.captureError) children.push(renderCaptureError(state.captureError, state.captureFix));
+  return h("div", { class: "card", id: "capture-card" }, ...children);
+}
+
+function renderCaptureError(message: string, fix: CaptureFix | null): Node {
+  const action =
+    fix === "allSites"
+      ? h("button", { id: "allow-capture", class: "btn primary", text: "Allow", onclick: () => void allowAllSites() })
+      : fix === "fileAccess"
+        ? h("button", { id: "open-ext-settings", class: "btn", text: "Open Rulecard's settings", onclick: () => void openExtensionSettings() })
+        : null;
+  return h("div", { class: "banner danger", role: "alert", "data-testid": "capture-error" }, h("p", { text: message }), action ? h("div", { class: "row", style: "margin-top:8px" }, action) : null);
 }
 
 function renderHowTo(): Node {
@@ -546,269 +443,49 @@ function renderHowTo(): Node {
     h(
       "ol",
       { class: "steps small" },
-      h("li", { text: "In the SAT Suite Question Bank, export your questions as a PDF, with answers and explanations if you can." }),
-      h("li", { text: "Open the PDF here and pick the question by its ID. The PDF is read on this device; only that question is sent." }),
-      h("li", { text: "Tell me what you picked. If the PDF has the official explanation, you get it translated into the 1 to 3 rules you actually need. If it has no answer, you get a simple explanation and the rules." }),
-      h("li", { text: "Ask follow-ups, or press Test me for a fresh question on the same rule." }),
+      h("li", { text: "Open the question: a SAT Suite Question Bank PDF, or a practice-test question in My Practice that you got wrong. Make sure the whole question and its choices are on screen." }),
+      h("li", { text: "Press Capture this tab (or click the Rulecard icon in Chrome's toolbar). Rulecard takes one screenshot of that tab, only when you ask." }),
+      h("li", { text: "You get the answer and 2 or 3 bullets with the rules behind it, in plain words." }),
+      h("li", { text: "Tap the letter you picked to see why it's wrong. Your plan, progress and review are in the other tabs." }),
     ),
   );
 }
 
-function renderQuestion(q: Question): Node {
-  const showAnswer = Boolean(state.explained);
-  const picked = state.explained?.picked ?? null;
-  const chips = h(
-    "div",
-    { class: "row" },
-    chip(isMathQuestion(q) ? "Math" : "Reading and Writing"),
-    isGridIn(q) ? chip("grid-in", "accent") : null,
-    q.qbId ? chip(`ID ${q.qbId}`) : null,
-    q.domain ? chip(q.domain, "accent") : null,
-    q.skill ? chip(q.skill, "accent") : null,
-    q.difficulty ? chip(q.difficulty) : null,
-    q.answerSource === "model" ? chip("answer solved by the model", "warn") : null,
-  );
-  const children: Child[] = [
-    chips,
-    q.passage ? mathEl("div", q.passage, { class: "passage" }) : null,
-    q.figure ? h("div", { class: "figure" }, h("div", { class: "figure-label", text: "Figure (as read)" }), mathEl("div", q.figure)) : null,
-    mathEl("p", q.stem, { class: "stem" }),
-  ];
-  if (!isGridIn(q) && q.choices) {
-    const choices = q.choices;
-    children.push(
-      h(
-        "ol",
-        { class: "choices" },
-        ...LETTERS.map((letter) => {
-          const isPick = picked === letter;
-          const isCorrect = showAnswer && q.correct === letter;
-          const cls = `choice ${isCorrect ? "correct" : isPick ? "picked" : ""}`.trim();
-          return h(
-            "li",
-            { class: cls },
-            h("span", { class: "letter", text: `${letter}.` }),
-            mathEl("span", choices[letter]),
-            isCorrect ? h("span", { class: "tag good", text: "correct" }) : isPick ? h("span", { class: "tag danger", text: "your pick" }) : null,
-          );
-        }),
-      ),
-    );
-  } else if (showAnswer && state.explained) {
-    const ex = state.explained;
-    const accepted = q.answers?.length ? q.answers.join(", ") : ex.card.correct_answer;
-    children.push(
-      h(
-        "div",
-        { class: "spr-result" },
-        ex.response
-          ? h("div", { class: `choice ${ex.isCorrect === true ? "correct" : ex.isCorrect === false ? "picked" : ""}`.trim() }, h("span", { class: "letter", text: "You" }), h("span", { text: ex.response }), ex.isCorrect === true ? h("span", { class: "tag good", text: "correct" }) : ex.isCorrect === false ? h("span", { class: "tag danger", text: "not accepted" }) : null)
-          : null,
-        accepted ? h("div", { class: "choice correct" }, h("span", { class: "letter", text: "Key" }), h("span", { text: `Accepted: ${accepted}` })) : null,
-      ),
-    );
-  }
-  children.push(...addons.renderQuestionExtras(normalizeQuestion(q)));
-  if (!state.explained) children.push(renderPickPanel(q));
-  return h("div", { class: "card" }, ...children);
-}
-
-function sprCheck(): { ok: boolean; error: string | null } {
-  if (!state.sprInput.trim()) return { ok: false, error: null };
-  const entry = parseSprEntry(state.sprInput);
-  return entry.ok ? { ok: true, error: null } : { ok: false, error: entry.error };
-}
-
-function renderPickPanel(q: Question): Node {
-  const gridIn = isGridIn(q);
-  const needsAnswer = gridIn ? !q.answers?.length : !q.correct;
-  const rightButton = h("button", {
-    class: `pick wide ${state.picked === "correct" ? "on" : ""}`.trim(),
-    text: "I got it right, but explain",
-    onclick: () => {
-      state.picked = "correct";
-      render();
-    },
-  });
-  const children: Child[] = [h("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
-  if (state.practiceNote) children.push(h("div", { class: "banner accent", "data-testid": "practice-note", text: state.practiceNote }));
-  if (needsAnswer) {
-    children.push(
-      h(
-        "div",
-        { class: "banner warn" },
-        h("p", { text: "This PDF has no answer for this question." }),
-        h("p", { class: "muted small", text: "Let Rulecard solve it and explain it simply, or export the question again with answers included." }),
-        h(
-          "label",
-          { class: "row small", style: "margin-top:6px" },
-          h("input", {
-            type: "checkbox",
-            checked: state.allowSolve,
-            onchange: (event: Event) => {
-              state.allowSolve = (event.target as HTMLInputElement).checked;
-              render();
-            },
-          }),
-          "Let the model work out the answer",
-        ),
-      ),
-    );
-  }
-  let sprOk = true;
-  if (gridIn) {
-    const check = sprCheck();
-    sprOk = state.picked !== "spr" || check.ok;
-    const input = h("input", {
-      id: "spr-input",
-      class: "input",
-      maxlength: 6,
-      inputmode: "decimal",
-      autocomplete: "off",
-      placeholder: "Your answer, e.g. 3/17 or .75",
-      value: state.sprInput,
-      oninput: (event: Event) => {
-        state.sprInput = (event.target as HTMLInputElement).value;
-        state.picked = state.sprInput.trim() ? "spr" : state.picked === "spr" ? null : state.picked;
-        render();
-      },
-      onkeydown: (event: KeyboardEvent) => {
-        if (event.key === "Enter") void explain();
-      },
-    });
-    children.push(h("div", { class: "picks" }, h("div", { style: "flex:1;min-width:140px" }, input), rightButton));
-    if (state.picked === "spr" && check.error) children.push(h("p", { class: "small", style: "color:var(--danger)", role: "alert", text: check.error }));
-    else children.push(h("p", { class: "muted small", text: "Enter it the way you would on the test: a fraction or a decimal, up to 5 characters (6 if negative)." }));
-  } else {
-    children.push(
-      h(
-        "div",
-        { class: "picks" },
-        ...LETTERS.map((letter) =>
-          h("button", {
-            class: `pick ${state.picked === letter ? "on" : ""}`.trim(),
-            text: letter,
-            onclick: () => {
-              state.picked = letter;
-              render();
-            },
-          }),
-        ),
-        rightButton,
-      ),
-    );
-  }
-  const reasoning = h("input", {
-    id: "reasoning",
-    class: "input",
-    placeholder: "What was your thinking? (optional, one line)",
-    onkeydown: (event: KeyboardEvent) => {
-      if (event.key === "Enter") void explain();
-    },
-  });
-  children.push(...addons.renderPickExtras());
-  children.push(reasoning);
-  children.push(
-    h(
-      "div",
-      { class: "row" },
-      h(
-        "button",
-        { id: "explain-button", class: "btn primary", disabled: !state.picked || !sprOk || state.explaining || (needsAnswer && !state.allowSolve), onclick: () => void explain() },
-        state.explaining ? spinner() : null,
-        "Explain",
-      ),
-      state.explaining ? h("span", { class: "muted small", text: isMathQuestion(q) ? "Working it out..." : "Writing your rule card..." }) : null,
-    ),
-  );
-  if (state.explainError) children.push(h("div", { class: "banner danger", role: "alert", text: state.explainError }));
-  return h("div", { style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px" }, ...children);
-}
-
-function renderRuleCard(card: RuleCard, picked: Pick, ruleName: string | null): Node {
-  const diag = DIAGNOSIS[card.diagnosis] ?? DIAGNOSIS.unknown;
-  const math = isMathQuestion(state.question);
-  const section = (title: string, body: string) => h("section", null, h("h2", { text: title }), mathEl("p", body));
-  const answerLabel = card.correct_letter ?? card.correct_answer ?? "the answer";
-  const pickedLabel = picked === "spr" ? state.explained?.response ?? "your answer" : picked;
+/** The card: the answer, 2 to 3 bullets, then "Which did you pick?". */
+function renderResult(r: CardResult, q: Question): Node {
+  const card = r.card;
+  const math = isMathQuestion(q);
+  const answer = card.correct_letter ?? card.correct_answer ?? "?";
+  const bullets = card.key_rules?.length ? card.key_rules : [card.rule_statement];
   const rulePath = `/rules${math ? "?section=math" : ""}#${card.rule_id}`;
-  const rules = card.key_rules?.length ? card.key_rules : [card.rule_statement];
-  const translated = card.mode === "translated";
-  const more: Child[] = [
-    section(`Why ${answerLabel} is right`, card.why_correct),
-    card.why_pick_fails && picked !== "correct" ? section(`Why ${pickedLabel} fails`, card.why_pick_fails) : null,
-    card.steps?.length ? h("section", null, h("h2", { text: "Steps" }), h("ol", { class: "steps" }, ...card.steps.map((step) => mathEl("li", step)))) : null,
-    card.shortcut ? h("div", { class: "shortcut" }, h("h2", { text: "Shortcut" }), mathEl("p", card.shortcut)) : null,
-    card.eliminations.length && !isGridIn(state.question)
-      ? h(
-          "section",
-          null,
-          h("h2", { text: "Kill the rest" }),
-          h("ul", { class: "list" }, ...card.eliminations.map((e) => h("li", null, h("span", { class: "letter", text: `${e.letter}.` }), mathEl("span", e.reason)))),
-        )
-      : null,
-    h("div", { class: "banner", style: "background:var(--bg)" }, h("h2", { text: "Takeaway" }), mathEl("p", card.takeaway, { class: "stem" })),
-    h("p", { class: "muted small" }, `Confidence ${Math.round(card.confidence * 100)}%`),
-  ];
-  const children: Child[] = [
+  return h(
+    "div",
+    { class: "card", id: "result-card" },
     h(
       "div",
-      { class: "row" },
-      chip(translated ? "official explanation, translated" : "explained simply", translated ? "good" : "accent"),
-      chip(math && card.diagnosis === "careless" ? "computation slip" : math && card.diagnosis === "misread" ? "misread the question" : diag.label, diag.tone),
-      card.solved_by_model ? chip("answer worked out by the model, double check it", "warn") : null,
+      { class: "row between" },
+      h("strong", { class: "answer-line", "data-testid": "card-answer", text: `Answer: ${answer}` }),
+      card.solved_by_model ? chip("worked out by Rulecard, check it", "warn") : null,
     ),
-    h("div", { class: "row" }, h("strong", { class: "answer-line", text: `Answer: ${answerLabel}` })),
-    !translated && card.simple_explanation ? h("section", { class: "simple-explanation" }, h("h2", { text: "Simple explanation" }), mathEl("p", card.simple_explanation)) : null,
+    h("ul", { class: "key-rules", "data-testid": "key-rules" }, ...bullets.map((rule) => mathEl("li", rule))),
     h(
       "div",
-      { class: "banner accent", "data-testid": "key-rules" },
-      h("h2", { text: rules.length === 1 ? "The rule you need" : "The rules you need" }),
-      h("ul", { class: "key-rules" }, ...rules.map((rule) => mathEl("li", rule))),
-      h(
-        "div",
-        { class: "rule-id small" },
-        "Rule ",
-        h("button", { class: "btn link rule-link", text: `${card.rule_id}${ruleName ? ` · ${ruleName}` : ""}`, onclick: () => void openWeb(rulePath) }),
-      ),
+      { class: "rule-id small muted" },
+      "Rule ",
+      h("button", { class: "btn link rule-link", text: `${card.rule_id}${r.ruleName ? ` · ${r.ruleName}` : ""}`, onclick: () => void openWeb(rulePath) }),
     ),
-    h(
-      "details",
-      {
-        class: "more",
-        open: state.moreOpen,
-        ontoggle: (event: Event) => {
-          state.moreOpen = (event.target as HTMLDetailsElement).open;
-        },
-      },
-      h("summary", { text: "More detail" }),
-      ...more,
-    ),
-    renderDrill(),
-  ];
-  return h("div", { class: "card" }, ...children);
+    renderPickSection(r, q),
+    renderQuestionRead(q),
+  );
 }
 
-function renderDrill(): Node {
-  const d = state.drill;
-  if (!d.data) {
-    return h(
-      "div",
-      { class: "row", style: "border-top:1px solid var(--line);padding-top:10px" },
-      h("button", { class: "btn", disabled: d.loading, title: "Writes one new mini-question on the same rule", onclick: () => void startDrill() }, d.loading ? spinner() : null, d.loading ? "Writing a question..." : "Test me"),
-      d.error ? h("span", { class: "small", style: "color:var(--danger)", text: d.error }) : null,
-    );
-  }
-  const drill = d.data;
-  const gridIn = drill.format === "spr" || !drill.question.choices;
-  const children: Child[] = [
-    h("h2", { text: `Test me · ${drill.ruleId} ${drill.ruleName}` }),
-    drill.question.passage ? mathEl("div", drill.question.passage, { class: "passage" }) : null,
-    drill.question.figure ? h("div", { class: "figure" }, h("div", { class: "figure-label", text: "Figure" }), mathEl("div", drill.question.figure)) : null,
-    mathEl("p", drill.question.stem, { class: "stem" }),
-  ];
+function renderPickSection(r: CardResult, q: Question): Node {
+  const gridIn = isGridIn(q);
+  const card = r.card;
+  const answer = card.correct_letter ?? card.correct_answer ?? "?";
+  const children: Child[] = [h("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
   if (gridIn) {
-    const entry = d.response.trim() ? parseSprEntry(d.response) : null;
+    const entry = state.sprInput.trim() ? parseSprEntry(state.sprInput) : null;
     children.push(
       h(
         "div",
@@ -817,88 +494,91 @@ function renderDrill(): Node {
           "div",
           { style: "flex:1;min-width:140px" },
           h("input", {
-            id: "drill-spr-input",
+            id: "spr-input",
             class: "input",
             maxlength: 6,
             inputmode: "decimal",
             autocomplete: "off",
-            placeholder: "Your answer",
-            value: d.response,
-            disabled: Boolean(d.result) || d.picked === "spr",
+            placeholder: "Your answer, e.g. 3/17 or .75",
+            value: state.sprInput,
             oninput: (event: Event) => {
-              d.response = (event.target as HTMLInputElement).value;
+              state.sprInput = (event.target as HTMLInputElement).value;
               render();
             },
             onkeydown: (event: KeyboardEvent) => {
-              if (event.key === "Enter") void checkDrillResponse();
+              if (event.key === "Enter") void choosePick("spr");
             },
           }),
         ),
-        h("button", { id: "drill-check", class: "btn primary", disabled: !entry?.ok || Boolean(d.result) || d.picked === "spr", onclick: () => void checkDrillResponse() }, d.picked === "spr" && !d.result ? spinner() : null, "Check"),
+        h("button", { id: "spr-check", class: "btn", disabled: !entry?.ok || state.picking, onclick: () => void choosePick("spr") }, state.picking ? spinner() : null, "Check"),
       ),
     );
-    if (entry && !entry.ok && !d.result) children.push(h("p", { class: "small", style: "color:var(--danger)", text: entry.error }));
-  } else if (drill.question.choices) {
-    const choices = drill.question.choices;
-    children.push(
-      h(
-        "ol",
-        { class: "choices" },
-        ...LETTERS.map((letter) => {
-          const isPick = d.picked === letter;
-          const isCorrect = d.result?.correctLetter === letter;
-          const cls = d.result ? (isCorrect ? "correct" : isPick ? "picked" : "") : isPick ? "selected" : "selectable";
-          return h(
-            "li",
-            { class: `choice ${cls}`.trim(), onclick: () => void answerDrill(letter) },
-            h("span", { class: "letter", text: `${letter}.` }),
-            mathEl("span", choices[letter]),
-          );
-        }),
-      ),
-    );
-  }
-  if (d.result) {
-    const answer = d.result.correctLetter ?? d.result.correctAnswer ?? "";
+    if (entry && !entry.ok) children.push(h("p", { class: "small", style: "color:var(--danger)", role: "alert", text: entry.error }));
+  } else {
     children.push(
       h(
         "div",
-        { class: `banner ${d.result.correct ? "good" : "danger"}` },
-        h("p", { class: "stem", text: d.result.correct ? "Right." : `Not quite. The answer is ${answer}.` }),
-        mathEl("p", d.result.correct ? d.result.whyCorrect : d.result.fix ?? d.result.whyCorrect),
-        !d.result.correct && d.result.fix ? mathEl("p", d.result.whyCorrect, { class: "muted small" }) : null,
-        d.result.solution?.length ? h("ol", { class: "steps small" }, ...d.result.solution.map((step) => mathEl("li", step))) : null,
+        { class: "picks", role: "group", "aria-label": "The letter you picked" },
+        ...LETTERS.map((letter) =>
+          h("button", {
+            class: `pick ${r.pick?.picked === letter ? "on" : ""}`.trim(),
+            text: letter,
+            disabled: state.picking,
+            "aria-pressed": String(r.pick?.picked === letter),
+            onclick: () => void choosePick(letter),
+          }),
+        ),
       ),
-      h("button", { class: "btn", disabled: d.loading, onclick: () => void startDrill() }, d.loading ? spinner() : null, "Another one"),
     );
   }
-  if (d.error) children.push(h("div", { class: "banner danger", role: "alert", text: d.error }));
-  return h("div", { style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px" }, ...children);
+  if (state.pickError) children.push(h("div", { class: "banner danger", role: "alert", text: state.pickError }));
+  const p = r.pick;
+  if (p && !state.picking) {
+    const yours = p.picked === "spr" ? p.response ?? "your answer" : p.picked;
+    if (p.isCorrect === true) {
+      children.push(h("div", { class: "banner good", "data-testid": "pick-why" }, h("p", { class: "stem", text: `${yours} is right. Nice.` }), h("p", { class: "small muted", text: "The bullets above are why, so you get it right every time." })));
+    } else {
+      const why = card.why_pick_fails?.trim();
+      children.push(
+        h(
+          "div",
+          { class: "banner danger", "data-testid": "pick-why" },
+          h("h2", { text: `Why ${yours} is wrong` }),
+          why ? mathEl("p", why) : null,
+          mathEl("p", `The right answer is ${answer}. ${card.why_correct ?? ""}`.trim(), { class: why ? "small" : "" }),
+          gridIn && card.steps?.length ? h("ol", { class: "steps small" }, ...card.steps.map((step) => mathEl("li", step))) : null,
+        ),
+      );
+    }
+  }
+  return h("div", { class: "pick-section", style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px" }, ...children);
 }
 
-function renderChat(): Node {
-  const c = state.chat;
-  const input = h("input", {
-    id: "chat-input",
-    class: "input",
-    placeholder: "Ask about this question",
-    onkeydown: (event: KeyboardEvent) => {
-      if (event.key === "Enter") void sendChat();
-    },
-  });
+/** What Rulecard read from the screen, folded away: open it to check the capture got the right question. */
+function renderQuestionRead(q: Question): Node {
+  const choices = !isGridIn(q) && q.choices ? q.choices : null;
   return h(
-    "div",
-    { class: "card" },
-    h("h2", { text: "Ask about this question" }),
-    c.messages.length
-      ? h(
-          "div",
-          { class: "chat" },
-          ...c.messages.map((m) => h("div", { class: `msg ${m.role === "user" ? "user" : "tutor"}`, id: `msg-${m.id}` }, h("span", { class: "who", text: m.role === "user" ? "you" : "tutor" }), mathEl("span", m.text || (c.busy ? "..." : ""), { class: "body" }))),
-        )
-      : null,
-    c.error ? h("div", { class: "banner danger", role: "alert", text: c.error }) : null,
-    h("div", { class: "row" }, h("div", { style: "flex:1;min-width:0" }, input), h("button", { class: "btn", disabled: c.busy, onclick: () => void sendChat() }, c.busy ? spinner() : "Send")),
+    "details",
+    {
+      class: "more small",
+      open: state.questionOpen,
+      ontoggle: (event: Event) => {
+        state.questionOpen = (event.target as HTMLDetailsElement).open;
+      },
+    },
+    h("summary", { text: "Question it read" }),
+    h(
+      "div",
+      { class: "row" },
+      chip(isMathQuestion(q) ? "Math" : "Reading and Writing"),
+      q.qbId ? chip(`ID ${q.qbId}`) : null,
+      q.skill ? chip(q.skill, "accent") : null,
+      q.difficulty ? chip(q.difficulty) : null,
+    ),
+    q.passage ? mathEl("div", q.passage, { class: "passage" }) : null,
+    q.figure ? h("div", { class: "figure" }, h("div", { class: "figure-label", text: "Figure (as read)" }), mathEl("div", q.figure)) : null,
+    mathEl("p", q.stem, { class: "stem" }),
+    choices ? h("ol", { class: "choices" }, ...LETTERS.map((letter) => h("li", { class: "choice" }, h("span", { class: "letter", text: `${letter}.` }), mathEl("span", choices[letter])))) : null,
   );
 }
 
@@ -915,12 +595,10 @@ function renderFooter(): Node {
 
 function describe(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.code === "no_provider") return "The server has no AI key yet. Add OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel, then try again.";
-    if (error.code === "extraction_failed") return "I could not find a question there. For a PDF, make sure it is a Question Bank export; for a practice test, open the question with its answer showing, then try again.";
-    if (error.code === "needs_answer") return "This question has no answer to go on. Tick 'Let the model work out the answer', or export it again with answers included.";
+    if (error.code === "no_provider") return "The server has no AI provider right now. Try again later.";
+    if (error.code === "extraction_failed") return "I couldn't find a whole question on this tab. Scroll so the question and all of its answer choices are on screen, then press Capture again.";
     if (error.code === "daily_limit") return error.message;
     if (error.code === "invalid_response") return error.message;
-    if (error.code === "unverified") return "Could not double-check that question. Try again.";
     if (error.status === 429) return error.message;
     return error.message;
   }
@@ -942,16 +620,11 @@ async function handleAuthFailure(error: unknown): Promise<boolean> {
 
 function resetQuestion() {
   state.question = null;
-  state.picked = null;
+  state.result = null;
+  state.picking = false;
+  state.pickError = null;
   state.sprInput = "";
-  state.allowSolve = false;
-  state.explaining = false;
-  state.explainError = null;
-  state.explained = null;
-  state.practiceNote = null;
-  state.moreOpen = false;
-  state.chat = { messages: [], busy: false, error: null };
-  state.drill = emptyDrill();
+  state.questionOpen = false;
 }
 
 async function refreshHealth() {
@@ -964,10 +637,9 @@ async function refreshHealth() {
   render();
 }
 
-/** The capture (or paste, or selection) being extracted right now. One /api/extract at a time. */
+/** One capture at a time: a second press (or a toolbar click) waits for the first. */
 let inflight: Promise<void> | null = null;
 
-/** Run after whatever extract is in flight, and hold the slot until done. */
 function serialCapture(run: () => Promise<void>): Promise<void> {
   const next = (inflight ?? Promise.resolve()).then(run, run).finally(() => {
     if (inflight === next) inflight = null;
@@ -976,306 +648,124 @@ function serialCapture(run: () => Promise<void>): Promise<void> {
   return next;
 }
 
-function openPdfPicker() {
-  if (state.pdfReading) return;
-  addons.showTab("home");
-  (document.getElementById(PDF_INPUT_ID) as HTMLInputElement | null)?.click();
+type Source = { image: string; source: "capture" | "image" } | { text: string; source: "paste" };
+
+/**
+ * What to send for the tab on screen. My Practice pages are read as text (the whole question, even the
+ * part scrolled out of view; math comes back as LaTeX), with a screenshot instead when there is a graph.
+ * Everything else, Question Bank PDFs included, is a screenshot.
+ */
+async function sourceFor(tab: chrome.tabs.Tab): Promise<Source> {
+  if (tab.id !== undefined && isPracticeUrl(tab.url)) {
+    const read = await readPracticeTab(tab.id);
+    if (read && read.text.length >= 40 && !read.hasFigure) return { text: read.text, source: "paste" };
+  }
+  return { image: await downscale(await captureTab(tab)), source: "capture" };
 }
 
-async function openPdfFile(file: File) {
-  const problem = checkPdfFile(file);
-  state.captureError = problem;
-  if (problem) {
-    render();
-    return;
-  }
-  state.pdfReading = true;
-  render();
-  try {
-    const buffer = await file.arrayBuffer();
-    const pdf = await parseQuestionBankPdf(file.name, buffer);
-    state.pdf = pdf;
-    state.pdfBytes = buffer;
-    state.pdfFilter = "";
-    state.pdfCurrent = null;
-    await storePdf(pdf, buffer).catch((error) => console.warn("Rulecard: couldn't keep the PDF for this session", error));
-    // One question in the export: open it straight away.
-    if (pdf.questions.length === 1) {
-      state.pdfReading = false;
-      await openPdfQuestion(0);
-    }
-  } catch (error) {
-    console.error("Rulecard: PDF read failed", error);
-    state.captureError = "Couldn't read that PDF. Make sure it is a Question Bank export (not a scan or a photo), then try again.";
-  } finally {
-    state.pdfReading = false;
-    render();
-  }
-}
-
-async function openPdfQuestion(index: number) {
-  const pdf = state.pdf;
-  const q = pdf?.questions[index];
-  if (!pdf || !q || state.pdfOpening !== null || inflight) return;
+/** The button: screenshot this tab, read the question, and explain it. */
+function captureThisTab(): Promise<void> {
+  if (state.capturing) return inflight ?? Promise.resolve();
   addons.showTab("home");
-  state.pdfOpening = index;
+  state.capturing = "reading";
   state.captureError = null;
+  state.captureFix = null;
   render();
-  await serialCapture(async () => {
+  return serialCapture(async () => {
     try {
-      if (needsVision(q)) {
-        // Math (and anything the text layer garbled) is read from a picture of its page(s).
-        const bytes = state.pdfBytes;
-        if (!bytes) throw new Error("Open the PDF again to read this Math question (the file is not kept after the browser closes).");
-        await processImage(await renderQuestionPages(bytes, q.pages));
-      } else {
-        const data = await request<{ questions: Question[] }>(state.settings, "/api/questions", { body: { questions: [importPayload(q)] } });
-        const row = data.questions[0];
-        if (!row) throw new Error("The server did not save that question. Try again.");
-        resetQuestion();
-        state.captureError = null;
-        state.question = row;
-        void addons.afterExtract(normalizeQuestion(row));
-      }
-      state.pdfCurrent = index;
+      const tab = await activeTabIn(panelWindowId);
+      if (!tab) throw new CaptureBlocked(HELP.noTab, null);
+      await explainSource(await sourceFor(tab));
     } catch (error) {
       if (await handleAuthFailure(error)) return;
       state.captureError = describe(error);
+      state.captureFix = error instanceof CaptureBlocked ? error.fix : null;
     } finally {
-      state.pdfOpening = null;
+      state.capturing = null;
       render();
     }
   });
-  document.querySelector(".card .stem")?.scrollIntoView({ block: "nearest" });
 }
 
-async function processImage(image: string) {
-  const data = await request<ExtractResponse>(state.settings, "/api/extract", { body: { image, source: "pdf" } });
+/** Read the question, then write its card (no pick needed). A known pick is recorded straight after. */
+async function explainSource(body: Source, picked: Letter | null = null): Promise<void> {
+  state.capturing = "reading";
+  render();
+  const data = await request<ExtractResponse>(state.settings, "/api/extract", { body });
+  await explainQuestion(data.question, picked);
+}
+
+async function explainQuestion(question: Question, picked: Letter | null = null): Promise<void> {
   resetQuestion();
-  state.captureError = null;
-  state.question = data.question;
-  addons.showTab("home");
-  void addons.afterExtract(normalizeQuestion(data.question));
-}
-
-const PRACTICE_HELP =
-  "Open the question's review page in My Practice (mypractice.collegeboard.org: your practice test, then a question you missed), then click this again.";
-
-/** Read the missed question open in My Practice: its text (math as LaTeX), your answer, the correct answer and the rationale. */
-async function readPracticeQuestion() {
-  if (state.practiceReading || inflight) return;
-  addons.showTab("home");
-  state.practiceReading = true;
-  state.captureError = null;
+  state.question = question;
+  state.capturing = "explaining";
   render();
-  await serialCapture(async () => {
-    try {
-      let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-      if (tab?.id === undefined || !isPracticeUrl(tab.url)) throw new Error(PRACTICE_HELP);
-      const read = await readPracticeTab(tab.id);
-      if (!read) throw new Error("Couldn't read that page. Reload it, open the question again, then click this once more.");
-      if (!showsAnswer(read.text)) throw new Error('Tick "Show correct answer and explanation" under the question, then click this again.');
-      // A graph or picture is not in the text, so that question goes as a picture when Chrome allows it.
-      let image: string | null = null;
-      let figureNote: string | null = null;
-      if (read.hasFigure && tab.windowId !== undefined) {
-        try {
-          image = await downscale(await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" }));
-        } catch {
-          figureNote = "This question has a graph or picture that was not sent. To include it, click the Rulecard toolbar icon on that tab once, then read the question again.";
-        }
-      }
-      const data = image
-        ? await request<ExtractResponse>(state.settings, "/api/extract", { body: { image, source: "capture" } })
-        : await request<ExtractResponse>(state.settings, "/api/extract", { body: { text: read.text, source: "paste" } });
-      resetQuestion();
-      state.captureError = null;
-      state.question = data.question;
-      state.pdfCurrent = null;
-      const pick = parsePracticePick(read.text);
-      let picked: string | null = null;
-      if (pick && "letter" in pick && data.question.format !== "spr") {
-        state.picked = pick.letter;
-        picked = `picked ${pick.letter}`;
-      } else if (pick && "typed" in pick && data.question.format === "spr") {
-        state.sprInput = pick.typed;
-        state.picked = "spr";
-        picked = `entered ${pick.typed}`;
-      }
-      state.practiceNote = [picked ? `From your practice test: you ${picked}. Press Explain.` : "From your practice test. Choose what you picked, then press Explain.", figureNote]
-        .filter(Boolean)
-        .join(" ");
-      void addons.afterExtract(normalizeQuestion(data.question));
-    } catch (error) {
-      if (await handleAuthFailure(error)) return;
-      state.captureError = describe(error);
-    } finally {
-      state.practiceReading = false;
-      render();
-    }
+  void addons.afterExtract(normalizeQuestion(question));
+  const data = await request<ExplainResponse>(state.settings, "/api/explain", {
+    body: { questionId: question.id, picked: "none", allowModelSolve: true },
   });
-}
-
-/** Bring back the PDF opened earlier in this browser session (the panel forgets it when closed). */
-async function restorePdf() {
-  if (state.pdf) return;
-  try {
-    const stored = await loadStoredPdf();
-    if (!stored) return;
-    state.pdf = stored.pdf;
-    state.pdfBytes = stored.bytes;
-    render();
-  } catch (error) {
-    console.warn("Rulecard: couldn't restore the PDF", error);
+  state.question = data.question;
+  state.result = { attemptId: data.attemptId, card: data.card, ruleName: data.rule?.name ?? null, pick: null };
+  void refreshRecent();
+  if (picked && data.question.format !== "spr") {
+    state.capturing = null;
+    await choosePick(picked);
   }
 }
 
-/** Drop a PDF anywhere on the panel to open it. */
-function installPdfDrop() {
-  const has = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files");
-  document.addEventListener("dragover", (event) => {
-    if (!has(event) || state.view !== "main") return;
-    event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-  });
-  document.addEventListener("drop", (event) => {
-    if (!has(event) || state.view !== "main") return;
-    event.preventDefault();
-    const file = event.dataTransfer?.files?.[0];
-    if (file) void openPdfFile(file);
-  });
-}
-
-async function explain() {
+/** "Which did you pick?": no model call, the card already knows why each wrong choice is wrong. */
+async function choosePick(picked: Letter | "spr"): Promise<void> {
+  const r = state.result;
   const q = state.question;
-  if (!q || !state.picked || state.explaining) return;
-  const reasoning = ((document.getElementById("reasoning") as HTMLInputElement | null)?.value ?? "").trim();
-  const picked = state.picked;
+  if (!r || !q || state.picking) return;
   let response: string | null = null;
   if (picked === "spr") {
     const entry = parseSprEntry(state.sprInput);
     if (!entry.ok) {
-      state.explainError = entry.error;
+      state.pickError = entry.error;
       render();
       return;
     }
     response = entry.text;
+  } else if (r.pick?.picked === picked) {
+    return;
   }
-  state.explaining = true;
-  state.explainError = null;
+  state.picking = true;
+  state.pickError = null;
   render();
   try {
-    const data = await request<ExplainResponse>(state.settings, "/api/explain", {
-      body: { questionId: q.id, picked, ...(response ? { response } : {}), reasoning: reasoning || null, allowModelSolve: state.allowSolve },
-    });
-    state.question = data.question;
-    state.explained = { attemptId: data.attemptId, card: data.card, ruleName: data.rule?.name ?? null, picked, response, isCorrect: data.isCorrect ?? null };
-    void addons.afterExplain(data, picked, response);
+    const data = await request<PickResponse>(state.settings, "/api/explain/pick", { body: { attemptId: r.attemptId, picked, ...(response ? { response } : {}) } });
+    r.card = data.card;
+    r.pick = { picked: data.picked, response: data.response, isCorrect: data.isCorrect };
+    // The local study log (Plan, Progress, Practice) records the question once the student says what they picked.
+    void addons.afterExplain({ attemptId: r.attemptId, card: data.card, question: q, rule: { id: data.card.rule_id, name: r.ruleName }, isCorrect: data.isCorrect }, data.picked, data.response);
     void refreshRecent();
-    state.chat = { messages: [], busy: false, error: null };
-    state.drill = emptyDrill();
   } catch (error) {
     if (await handleAuthFailure(error)) return;
-    state.explainError = describe(error);
+    state.pickError = describe(error);
   } finally {
-    state.explaining = false;
+    state.picking = false;
     render();
   }
 }
 
-async function startDrill() {
-  const attemptId = state.explained?.attemptId;
-  if (!attemptId || state.drill.loading) return;
-  state.drill = { ...emptyDrill(), loading: true };
-  render();
-  try {
-    state.drill.data = await request<DrillResponse>(state.settings, "/api/drill", { body: { attemptId } });
-  } catch (error) {
-    if (await handleAuthFailure(error)) return;
-    state.drill.error = describe(error);
-  } finally {
-    state.drill.loading = false;
-    render();
-  }
-}
-
-async function answerDrill(letter: Letter) {
-  const d = state.drill;
-  if (!d.data || d.result || d.picked) return;
-  d.picked = letter;
-  render();
-  try {
-    d.result = await request<CheckResponse>(state.settings, "/api/drill/check", { body: { drillId: d.data.drillId, picked: letter } });
-    if (state.explained) void addons.afterDrillCheck(state.explained.attemptId, d.result.correct);
-  } catch (error) {
-    if (await handleAuthFailure(error)) return;
-    d.error = describe(error);
-    d.picked = null;
-  }
-  render();
-}
-
-async function checkDrillResponse() {
-  const d = state.drill;
-  if (!d.data || d.result || d.picked) return;
-  const entry = parseSprEntry(d.response);
-  if (!entry.ok) {
-    d.error = entry.error;
+async function allowAllSites() {
+  // permissions.request has to start inside the click, so it goes first.
+  const granted = await requestAllSites();
+  if (!granted) {
+    state.captureError = "Not allowed. You can still click the Rulecard icon in Chrome's toolbar while you're on the question: that captures it.";
+    state.captureFix = null;
     render();
     return;
   }
-  d.picked = "spr";
-  d.error = null;
-  render();
-  try {
-    d.result = await request<CheckResponse>(state.settings, "/api/drill/check", { body: { drillId: d.data.drillId, response: entry.text } });
-    if (state.explained) void addons.afterDrillCheck(state.explained.attemptId, d.result.correct);
-  } catch (error) {
-    if (await handleAuthFailure(error)) return;
-    d.error = describe(error);
-    d.picked = null;
-  }
-  render();
+  await captureThisTab();
 }
 
-async function sendChat() {
-  const attemptId = state.explained?.attemptId;
-  const input = document.getElementById("chat-input") as HTMLInputElement | null;
-  const text = (input?.value ?? "").trim();
-  if (!attemptId || !text || state.chat.busy) return;
-  if (input) input.value = "";
-  const c = state.chat;
-  c.busy = true;
-  c.error = null;
-  const user: ChatMessage = { id: `u-${Date.now()}`, role: "user", text };
-  const reply: ChatMessage = { id: `a-${Date.now()}`, role: "assistant", text: "" };
-  c.messages.push(user, reply);
-  render();
-  try {
-    const history = c.messages.slice(0, -1);
-    await streamChat(state.settings, attemptId, history, (delta) => {
-      reply.text += delta;
-      const body = document.querySelector(`#msg-${reply.id} .body`);
-      if (body) body.innerHTML = renderMathHtml(reply.text);
-      else render();
-    });
-    if (!reply.text) reply.text = "(no reply)";
-  } catch (error) {
-    if (await handleAuthFailure(error)) return;
-    c.error = describe(error);
-    c.messages = c.messages.filter((m) => m.id !== reply.id);
-  } finally {
-    c.busy = false;
-    render();
-  }
-}
-
-// ---------- captures triggered by the keyboard shortcut (service worker) ----------
+// ---------- questions handed to the panel ----------
 
 /**
- * A question handed to the panel from elsewhere (for example the extension's own check script, or a
- * future "send to panel" button): load it as the current question and clear the key.
+ * A question handed to the panel from elsewhere (the extension's own check script, for example):
+ * explain it like a capture and clear the key.
  */
 async function consumePendingQuestion() {
   const stored = (await chrome.storage.session.get("pendingQuestion")) as { pendingQuestion?: Question };
@@ -1284,15 +774,34 @@ async function consumePendingQuestion() {
   await chrome.storage.session.remove("pendingQuestion");
   if (state.view !== "main" || !pending.id || !pending.stem) return;
   addons.showTab("home");
-  resetQuestion();
   state.captureError = null;
-  state.question = pending;
-  void addons.afterExtract(normalizeQuestion(pending));
-  render();
+  state.captureFix = null;
+  await serialCapture(async () => {
+    try {
+      await explainQuestion(pending);
+    } catch (error) {
+      if (await handleAuthFailure(error)) return;
+      state.captureError = describe(error);
+    } finally {
+      state.capturing = null;
+      render();
+    }
+  });
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "session" && changes.pendingQuestion?.newValue) void consumePendingQuestion();
+});
+
+// The toolbar icon, clicked while this panel is already open in its window, means "capture this tab".
+// (Clicking it also gives Rulecard permission for that tab, so it works where the button can't.)
+chrome.runtime.onMessage.addListener((message: unknown, sender) => {
+  if (sender.id !== chrome.runtime.id) return;
+  const m = message as { type?: string; windowId?: number };
+  if (m?.type !== "rc-toolbar-click" || m.windowId !== panelWindowId) return;
+  // A panel the click itself just opened only shows the button.
+  if (Date.now() - bootedAt < 1500 || state.view !== "main") return;
+  void captureThisTab();
 });
 
 // ---------- boot ----------
@@ -1321,6 +830,7 @@ async function boot() {
 }
 
 async function bootInner() {
+  panelWindowId = (await chrome.windows.getCurrent().catch(() => null))?.id ?? null;
   try {
     state.settings = await loadSettings();
   } finally {
@@ -1334,7 +844,6 @@ async function bootInner() {
   await addons.accountChanged();
   state.view = "main";
   render();
-  await restorePdf();
   void consumePendingQuestion();
   void refreshRecent();
   await refreshHealth();
@@ -1352,27 +861,30 @@ const addons = createAddons(
   },
   {
     getQuestion: () => (state.question ? normalizeQuestion(state.question) : null),
-    getExplained: () =>
-      state.explained && { attemptId: state.explained.attemptId, picked: state.explained.picked === "spr" ? "correct" : state.explained.picked },
-    processImage: (image) => serialCapture(() => processImage(image)),
-    settingsReady,
-    capture: () => openPdfPicker(),
-    pick: (letter) => {
-      const d = state.drill;
-      if (d.data && !d.result) {
-        if (d.data.question.choices && letter !== "correct") void answerDrill(letter);
-        return;
-      }
-      if (!state.question || state.explained) return;
-      if (isGridIn(state.question) && letter !== "correct") return;
-      state.picked = letter;
-      render();
+    getExplained: () => {
+      const r = state.result;
+      if (!r?.pick) return null;
+      return { attemptId: r.attemptId, picked: r.pick.picked === "spr" ? "correct" : r.pick.picked };
     },
-    explain: () => void explain(),
-    testMe: () => void startDrill(),
-    focusChat: () => document.getElementById("chat-input")?.focus(),
+    // A miss from the Question Bank export quiz: its picture, with the letter the student picked.
+    processImage: (image, picked) =>
+      serialCapture(async () => {
+        addons.showTab("home");
+        try {
+          await explainSource({ image, source: "image" }, picked ?? null);
+        } finally {
+          state.capturing = null;
+          render();
+        }
+      }),
+    settingsReady,
+    capture: () => void captureThisTab(),
+    pick: (letter) => {
+      if (!state.result || !state.question || letter === "correct") return;
+      if (isGridIn(state.question)) return;
+      void choosePick(letter);
+    },
   },
 );
 
-installPdfDrop();
 void boot();

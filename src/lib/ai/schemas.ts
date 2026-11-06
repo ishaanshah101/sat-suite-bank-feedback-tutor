@@ -79,11 +79,16 @@ const DiagnosisSchema = z.enum(["misread", "rule_gap", "careless", "got_it_right
  *   long rationale into the 1 to 3 rules the student needs, and nothing else.
  * - "explained": no official explanation (or no answer at all). The card explains the question simply,
  *   then gives the same 1 to 3 rules.
+ * - "quick": a captured question explained before the student says what they picked. The card is the
+ *   answer and 2 to 3 bullets on why it is right; every wrong choice gets its reason up front, so the
+ *   student's pick can be answered later without another model call.
  */
-export const CardModeSchema = z.enum(["translated", "explained"]);
+export const CardModeSchema = z.enum(["translated", "explained", "quick"]);
 export type CardMode = z.infer<typeof CardModeSchema>;
 /** At most this many rule bullets on a card. */
 export const MAX_KEY_RULES = 3;
+/** A "quick" card has at least this many bullets when the model gives them. */
+export const MIN_QUICK_RULES = 2;
 
 /** What the model returns for a rule card (every field required, for strict structured output). */
 export const RuleCardOutputSchema = z.object({
@@ -160,6 +165,9 @@ export const DrillCheckSchema = z.object({
 });
 export type DrillCheck = z.infer<typeof DrillCheckSchema>;
 
-/** A letter, "correct" (got it right, explain anyway), or "spr" (a typed grid-in answer in `response`). */
-export const PickSchema = z.union([LetterSchema, z.literal("correct"), z.literal("spr")]);
+/**
+ * A letter, "correct" (got it right, explain anyway), "spr" (a typed grid-in answer in `response`), or
+ * "none" (explain first; the student may say what they picked afterwards).
+ */
+export const PickSchema = z.union([LetterSchema, z.literal("correct"), z.literal("spr"), z.literal("none")]);
 export type Pick = z.infer<typeof PickSchema>;

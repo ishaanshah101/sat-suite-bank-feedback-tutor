@@ -48,7 +48,7 @@ export const attempts = pgTable(
     questionId: uuid("question_id")
       .notNull()
       .references(() => questions.id, { onDelete: "cascade" }),
-    picked: text("picked").$type<Letter | "correct" | "spr">().notNull(),
+    picked: text("picked").$type<Letter | "correct" | "spr" | "none">().notNull(),
     /** Grid-in only: what the student typed. */
     response: text("response"),
     /** Graded at explain time; null for attempts saved before grading existed. */

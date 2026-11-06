@@ -3,7 +3,7 @@ import { formatRulesForPrompt } from "@/content/rules";
 import type { QuestionRow } from "@/db/schema";
 import { displayAnswer, isSprCorrect } from "@/lib/questions/spr";
 import type { CardMode, Letter, Pick, RuleCard } from "./schemas";
-import { MAX_KEY_RULES } from "./schemas";
+import { MAX_KEY_RULES, MIN_QUICK_RULES } from "./schemas";
 import { playbookForPrompt } from "@/content/playbook";
 import { normalizeSkill } from "@/lib/questions/taxonomy";
 
@@ -84,6 +84,11 @@ export function playbookFor(question: { section: QuestionRow["section"]; skill: 
 
 /** The part of the instructions that fixes what the card is for. */
 function modeInstructions(mode: CardMode): string {
+  if (mode === "quick") {
+    return `This card is a QUICK EXPLANATION of a question the student captured from their screen. They have not said what they picked; they want the right answer and why, in the simplest possible words.
+- key_rules: ${MIN_QUICK_RULES} or ${MAX_KEY_RULES} bullet points that explain why the correct answer is correct. This is the whole card, so make every word count. Each bullet is one plain sentence of at most 25 words. The first bullet states the real rule in general terms, the way a good cheat sheet says it (use the rule library's statement and Tips and the playbook below, not College Board's wording). The next bullet(s) apply that rule to this exact question so the student sees why it picks the answer (quote the deciding words or numbers). For Math, one bullet may be the fastest route (a Desmos move, plugging in, a shortcut) when the playbook gives one. If an official rationale is given, use it only to check facts; never copy its long-winded wording or add rules the student does not need. No bullet repeats another, no hedging, no "remember to", no restating the passage.
+- simple_explanation: always null for this card.`;
+  }
   const bullets = `key_rules: 1 to ${MAX_KEY_RULES} bullet points, the rules the student must know to get this question and others like it right. Usually 1 or 2; 3 only when the question truly needs three. Each bullet is one plain sentence of at most 25 words: say the rule in general terms, then how it decides this question (for example "A semicolon joins two complete sentences, so 'March; visitors' is the only clean join."). No bullet repeats another. No hedging, no "remember to", no restating the passage.`;
   if (mode === "translated") {
     return `This card TRANSLATES College Board's official rationale. The rationale is correct but long and confusing; the student wants only the rules hidden in it.
@@ -106,13 +111,17 @@ export function explainInstructions(rules: Rule[], mustSolve: boolean, question:
       ? "correct_letter: the correct answer is unknown, so solve the question carefully and set solved_by_model to true. Set correct_answer to null."
       : "correct_letter: copy the official correct letter given with the question and set solved_by_model to false. Set correct_answer to null.";
   const subject = math ? "the Digital SAT Math section" : "the Digital SAT Reading and Writing section";
+  const quick = mode === "quick";
   const mathLines = math
     ? `- steps: the worked solution in 2 to 6 short steps, each one line, ending at the answer the question asks for. Use the official rationale as a fact check when it is given.
 - shortcut: the fastest reliable route for this exact question if there is one (graphing in the built-in Desmos calculator, plugging in or backsolving the choices, a pattern), in one or two sentences; otherwise null.
 - ${MATH_NOTATION}`
     : `- steps: always an empty array for Reading and Writing.
 - shortcut: always null for Reading and Writing.`;
-  return `You are Rulecard, a tutor for ${subject}. A student answered a Question Bank question and tells you what they picked${gridIn ? " (they typed a grid-in answer)" : ""} and, sometimes, their thinking. Produce a rule card as structured output.
+  const intro = quick
+    ? `You are Rulecard, a tutor for ${subject}. A student captured a question from the SAT Suite Question Bank or a practice test they are reviewing and wants it explained. Produce a rule card as structured output.`
+    : `You are Rulecard, a tutor for ${subject}. A student answered a Question Bank question and tells you what they picked${gridIn ? " (they typed a grid-in answer)" : ""} and, sometimes, their thinking. Produce a rule card as structured output.`;
+  return `${intro}
 
 What this card is for (the most important part):
 ${modeInstructions(mode)}
@@ -120,11 +129,16 @@ ${modeInstructions(mode)}
 Other fields:
 - Lead with the rule. Exactly one rule from the library below is the rule this question tests. Put its id in rule_id and a one-sentence version of it, applied to this question, in rule_statement. If no library rule fits, use the closest general rule (${math ? "MTH" : "GEN"}) and put a short name for the missing rule in suggested_rule (otherwise null).
 - why_correct: at most two sentences on why the correct answer follows from the rule.
-- why_pick_fails: at most two sentences on exactly why the student's answer is wrong, naming the specific trap from the playbook or slip${math ? " (for example a sign error, solving for the wrong quantity, using the diameter as the radius)" : ""}. If the student was right, set it to null.
-- eliminations: ${gridIn ? "always an empty array (a grid-in has no choices)." : "one entry for each remaining wrong choice (not the correct one, not the student's pick), each reason at most 15 words."}
+${
+    quick
+      ? `- why_pick_fails: always null for this card (the student has not said what they picked).
+- eliminations: ${gridIn ? "always an empty array (a grid-in has no choices)." : "one entry for EVERY wrong choice (all three letters that are not correct). The student will tap the letter they picked and see only this, so each reason is one or two plain sentences, at most 35 words: name the trap that makes the choice tempting and the rule it breaks, then say in a few words why the correct answer works instead."}`
+      : `- why_pick_fails: at most two sentences on exactly why the student's answer is wrong, naming the specific trap from the playbook or slip${math ? " (for example a sign error, solving for the wrong quantity, using the diameter as the radius)" : ""}. If the student was right, set it to null.
+- eliminations: ${gridIn ? "always an empty array (a grid-in has no choices)." : "one entry for each remaining wrong choice (not the correct one, not the student's pick), each reason at most 15 words."}`
+  }
 ${mathLines}
 - takeaway: one line the student could remember mid-test.
-- diagnosis: use the student's stated reasoning. misread = they misread the question or what it asks for; rule_gap = they did not know or misapplied the rule; careless = they knew it and slipped (for example arithmetic); got_it_right = they were right; unknown = no reasoning given and it is unclear.
+- diagnosis: ${quick ? "always unknown for this card." : "use the student's stated reasoning. misread = they misread the question or what it asks for; rule_gap = they did not know or misapplied the rule; careless = they knew it and slipped (for example arithmetic); got_it_right = they were right; unknown = no reasoning given and it is unclear."}
 - ${answerLine}
 - confidence: 0 to 1, how sure you are of the card (lower when solved_by_model is true or the rule fit is loose).
 ${TUTOR_VOICE}
@@ -138,6 +152,7 @@ ${formatRulesForPrompt(rules)}`;
 }
 
 export function pickDescription(picked: Pick, response: string | null): string {
+  if (picked === "none") return "The student has not said what they picked. Explain the correct answer.";
   if (picked === "correct") return "The student says they got it right and wants the explanation anyway.";
   if (picked === "spr") return `The student entered: ${response ?? "(nothing)"}`;
   return `The student picked: ${picked}`;
@@ -214,6 +229,7 @@ export const DRILL_CHECK_INSTRUCTIONS = `You are checking a Digital SAT Math pra
 
 export function pickLabel(picked: Pick, response?: string | null): string {
   if (picked === "correct") return "right answer";
+  if (picked === "none") return "not given";
   if (picked === "spr") return response ?? "grid-in";
   return picked;
 }
@@ -221,6 +237,8 @@ export function pickLabel(picked: Pick, response?: string | null): string {
 /** Whether the student's answer is right: true, false, or null when the correct answer is unknown. */
 export function isPickCorrect(question: { format: QuestionRow["format"]; correct: QuestionRow["correct"]; answers: QuestionRow["answers"] }, picked: Pick, response: string | null): boolean | null {
   const known = question.format === "spr" ? Boolean(question.answers?.length) : Boolean(question.correct);
+  // Nothing picked yet: nothing to grade.
+  if (picked === "none") return null;
   // "I got it right" is only a grade when there is an answer to have got right.
   if (picked === "correct") return known ? true : null;
   if (!known) return null;
