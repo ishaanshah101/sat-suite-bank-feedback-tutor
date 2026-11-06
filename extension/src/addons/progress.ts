@@ -34,7 +34,7 @@ function dailyChart(daily: Summary["daily"]): SVGElement {
 
 function diagnosisBar(s: Summary): HTMLElement | null {
   const parts = [
-    { key: "rule_gap", label: "rule gap", n: s.missesByDiagnosis.rule_gap, cls: "danger" },
+    { key: "rule_gap", label: "rule gap", n: s.missesByDiagnosis.rule_gap, cls: "miss" },
     { key: "careless", label: "careless", n: s.missesByDiagnosis.careless, cls: "warn" },
     { key: "misread", label: "misread", n: s.missesByDiagnosis.misread, cls: "accent" },
     { key: "unknown", label: "no reason given", n: s.missesByDiagnosis.unknown, cls: "" },

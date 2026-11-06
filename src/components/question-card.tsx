@@ -86,13 +86,13 @@ export function QuestionCard({
           {LETTERS.map((letter) => {
             const isPick = picked === letter;
             const isCorrect = correct === letter;
-            const tone = isCorrect ? "border-good bg-good-soft" : isPick ? "border-danger bg-danger-soft" : "border-line";
+            const tone = isCorrect ? "border-good bg-good-soft" : isPick ? "border-miss bg-miss-soft" : "border-line";
             return (
               <li key={letter} className={`flex gap-3 rounded-xl border px-3 py-2 text-[15px] ${tone}`}>
                 <span className="w-5 shrink-0 font-semibold">{letter}.</span>
                 <MathText text={question.choices?.[letter] ?? ""} className="leading-relaxed" />
                 {isCorrect ? <span className="ml-auto text-xs font-semibold text-good">correct</span> : null}
-                {isPick && !isCorrect ? <span className="ml-auto text-xs font-semibold text-danger">your pick</span> : null}
+                {isPick && !isCorrect ? <span className="ml-auto text-xs font-semibold text-miss">your pick</span> : null}
               </li>
             );
           })}
@@ -101,10 +101,10 @@ export function QuestionCard({
       {gridIn && showAnswer ? (
         <div className="space-y-2 text-[15px]" data-testid="grid-in-answer">
           {picked === "spr" && response ? (
-            <p className={`rounded-xl border px-3 py-2 ${isCorrect === true ? "border-good bg-good-soft" : isCorrect === false ? "border-danger bg-danger-soft" : "border-line"}`}>
+            <p className={`rounded-xl border px-3 py-2 ${isCorrect === true ? "border-good bg-good-soft" : isCorrect === false ? "border-miss bg-miss-soft" : "border-line"}`}>
               <span className="font-semibold">Your answer:</span> {response}
               {isCorrect === true ? <span className="ml-2 text-xs font-semibold text-good">correct</span> : null}
-              {isCorrect === false ? <span className="ml-2 text-xs font-semibold text-danger">not accepted</span> : null}
+              {isCorrect === false ? <span className="ml-2 text-xs font-semibold text-miss">not accepted</span> : null}
             </p>
           ) : null}
           {question.answers?.length ? (

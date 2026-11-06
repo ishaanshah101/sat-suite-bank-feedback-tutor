@@ -15174,10 +15174,10 @@ function insights(s, dueCount = 0) {
       });
     if (misread >= 0.35)
       out.push({ tone: "warn", text: `${pct(misread)} of your misses come from misreading. Say what the question asks in your own words before you look at the choices.` });
-    if (gap >= 0.5) out.push({ tone: "danger", text: `${pct(gap)} of your misses are rule gaps. Review the rules more and do fewer new questions until those cards stick.` });
+    if (gap >= 0.5) out.push({ tone: "miss", text: `${pct(gap)} of your misses are rule gaps. Review the rules more and do fewer new questions until those cards stick.` });
   }
   const worst = s.byRule.find((r) => r.misses >= 2);
-  if (worst) out.push({ tone: "danger", text: `Your most-missed rule is ${worst.label} (${worst.misses} of ${worst.attempts}). Start your next review there.` });
+  if (worst) out.push({ tone: "miss", text: `Your most-missed rule is ${worst.label} (${worst.misses} of ${worst.attempts}). Start your next review there.` });
   const [rw, math2] = ["rw", "math"].map((k) => s.bySection.find((g) => g.key === k));
   if (rw && math2 && rw.attempts >= 5 && math2.attempts >= 5 && Math.abs(rw.missRate - math2.missRate) >= 0.2) {
     const [weak, strong] = rw.missRate > math2.missRate ? [rw, math2] : [math2, rw];
@@ -15198,7 +15198,7 @@ function insights(s, dueCount = 0) {
   if (s.streakDays >= 3) out.push({ tone: "good", text: `${s.streakDays}-day streak.${s.practicedToday ? "" : " Do one question today to keep it going."}` });
   else if (!s.practicedToday && s.streakDays > 0) out.push({ tone: "accent", text: `Do one question today to keep your ${s.streakDays}-day streak.` });
   if (s.confidentlyWrong >= 2)
-    out.push({ tone: "danger", text: `You were sure on ${s.confidentlyWrong} questions you missed. Those are misunderstood rules, not slips, so they're worth the most review time.` });
+    out.push({ tone: "miss", text: `You were sure on ${s.confidentlyWrong} questions you missed. Those are misunderstood rules, not slips, so they're worth the most review time.` });
   const sure = s.calibration.sure;
   if (sure.attempts >= 5 && sure.accuracy !== null && sure.accuracy < 0.75)
     out.push({ tone: "warn", text: `When you feel sure, you're right only ${pct(sure.accuracy)} of the time. On easy-looking questions, check every choice before you lock in.` });
@@ -16005,7 +16005,7 @@ function renderJournal(entries, f, actions, rerender) {
       h(
         "span",
         { class: "row rc-wrap" },
-        chip(e.result === "right" ? "right" : "missed", e.result === "right" ? "good" : "danger"),
+        chip(e.result === "right" ? "right" : "missed", e.result === "right" ? "good" : "miss"),
         h("span", { class: "small", text: e.ruleName ? `${e.ruleId} \xB7 ${e.ruleName}` : e.ruleId }),
         e.starred ? h("span", { class: "small", text: "\u2605" }) : null,
         h("span", { class: "small muted", text: new Date(e.at).toLocaleDateString(void 0, { month: "short", day: "numeric" }) })
@@ -16730,7 +16730,7 @@ function renderQuiz(state2, handlers, opts = {}) {
     kids.push(
       h(
         "div",
-        { class: `banner ${right ? "good" : "danger"}`, role: "status" },
+        { class: `banner ${right ? "good" : "miss"}`, role: "status" },
         h("p", { class: "stem", text: right ? `Right. The answer is ${q.correct}.` : `Not quite. You picked ${ans.picked}. The answer is ${q.correct}.` }),
         state2.timed ? h("p", { class: "small", text: `You took ${secs(ans.seconds)}, ${pace}.` }) : null
       ),
@@ -17524,11 +17524,11 @@ function flashSummaryView(state2, hs) {
     h(
       "div",
       { class: "row" },
-      chip(`Again ${s.again}`, s.again ? "danger" : ""),
+      chip(`Again ${s.again}`, s.again ? "miss" : ""),
       chip(`Hard ${s.hard}`, s.hard ? "warn" : ""),
       chip(`Good ${s.good}`, s.good ? "good" : "")
     ),
-    s.againRules.length ? h("div", null, h("h2", { text: "Back tomorrow" }), h("div", { class: "row" }, ...s.againRules.map((r) => chip(ruleLabel(r.ruleId, r.ruleName), "danger")))) : null,
+    s.againRules.length ? h("div", null, h("h2", { text: "Back tomorrow" }), h("div", { class: "row" }, ...s.againRules.map((r) => chip(ruleLabel(r.ruleId, r.ruleName), "miss")))) : null,
     done
   );
 }
@@ -17586,7 +17586,7 @@ function redoQuestionView(state2, item, hs, t) {
     kids.push(
       h(
         "div",
-        { class: `banner ${right ? "good" : "danger"}`, role: "status" },
+        { class: `banner ${right ? "good" : "miss"}`, role: "status" },
         h("p", { class: "stem", text: right ? `Right. The answer is ${e.correct}.` : `Not yet. The answer is ${e.correct}.` }),
         detail ? h("p", { class: "small", text: detail }) : null
       ),
@@ -17636,10 +17636,10 @@ function redoSummaryView(state2, hs, stats) {
       "div",
       { class: "row" },
       chip(`Right ${s.right}`, s.right ? "good" : ""),
-      chip(`Wrong ${s.wrong}`, s.wrong ? "danger" : ""),
+      chip(`Wrong ${s.wrong}`, s.wrong ? "miss" : ""),
       s.skipped ? chip(`Skipped ${s.skipped}`) : null
     ),
-    s.missedAgain.length ? h("div", null, h("h2", { text: "Missed again" }), h("div", { class: "row" }, ...s.missedAgain.map((r) => chip(`${ruleLabel(r.ruleId, r.ruleName)}${r.count > 1 ? ` (${r.count})` : ""}`, "danger")))) : null,
+    s.missedAgain.length ? h("div", null, h("h2", { text: "Missed again" }), h("div", { class: "row" }, ...s.missedAgain.map((r) => chip(`${ruleLabel(r.ruleId, r.ruleName)}${r.count > 1 ? ` (${r.count})` : ""}`, "miss")))) : null,
     allTime,
     done
   );
@@ -17718,7 +17718,7 @@ function dailyChart(daily) {
 }
 function diagnosisBar(s) {
   const parts = [
-    { key: "rule_gap", label: "rule gap", n: s.missesByDiagnosis.rule_gap, cls: "danger" },
+    { key: "rule_gap", label: "rule gap", n: s.missesByDiagnosis.rule_gap, cls: "miss" },
     { key: "careless", label: "careless", n: s.missesByDiagnosis.careless, cls: "warn" },
     { key: "misread", label: "misread", n: s.missesByDiagnosis.misread, cls: "accent" },
     { key: "unknown", label: "no reason given", n: s.missesByDiagnosis.unknown, cls: "" }
@@ -19698,7 +19698,7 @@ function feedback(q, ans) {
   return h(
     "div",
     { class: "rc-wq-feedback" },
-    h("div", { class: `banner ${ans.correct ? "good" : "danger"}`, role: "status" }, h("p", { class: "stem" }, ...said)),
+    h("div", { class: `banner ${ans.correct ? "good" : "miss"}`, role: "status" }, h("p", { class: "stem" }, ...said)),
     q.sentence ? h("p", { class: "rc-wq-sentence" }, ...withWord2(q.sentence, q.word)) : null,
     q.meaning ? h("p", { class: "small rc-wq-meaning" }, ...withWord2(q.meaning, q.word)) : null
   );
@@ -19758,7 +19758,7 @@ function missItem2(m) {
 function renderWordQuizResult(summary, handlers) {
   const s = summary;
   const misses = s.misses.length;
-  const tone = s.accuracy === null ? "" : s.accuracy >= 0.8 ? "good" : s.accuracy >= 0.5 ? "warn" : "danger";
+  const tone = s.accuracy === null ? "" : s.accuracy >= 0.8 ? "good" : s.accuracy >= 0.5 ? "warn" : "miss";
   const top = head2("Word quiz results", null, s.answered ? chip(pct7(s.accuracy), tone) : null, null);
   const actions = h(
     "div",
@@ -20115,7 +20115,7 @@ function createAddons(ctx, host) {
           h("div", null, h("h2", { text: "Review" }), h("p", { class: "small", text: dueList.length ? `${dueList.length} rule${dueList.length === 1 ? "" : "s"} due` : next ? `Nothing due. Next review ${describeDue(next.due, Date.now())}.` : "Nothing due." })),
           dueList.length ? h("button", { class: "btn primary", onclick: () => void startReview(), title: "R" }, `Review ${dueList.length}`) : null
         ),
-        dueList.length ? h("div", { class: "row rc-wrap" }, ...dueList.slice(0, 6).map((d) => chip(d.ruleName ? `${d.ruleId} \xB7 ${d.ruleName}` : d.ruleId, d.lapses > 1 ? "danger" : "accent"))) : null
+        dueList.length ? h("div", { class: "row rc-wrap" }, ...dueList.slice(0, 6).map((d) => chip(d.ruleName ? `${d.ruleId} \xB7 ${d.ruleName}` : d.ruleId, d.lapses > 1 ? "miss" : "accent"))) : null
       );
     }
     const header2 = h(
@@ -20153,7 +20153,7 @@ function createAddons(ctx, host) {
       children.push(
         h(
           "div",
-          { class: `banner ${r.result.correct ? "good" : "danger"}` },
+          { class: `banner ${r.result.correct ? "good" : "miss"}` },
           h("p", { class: "stem", text: r.result.correct ? "Right. This rule's next review is pushed further out." : `Not quite. The answer is ${r.result.correctLetter ?? r.result.correctAnswer ?? "not available"}. This rule comes back tomorrow.` }),
           h("p", { text: r.result.correct ? r.result.whyCorrect : r.result.fix ?? r.result.whyCorrect })
         ),
@@ -20530,7 +20530,7 @@ function createAddons(ctx, host) {
         h("div", { class: `rc-tile ${r.avgSeconds !== null && r.avgSeconds > target ? "" : "good"}`.trim() }, h("span", { class: "rc-tile-value", text: r.avgSeconds === null ? "\u2013" : `${r.avgSeconds}s` }), h("span", { class: "rc-tile-label", text: "avg pace" })),
         h("div", { class: "rc-tile" }, h("span", { class: "rc-tile-value", text: `${r.minutes}m` }), h("span", { class: "rc-tile-label", text: "total" }))
       ),
-      r.missedRules.length ? h("div", null, h("p", { class: "small", text: "Rules to fix:" }), h("div", { class: "row rc-wrap" }, ...r.missedRules.map((m) => chip(`${m.ruleName ? `${m.ruleId} \xB7 ${m.ruleName}` : m.ruleId}${m.misses > 1 ? ` \xD7${m.misses}` : ""}`, "danger")))) : h("p", { class: "small", text: "No misses. Clean set." }),
+      r.missedRules.length ? h("div", null, h("p", { class: "small", text: "Rules to fix:" }), h("div", { class: "row rc-wrap" }, ...r.missedRules.map((m) => chip(`${m.ruleName ? `${m.ruleId} \xB7 ${m.ruleName}` : m.ruleId}${m.misses > 1 ? ` \xD7${m.misses}` : ""}`, "miss")))) : h("p", { class: "small", text: "No misses. Clean set." }),
       h(
         "div",
         { class: "row rc-wrap" },
@@ -21174,7 +21174,7 @@ function renderRecent(items) {
         h2(
           "span",
           { class: "row" },
-          chip2(item.result === "right" ? "right" : item.result === "missed" ? "missed" : "reviewed", item.result === "right" ? "good" : item.result === "missed" ? "danger" : ""),
+          chip2(item.result === "right" ? "right" : item.result === "missed" ? "missed" : "reviewed", item.result === "right" ? "good" : item.result === "missed" ? "miss" : ""),
           item.section ? chip2(item.section === "math" ? "Math" : "R&W") : null,
           h2("span", { class: "small muted", text: item.ruleName ?? item.skill ?? "" })
         ),
@@ -21312,7 +21312,7 @@ function renderPickSection(r, q) {
       children.push(
         h2(
           "div",
-          { class: "banner danger", "data-testid": "pick-why" },
+          { class: "banner miss", "data-testid": "pick-why" },
           h2("h2", { text: `Why ${yours} is wrong` }),
           why ? mathEl("p", why) : null,
           mathEl("p", `The right answer is ${answer}. ${card.why_correct ?? ""}`.trim(), { class: why ? "small" : "" }),

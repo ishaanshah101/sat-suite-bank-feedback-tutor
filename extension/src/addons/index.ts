@@ -453,7 +453,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
           h("div", null, h("h2", { text: "Review" }), h("p", { class: "small", text: dueList.length ? `${dueList.length} rule${dueList.length === 1 ? "" : "s"} due` : next ? `Nothing due. Next review ${describeDue(next.due, Date.now())}.` : "Nothing due." })),
           dueList.length ? h("button", { class: "btn primary", onclick: () => void startReview(), title: "R" }, `Review ${dueList.length}`) : null,
         ),
-        dueList.length ? h("div", { class: "row rc-wrap" }, ...dueList.slice(0, 6).map((d) => chip(d.ruleName ? `${d.ruleId} · ${d.ruleName}` : d.ruleId, d.lapses > 1 ? "danger" : "accent"))) : null,
+        dueList.length ? h("div", { class: "row rc-wrap" }, ...dueList.slice(0, 6).map((d) => chip(d.ruleName ? `${d.ruleId} · ${d.ruleName}` : d.ruleId, d.lapses > 1 ? "miss" : "accent"))) : null,
       );
     }
     const header = h(
@@ -487,7 +487,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     }
     if (r.result) {
       children.push(
-        h("div", { class: `banner ${r.result.correct ? "good" : "danger"}` },
+        h("div", { class: `banner ${r.result.correct ? "good" : "miss"}` },
           h("p", { class: "stem", text: r.result.correct ? "Right. This rule's next review is pushed further out." : `Not quite. The answer is ${r.result.correctLetter ?? r.result.correctAnswer ?? "not available"}. This rule comes back tomorrow.` }),
           h("p", { text: r.result.correct ? r.result.whyCorrect : r.result.fix ?? r.result.whyCorrect }),
         ),
@@ -828,7 +828,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
         h("div", { class: `rc-tile ${r.avgSeconds !== null && r.avgSeconds > target ? "" : "good"}`.trim() }, h("span", { class: "rc-tile-value", text: r.avgSeconds === null ? "–" : `${r.avgSeconds}s` }), h("span", { class: "rc-tile-label", text: "avg pace" })),
         h("div", { class: "rc-tile" }, h("span", { class: "rc-tile-value", text: `${r.minutes}m` }), h("span", { class: "rc-tile-label", text: "total" }))),
       r.missedRules.length
-        ? h("div", null, h("p", { class: "small", text: "Rules to fix:" }), h("div", { class: "row rc-wrap" }, ...r.missedRules.map((m) => chip(`${m.ruleName ? `${m.ruleId} · ${m.ruleName}` : m.ruleId}${m.misses > 1 ? ` ×${m.misses}` : ""}`, "danger"))))
+        ? h("div", null, h("p", { class: "small", text: "Rules to fix:" }), h("div", { class: "row rc-wrap" }, ...r.missedRules.map((m) => chip(`${m.ruleName ? `${m.ruleId} · ${m.ruleName}` : m.ruleId}${m.misses > 1 ? ` ×${m.misses}` : ""}`, "miss"))))
         : h("p", { class: "small", text: "No misses. Clean set." }),
       h("div", { class: "row rc-wrap" },
         r.missedRules.length ? h("button", { class: "btn primary small", text: "Review these rules", onclick: () => void startReview(r.missedRules[0]!.ruleId) }) : null,

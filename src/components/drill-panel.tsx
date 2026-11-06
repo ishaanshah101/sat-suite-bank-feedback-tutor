@@ -140,7 +140,7 @@ export function DrillPanel({ attemptId }: { attemptId: string }) {
           {LETTERS.map((letter) => {
             const isPick = picked === letter;
             const isCorrect = result?.correctLetter === letter;
-            const tone = result ? (isCorrect ? "border-good bg-good-soft" : isPick ? "border-danger bg-danger-soft" : "border-line") : isPick ? "border-accent" : "border-line hover:bg-bg";
+            const tone = result ? (isCorrect ? "border-good bg-good-soft" : isPick ? "border-miss bg-miss-soft" : "border-line") : isPick ? "border-accent" : "border-line hover:bg-bg";
             return (
               <li key={letter}>
                 <button type="button" onClick={() => answer(letter)} disabled={Boolean(result) || checking} className={`flex w-full gap-3 rounded-xl border px-3 py-2 text-left text-[15px] ${tone}`}>
@@ -153,7 +153,7 @@ export function DrillPanel({ attemptId }: { attemptId: string }) {
         </ol>
       ) : null}
       {result ? (
-        <div className={`rounded-xl px-4 py-3 text-[15px] ${result.correct ? "bg-good-soft" : "bg-danger-soft"}`} data-testid="drill-result">
+        <div className={`rounded-xl px-4 py-3 text-[15px] ${result.correct ? "bg-good-soft" : "bg-miss-soft"}`} data-testid="drill-result">
           <p className="font-medium">{result.correct ? "Right." : `Not quite. The answer is ${answerLabel}.`}</p>
           <MathText as="p" text={result.correct ? result.whyCorrect : (result.fix ?? result.whyCorrect)} className="mt-1" />
           {!result.correct && result.fix ? <MathText as="p" text={result.whyCorrect} className="mt-1 text-muted" /> : null}

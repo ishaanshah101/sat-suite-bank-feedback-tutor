@@ -172,7 +172,7 @@ export function summarize(entries: LogEntry[], srs: SrsState, now = Date.now()):
 }
 
 export interface Insight {
-  tone: "good" | "warn" | "danger" | "accent";
+  tone: "good" | "warn" | "miss" | "accent";
   text: string;
 }
 
@@ -201,11 +201,11 @@ export function insights(s: Summary, dueCount = 0): Insight[] {
       });
     if (misread >= 0.35)
       out.push({ tone: "warn", text: `${pct(misread)} of your misses come from misreading. Say what the question asks in your own words before you look at the choices.` });
-    if (gap >= 0.5) out.push({ tone: "danger", text: `${pct(gap)} of your misses are rule gaps. Review the rules more and do fewer new questions until those cards stick.` });
+    if (gap >= 0.5) out.push({ tone: "miss", text: `${pct(gap)} of your misses are rule gaps. Review the rules more and do fewer new questions until those cards stick.` });
   }
 
   const worst = s.byRule.find((r) => r.misses >= 2);
-  if (worst) out.push({ tone: "danger", text: `Your most-missed rule is ${worst.label} (${worst.misses} of ${worst.attempts}). Start your next review there.` });
+  if (worst) out.push({ tone: "miss", text: `Your most-missed rule is ${worst.label} (${worst.misses} of ${worst.attempts}). Start your next review there.` });
 
   const [rw, math] = (["rw", "math"] as const).map((k) => s.bySection.find((g) => g.key === k));
   if (rw && math && rw.attempts >= 5 && math.attempts >= 5 && Math.abs(rw.missRate - math.missRate) >= 0.2) {
@@ -233,7 +233,7 @@ export function insights(s: Summary, dueCount = 0): Insight[] {
   else if (!s.practicedToday && s.streakDays > 0) out.push({ tone: "accent", text: `Do one question today to keep your ${s.streakDays}-day streak.` });
 
   if (s.confidentlyWrong >= 2)
-    out.push({ tone: "danger", text: `You were sure on ${s.confidentlyWrong} questions you missed. Those are misunderstood rules, not slips, so they're worth the most review time.` });
+    out.push({ tone: "miss", text: `You were sure on ${s.confidentlyWrong} questions you missed. Those are misunderstood rules, not slips, so they're worth the most review time.` });
   const sure = s.calibration.sure;
   if (sure.attempts >= 5 && sure.accuracy !== null && sure.accuracy < 0.75)
     out.push({ tone: "warn", text: `When you feel sure, you're right only ${pct(sure.accuracy)} of the time. On easy-looking questions, check every choice before you lock in.` });

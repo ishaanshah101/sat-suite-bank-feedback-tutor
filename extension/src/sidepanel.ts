@@ -385,7 +385,7 @@ function renderRecent(items: RecentAttempt[]): Node {
         h(
           "span",
           { class: "row" },
-          chip(item.result === "right" ? "right" : item.result === "missed" ? "missed" : "reviewed", item.result === "right" ? "good" : item.result === "missed" ? "danger" : ""),
+          chip(item.result === "right" ? "right" : item.result === "missed" ? "missed" : "reviewed", item.result === "right" ? "good" : item.result === "missed" ? "miss" : ""),
           item.section ? chip(item.section === "math" ? "Math" : "R&W") : null,
           h("span", { class: "small muted", text: item.ruleName ?? item.skill ?? "" }),
         ),
@@ -542,7 +542,7 @@ function renderPickSection(r: CardResult, q: Question): Node {
       children.push(
         h(
           "div",
-          { class: "banner danger", "data-testid": "pick-why" },
+          { class: "banner miss", "data-testid": "pick-why" },
           h("h2", { text: `Why ${yours} is wrong` }),
           why ? mathEl("p", why) : null,
           mathEl("p", `The right answer is ${answer}. ${card.why_correct ?? ""}`.trim(), { class: why ? "small" : "" }),

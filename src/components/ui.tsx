@@ -4,12 +4,13 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
   return <section className={`rounded-2xl border border-line bg-surface p-5 shadow-sm ${className}`}>{children}</section>;
 }
 
-export function Chip({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "accent" | "good" | "danger" | "warn" }) {
+export function Chip({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "accent" | "good" | "danger" | "warn" | "miss" }) {
   const tones = {
     neutral: "bg-bg text-muted border-line",
     accent: "bg-accent-soft text-accent border-transparent",
     good: "bg-good-soft text-good border-transparent",
     danger: "bg-danger-soft text-danger border-transparent",
+    miss: "bg-miss-soft text-miss border-transparent",
     warn: "bg-warn-soft text-warn border-transparent",
   } as const;
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>;

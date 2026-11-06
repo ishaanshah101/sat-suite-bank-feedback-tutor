@@ -105,7 +105,7 @@ function RuleBlock({ rule, stat, compact }: { rule: Rule; stat?: RuleStat; compa
           <span className="font-mono text-xs text-muted">{rule.id}</span>
         )}
         <h4 className="font-semibold">{rule.name}</h4>
-        {count > 0 ? <Chip tone="danger">missed {count} time{count === 1 ? "" : "s"}</Chip> : null}
+        {count > 0 ? <Chip tone="miss">missed {count} time{count === 1 ? "" : "s"}</Chip> : null}
       </div>
       <MathText as="p" text={rule.statement} className="mt-2 text-[15px] leading-relaxed" />
       {!compact ? (
@@ -125,8 +125,8 @@ function RuleBlock({ rule, stat, compact }: { rule: Rule; stat?: RuleStat; compa
         </dl>
       ) : null}
       <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
-        <p className="rounded-lg bg-danger-soft px-3 py-2">
-          <span className="font-semibold text-danger">Wrong:</span> <MathText text={rule.example.wrong} />
+        <p className="rounded-lg bg-miss-soft px-3 py-2">
+          <span className="font-semibold text-miss">Wrong:</span> <MathText text={rule.example.wrong} />
         </p>
         <p className="rounded-lg bg-good-soft px-3 py-2">
           <span className="font-semibold text-good">Right:</span> <MathText text={rule.example.right} />

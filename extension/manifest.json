@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Rulecard",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Capture an SAT question on screen (a Question Bank PDF or a practice test) and get the answer plus the 2 or 3 rules behind it.",
   "minimum_chrome_version": "116",
   "icons": {
