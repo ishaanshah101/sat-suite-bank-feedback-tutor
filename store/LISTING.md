@@ -1,6 +1,6 @@
 # Chrome Web Store listing for Rulecard
 
-Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.8.1.zip`
+Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.8.2.zip`
 from this folder (rebuild it with `pnpm package:extension` after changing `extension/`).
 
 ## Store listing tab
@@ -24,7 +24,7 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
   Math support: equations shown as real math notation, graphs and tables read from the screen, and grid-in answers checked by the official entry rules (fractions, decimals, every accepted form).
 
   Home is just the Capture button and your card. Everything else is one tap away:
-  - Plan: today's checklist with your due reviews, your weakest skills (with the exact Question Bank filters) and timed sets as your test date gets close.
+  - Today's plan (at the bottom of Home): your due reviews, your weakest skills (with the exact Question Bank filters) and timed sets as your test date gets close.
   - Progress: an activity calendar, a skill map of all 29 official skills, the traps you fall for, and badges.
   - Practice: spaced review by rule, rule flashcards, Redo my misses, and a timed quiz from a pasted Question Bank export.
   - Words: a Words in Context word bank with a word quiz.
@@ -61,7 +61,7 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
   - Optional `notifications`: requested only when the student turns on the daily reminder in settings.
   - Host permission `rulecard.vercel.app`: the Rulecard server that reads the question and writes the explanation.
   - Host permission `mypractice.collegeboard.org`: read the open practice-test question when the student presses Capture on it.
-  - Optional host permission `<all_urls>`: requested only if Chrome refuses a capture because the student opened the panel on a different tab. It lets the Capture button screenshot the tab on screen, only when pressed. The student can decline and click the toolbar icon instead.
+  - Optional host permission `<all_urls>`: requested once, the first time the student presses Capture (Chrome's Allow box). It lets the Capture button screenshot the tab the student is looking at, only when pressed, so they don't have to click the toolbar icon first on every tab. Nothing is read in the background. The student can decline and click the toolbar icon instead.
   - Optional host permission `https://*/*`: only requested if the student points the extension at their own Rulecard server in settings, for that one server's address.
 - **Narrow page access:** Rulecard looks at a tab only when the student presses Capture (or clicks its toolbar icon), and only that tab, at that moment. It never reads pages in the background.
 - **Remote code:** No, the extension does not run remote code. All JavaScript is in the package.

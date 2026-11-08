@@ -339,12 +339,15 @@ export interface PlanActions {
   copy?: (text: string) => void;
 }
 
-/** null until the student toggles it; until then the card is open only if nothing's done today. */
+/** null until the student toggles it; until then the card is open only if nothing's done today (or never, when subtle). */
 let open: boolean | null = null;
 
-/** "Today's plan" card. Collapsed it is one line: phase, questions done today, a meter. */
-export function renderPlan(plan: Plan, actions: PlanActions = {}): HTMLElement {
-  const isOpen = open ?? (plan.doneToday === 0 && !plan.complete);
+/**
+ * "Today's plan" card. Collapsed it is one line: phase, questions done today, a meter.
+ * `subtle`: the quiet version at the bottom of Home, collapsed until the student opens it.
+ */
+export function renderPlan(plan: Plan, actions: PlanActions = {}, opts: { subtle?: boolean } = {}): HTMLElement {
+  const isOpen = open ?? (!opts.subtle && plan.doneToday === 0 && !plan.complete);
   const share = plan.goal ? Math.min(1, plan.doneToday / plan.goal) : plan.complete ? 1 : 0;
   const actionFor = (i: PlanItem): HTMLElement | null => {
     if (i.complete) return null;
@@ -365,7 +368,7 @@ export function renderPlan(plan: Plan, actions: PlanActions = {}): HTMLElement {
       i.detail ? h("p", { class: "small muted", text: i.detail }) : null,
       i.steps ? h("details", { class: "rc-plan-steps" }, h("summary", { class: "small", text: "Find these in the Question Bank" }), h("p", { class: "small", text: i.steps })) : null,
       actionFor(i)));
-  return h("details", { class: `card rc-plan${plan.complete ? " complete" : ""}`, open: isOpen ? "" : null, ontoggle: (ev: Event) => { open = (ev.target as HTMLDetailsElement).open; } },
+  return h("details", { class: `card rc-plan${plan.complete ? " complete" : ""}${opts.subtle ? " rc-plan-subtle" : ""}`, open: isOpen ? "" : null, ontoggle: (ev: Event) => { open = (ev.target as HTMLDetailsElement).open; } },
     h("summary", null,
       h("span", { class: "rc-plan-head" },
         h("span", { class: "rc-plan-name", text: plan.complete ? "Today's plan: done" : "Today's plan" }),

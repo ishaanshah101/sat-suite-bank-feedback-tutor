@@ -58,7 +58,7 @@ const shots = [
   ["Reading and Writing", "The answer and the 2 or 3 rules behind it", "No long College Board rationale: just the real rule, in plain words, and how it picks the answer. Tap the letter you picked to see why it's wrong.", "rule.png"],
   ["Math", "The fastest route, not the textbook one", "Math cards use the shortcuts from the best SAT cheat sheets: Desmos moves, plugging in, and the trap behind each wrong choice.", "math-rule.png"],
   ["Grid-ins", "Grid-in answers graded exactly", "Type what you entered. Rulecard checks it against every accepted form, like 3/17, .1764 and .1765, and shows the steps when it's wrong.", "spr-rule.png"],
-  ["Study plan", "Your plan, progress and review, one tap away", "Home stays a single button. Today's plan, progress, spaced review, flashcards and your word bank live in their own tabs.", "addons-plan.png"],
+  ["Study plan", "Today's plan, right under the button", "A quiet daily checklist at the bottom of Home. Progress, spaced review, flashcards and your word bank are one tap away.", "addons-plan.png"],
 ];
 
 const smallTile = `<!doctype html><html><head><style>${BASE_CSS}

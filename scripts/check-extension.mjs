@@ -77,7 +77,13 @@ try {
       granted.optional_host_permissions.includes("<all_urls>") &&
       Boolean(granted.commands?._execute_action),
   );
-  ok("Home is just the Capture button: no PDF picker, no plan", (await panel.locator('input[type="file"]').count()) === 0 && (await panel.getByText("Today's plan").count()) === 0 && (await panel.locator("#capture-tab").count()) === 1);
+  ok("Home is the Capture button with steps, no PDF picker", (await panel.locator('input[type="file"]').count()) === 0 && (await panel.locator("#capture-tab").count()) === 1 && (await panel.locator('[data-testid="capture-steps"] li').count()) === 2);
+  ok(
+    "today's plan is back on Home, at the bottom, quiet and folded",
+    (await panel.locator(".rc-plan.rc-plan-subtle").count()) === 1 &&
+      (await panel.locator(".rc-plan.rc-plan-subtle").getAttribute("open")) === null &&
+      (await panel.evaluate(() => { const cards = [...document.querySelectorAll("#app > .card, #app > details")]; return cards[cards.length - 1]?.classList.contains("rc-plan"); })),
+  );
 
   // Capture: the panel screenshots the tab on screen (here the privacy page), the stub reads a Reading and
   // Writing question from it, and the card is the answer plus 2 bullets. No pick is needed.
@@ -131,9 +137,8 @@ try {
   await panel.locator('[data-testid="key-rules"]').waitFor({ timeout: 60000 });
 
   // Tabs: Home holds only the capture flow; today's plan has its own tab.
-  ok("tab bar has Home, Plan, Progress, Practice, Words, Settings", (await panel.locator(".rc-tabbtn").allInnerTexts()).map((t) => t.replace(/\d+/g, "").trim()).join(",") === "Home,Plan,Progress,Practice,Words,Settings");
-  await panel.getByRole("tab", { name: /^Plan/ }).click();
-  ok("Plan tab shows today's plan and hides the capture button", (await panel.getByText(/Today's plan/).count()) >= 1 && (await panel.locator("#capture-tab").count()) === 0);
+  ok("tab bar has Home, Progress, Practice, Words, Settings", (await panel.locator(".rc-tabbtn").allInnerTexts()).map((t) => t.replace(/\d+/g, "").trim()).join(",") === "Home,Progress,Practice,Words,Settings");
+  ok("the plan stays below the card after a capture", (await panel.evaluate(() => { const r = document.getElementById("result-card"); const p = document.querySelector(".rc-plan"); return Boolean(r && p && (r.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING)); })));
   await panel.getByRole("tab", { name: /^Progress/ }).click();
   await panel.locator(".recent").first().waitFor({ timeout: 15000 });
   ok("Progress tab shows recent reviews", (await panel.locator(".recent").count()) >= 1);
@@ -169,7 +174,7 @@ try {
   await blocked.bringToFront();
   await panel.locator("#capture-tab").click();
   await panel.locator('[data-testid="capture-error"]').waitFor({ timeout: 15000 }).catch(() => undefined);
-  ok("a page Chrome won't capture gets a plain message", /doesn't let extensions capture|refused|Allow/.test(await panel.locator('[data-testid="capture-error"]').innerText().catch(() => "")), await panel.locator('[data-testid="capture-error"]').innerText().catch(() => "none"));
+  ok("a page Chrome won't capture gets a plain message with steps", /capture this page|two things|by itself|Allow/.test(await panel.locator('[data-testid="capture-error"]').innerText().catch(() => "")), await panel.locator('[data-testid="capture-error"]').innerText().catch(() => "none"));
   await blocked.close();
 
   // Recent list and the signed-in link into the web app.
@@ -211,6 +216,25 @@ try {
   await panel.locator("#spr-check").click();
   await panel.locator('[data-testid="pick-why"].good').waitFor({ timeout: 30000 }).catch(() => undefined);
   ok("the right grid-in answer is graded right", (await panel.locator('[data-testid="pick-why"].good').count()) === 1 && (await panel.locator(".card math").count()) > 0);
+
+  // First use on a fresh install: Chrome has not been asked yet. One press of Capture asks (Chrome's Allow
+  // box, simulated here because automation cannot click it) and then captures, with no toolbar icon.
+  const fresh = await context.newPage();
+  await fresh.addInitScript(() => {
+    let granted = false;
+    Object.defineProperty(chrome.permissions, "contains", { configurable: true, value: async () => granted });
+    Object.defineProperty(chrome.permissions, "request", { configurable: true, value: () => new Promise((r) => setTimeout(() => { granted = true; r(true); }, 1200)) });
+  });
+  await fresh.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+  await fresh.locator("#capture-tab").waitFor({ timeout: 15000 });
+  ok("first run: the panel says Chrome will ask once", (await fresh.locator('[data-testid="first-time-note"]').count()) === 1);
+  await page.bringToFront();
+  await fresh.locator("#capture-tab").click();
+  const askedFirst = await fresh.locator('[data-testid="allow-hint"]').waitFor({ timeout: 5000 }).then(() => true, () => false);
+  const firstCard = await fresh.locator('[data-testid="key-rules"]').waitFor({ timeout: 60000 }).then(() => true, () => false);
+  ok("one press: Chrome's Allow, then the capture runs by itself", askedFirst && firstCard && (await fresh.locator('[data-testid="capture-error"]').count()) === 0);
+  ok("after Allow the first-run note is gone", (await fresh.locator('[data-testid="first-time-note"]').count()) === 0);
+  await fresh.close();
 
   await panel.getByRole("button", { name: "Sign out" }).click();
   await panel.locator("#password").waitFor({ timeout: 10000 });

@@ -80,7 +80,8 @@ try {
   await panel.waitForTimeout(1500);
   const shot = async (name) => { await panel.waitForTimeout(300); await panel.screenshot({ path: path.join(OUT, name), fullPage: true }); };
   const tab = async (name) => { await panel.getByRole("tab", { name: new RegExp(`^${name}`) }).click(); await panel.waitForTimeout(300); };
-  await tab("Plan");
+  await shot("addons-plan-closed.png");
+  await panel.locator(".rc-plan > summary").click().catch(() => undefined);
   await shot("addons-plan.png");
   await tab("Progress");
   for (const label of ["Activity", "Skill map"]) {

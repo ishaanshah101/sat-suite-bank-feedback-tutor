@@ -128,7 +128,7 @@ math[display="block"] { margin: 4px 0; }
 
 /* Header and tab bar stay pinned at the top while the tab below scrolls. */
 .rc-top { position: sticky; top: 0; z-index: 20; background: var(--bg); margin: -12px -12px 0; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line); }
-.rc-tabbar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.rc-tabbar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
 .rc-tabbtn { appearance: none; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; padding: 7px 2px; border-radius: 9px; cursor: pointer; position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; min-width: 0; }
 .rc-tabbtn:hover { color: var(--ink); background: var(--bg); }
 .rc-tabbtn.active { background: var(--accent); color: #fff; }
