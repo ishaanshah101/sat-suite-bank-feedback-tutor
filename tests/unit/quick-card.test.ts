@@ -109,6 +109,12 @@ describe("quick card (capture first, pick later)", () => {
 });
 
 describe("capture errors say what to do", () => {
+  it("every fix comes with numbered steps", async () => {
+    const { FIX_STEPS } = await import("../../extension/src/capture");
+    for (const fix of ["allSites", "fileAccess", "toolbar", "fileOrToolbar"] as const) expect(FIX_STEPS[fix].length).toBeGreaterThanOrEqual(2);
+    expect(FIX_STEPS.fileAccess.join(" ")).toMatch(/Allow access to file URLs/);
+  });
+
   const opts = { fileAccess: false, allSites: false, ownId: "lhkjgpalkmpbpholdakoejpkhghplidi" };
 
   it("never tries Chrome's own pages or the Web Store", () => {
@@ -132,6 +138,8 @@ describe("capture errors say what to do", () => {
   it("a normal page without a grant offers the one-time Allow", () => {
     const e = classifyCaptureError("Either the '<all_urls>' or 'activeTab' permission is required.", undefined, opts);
     expect(e.fix).toBe("allSites");
-    expect(classifyCaptureError("Either the '<all_urls>' or 'activeTab' permission is required.", undefined, { ...opts, allSites: true }).fix).toBe("toolbar");
+    // Allowed everywhere and still refused: a local file (file access off) or another extension's viewer.
+    expect(classifyCaptureError("Either the '<all_urls>' or 'activeTab' permission is required.", undefined, { ...opts, allSites: true }).fix).toBe("fileOrToolbar");
+    expect(classifyCaptureError("Either the '<all_urls>' or 'activeTab' permission is required.", undefined, { ...opts, allSites: true, fileAccess: true }).fix).toBe("toolbar");
   });
 });

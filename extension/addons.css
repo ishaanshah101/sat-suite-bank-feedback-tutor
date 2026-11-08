@@ -200,6 +200,12 @@ button.rc-group { cursor: pointer; } button.rc-group:hover { background: var(--b
 .rc-plan-steps summary { cursor: pointer; color: var(--accent); margin-top: 4px; }
 .rc-plan-steps p { margin: 4px 0 0; padding: 6px 8px; border-radius: 6px; background: var(--bg); }
 .rc-plan.complete { border-color: var(--good); }
+/* The quiet plan at the bottom of Home: no card chrome, smaller, muted until opened. */
+.rc-plan.rc-plan-subtle { background: transparent; border: 1px dashed var(--line); box-shadow: none; padding: 8px 12px; font-size: 13px; margin-top: 4px; }
+.rc-plan.rc-plan-subtle .rc-plan-name { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.rc-plan.rc-plan-subtle .rc-meter { height: 4px; opacity: .7; }
+.rc-plan.rc-plan-subtle[open] { background: var(--surface); border-style: solid; }
+.rc-plan.rc-plan-subtle.complete { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
 
 /* Coach: traps you fall for (traps.ts) */
 .rc-traps .rc-group { grid-template-columns: 1fr 70px 28px; }

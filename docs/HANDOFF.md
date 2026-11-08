@@ -110,12 +110,18 @@ then optionally say which letter they picked and see why it's wrong. The PDF pic
   The local study log (Plan, Progress, Practice) records a capture once the student says what they picked.
 - **Database:** migration `0008_quick_cards.sql` allows `picked = 'none'` and keeps unpicked cards out of the miss
   counts (`rule_stats`). Applied to Supabase before the deploy.
-- **Tabs:** Home (Capture + card only), **Plan** (today's plan, practice sets, pacing timer), Progress, Practice,
-  Words, Settings. Chat, Test me, strategies and card tools are off Home.
+- **Tabs:** Home (Capture + card, then today's plan folded quietly at the bottom, plus a running practice set and
+  its timer), Progress, Practice, Words, Settings. Chat, Test me, strategies and card tools are off Home.
 - The web app's review page is unchanged (paste, image or PDF, pick first).
 - **0.8.1 (colors):** red now means only "something went wrong" (a failed capture, sign-in). Wrong picks, misses and
   weak skills use a calm blue (`--miss` in `extension/sidepanel.css`, `--color-miss` in `src/app/globals.css`), in the
   extension and on the website.
+- **0.8.2 (one press):** the first press of Capture calls `chrome.permissions.request({origins:["<all_urls>"]})`
+  inside the click (Chrome's one-time Allow box), then captures as soon as it's answered, so nobody has to click
+  the toolbar icon. Only two cases still need more, and the panel shows numbered steps for each: a PDF saved on the
+  computer ("Allow access to file URLs", which no extension can request) and a PDF in another extension's viewer
+  such as Adobe Acrobat (Chrome only allows that after the toolbar icon is clicked on it). Today's plan is back on
+  Home, at the bottom, folded and lighter (`.rc-plan-subtle`).
 
 ## Publishing the extension on the Chrome Web Store (only you can do this)
 

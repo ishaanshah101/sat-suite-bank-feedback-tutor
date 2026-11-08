@@ -6,8 +6,8 @@
 // computer also needs "Allow access to file URLs", and a PDF shown by another extension's viewer needs
 // activeTab. When the screenshot is refused, CaptureBlocked says which of these to do.
 
-/** What the student can do about a refused capture, in one click. */
-export type CaptureFix = "allSites" | "fileAccess" | "toolbar";
+/** What the student can do about a refused capture. */
+export type CaptureFix = "allSites" | "fileAccess" | "toolbar" | "fileOrToolbar";
 
 export class CaptureBlocked extends Error {
   constructor(
@@ -23,15 +23,32 @@ export const ALL_SITES = "<all_urls>";
 
 export const HELP = {
   noTab: "Click the tab with the question first, then press Capture.",
-  allSites:
-    "Chrome hasn't let Rulecard see this tab yet. Click Allow below once (Rulecard only looks when you press Capture), or click the Rulecard icon in Chrome's toolbar while you're on the question.",
-  fileAccess:
-    "This PDF is a file on your computer, and Chrome blocks extensions from files until you allow it. Open Rulecard's settings, turn on \"Allow access to file URLs\", then press Capture again.",
-  toolbar:
-    "This PDF is open in another extension's viewer, which Chrome only lets Rulecard see after you click the Rulecard icon in the toolbar (top right) while you're on it. Click the icon now: it captures straight away.",
-  refused: "Chrome refused the screenshot. Click the Rulecard icon in the toolbar (top right) while you're on the question: that captures it.",
-  restricted: "Chrome doesn't let extensions capture this page (Chrome's own pages and the Web Store). Open the question in a normal tab.",
+  allSites: "Chrome needs your OK once before Rulecard can see the tab you capture.",
+  fileAccess: "This PDF is a file saved on your computer. Chrome blocks extensions from those until you switch one setting on, once.",
+  toolbar: "Chrome won't let Rulecard see this page by itself. That happens when a PDF is open in another extension's viewer, like Adobe Acrobat.",
+  fileOrToolbar: "Chrome wouldn't let Rulecard see this tab. It's usually one of two things:",
+  restricted: "Chrome doesn't let any extension capture this page (Chrome's own pages and the Web Store). Open the question in a normal tab.",
 } as const;
+
+/** Numbered steps shown under each kind of refused capture. */
+export const FIX_STEPS: Record<CaptureFix, string[]> = {
+  allSites: ["Press \"Allow and capture\" below.", "In Chrome's box, click Allow. You only do this once."],
+  fileAccess: [
+    "Press \"Open Rulecard's settings\" below.",
+    "Turn on \"Allow access to file URLs\".",
+    "Come back to the PDF and press Capture this tab.",
+  ],
+  toolbar: [
+    "Stay on the PDF's tab and click the Rulecard icon in Chrome's toolbar (top right; if you don't see it, click the puzzle piece, then Rulecard). That captures it.",
+    "Or open the PDF in Chrome's own viewer instead, and the Capture button works by itself.",
+    "(Chrome's own pages, like Settings, can't be captured at all.)",
+  ],
+  fileOrToolbar: [
+    "A PDF saved on your computer: press \"Open Rulecard's settings\", turn on \"Allow access to file URLs\", then press Try again.",
+    "A PDF in another extension's viewer (like Adobe Acrobat): click the Rulecard icon in Chrome's toolbar while you're on it. That captures it.",
+    "(Chrome's own pages, like Settings, can't be captured at all.)",
+  ],
+};
 
 /** Pages no extension may capture, whatever it is granted. */
 export function isRestrictedUrl(url: string | undefined): boolean {
@@ -47,7 +64,8 @@ export function classifyCaptureError(message: string, url: string | undefined, o
   const other = /chrome-extension:\/\/([a-p]{32})/i.exec(where);
   if (other && other[1] !== opts.ownId) return new CaptureBlocked(HELP.toolbar, "toolbar");
   if (!opts.allSites) return new CaptureBlocked(HELP.allSites, "allSites");
-  return new CaptureBlocked(HELP.refused, "toolbar");
+  // Allowed on every site and still refused: a local file (when file access is off) or another extension's viewer.
+  return opts.fileAccess ? new CaptureBlocked(HELP.toolbar, "toolbar") : new CaptureBlocked(HELP.fileOrToolbar, "fileOrToolbar");
 }
 
 /** The tab showing in this window (the side panel's own window). */

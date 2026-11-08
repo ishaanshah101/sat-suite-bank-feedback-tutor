@@ -92,10 +92,9 @@ const GRID_IN_SKIP = "This one needs a typed answer, so it is skipped here.";
 
 
 /** The side panel's tabs. Home is the capture-and-explain flow; everything else waits one click away. */
-export type PanelTab = "home" | "plan" | "progress" | "practice" | "words" | "settings";
+export type PanelTab = "home" | "progress" | "practice" | "words" | "settings";
 export const PANEL_TABS: { id: PanelTab; label: string }[] = [
   { id: "home", label: "Home" },
-  { id: "plan", label: "Plan" },
   { id: "progress", label: "Progress" },
   { id: "practice", label: "Practice" },
   { id: "words", label: "Words" },
@@ -790,7 +789,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       openFlashcards: s.prefs.practice ? () => openPractice({ mode: "flashcards", deck: createDeck(s.log, s.srs, Date.now()) }) : undefined,
       startSet: s.sets.active ? undefined : (n) => void beginSet(n),
       copy: (text) => void navigator.clipboard.writeText(text).then(() => toast("Plan copied"), () => toast("Couldn't copy")),
-    });
+    }, { subtle: true });
   }
 
   function renderSetStrip(): HTMLElement | null {
@@ -864,7 +863,9 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
 
   // ---------------------------------------------------------------- capture-area extras
 
-  function renderCaptureExtras(): (Node | null)[] {
+  /** A practice set in progress: its strip and (if on) the pacing timer. Nothing when no set is running. */
+  function renderActiveSet(): (Node | null)[] {
+    if (!s.sets.active) return [];
     const out: (Node | null)[] = [];
     out.push(renderSetStrip());
     if (s.prefs.timer) out.push(renderTimer(s.timer, { reset: async () => { s.timer = emptyTimer(); await writeTimer(s.timer); ctx.rerender(); } }, targetSecondsFor(host.getQuestion())));
@@ -1024,11 +1025,9 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
       }));
   }
 
-  /** Plan: today's checklist, with the practice set and the timer that go with it. */
-  function renderPlanTab(): (Node | null)[] {
-    const out: (Node | null)[] = [renderRecap(), ...renderCaptureExtras(), renderPlanCard()];
-    if (!s.prefs.plan) out.push(h("div", { class: "card" }, h("h2", { text: "Today's plan" }), h("p", { class: "small muted", text: "Today's plan is switched off. Turn it on in Settings." })));
-    return out;
+  /** Home, under the capture card: a finished set's recap, a set in progress, and today's plan, kept quiet. */
+  function renderHomeBelow(): (Node | null)[] {
+    return [renderRecap(), ...renderActiveSet(), renderPlanCard()];
   }
 
   function renderProgressTab(): (Node | null)[] {
@@ -1076,7 +1075,6 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
 
   /** One tab's content (Home's question flow is drawn by sidepanel.ts). */
   function renderTab(tab: PanelTab): (Node | null)[] {
-    if (tab === "plan") return renderPlanTab();
     if (tab === "progress") return renderProgressTab();
     if (tab === "practice") return renderPracticeTab();
     if (tab === "words") return renderWordsTab();
@@ -1103,6 +1101,7 @@ export function createAddons(ctx: AddonContext, host: HostBridge) {
     showTab,
     renderTabBar,
     renderTab,
+    renderHomeBelow,
     renderOverlays,
     // render slots (Home)
     /** Home shows only the capture card; a quiz set aside while one of its misses is explained sits above it. */

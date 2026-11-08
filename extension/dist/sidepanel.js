@@ -83,11 +83,29 @@ var CaptureBlocked = class extends Error {
 var ALL_SITES = "<all_urls>";
 var HELP = {
   noTab: "Click the tab with the question first, then press Capture.",
-  allSites: "Chrome hasn't let Rulecard see this tab yet. Click Allow below once (Rulecard only looks when you press Capture), or click the Rulecard icon in Chrome's toolbar while you're on the question.",
-  fileAccess: `This PDF is a file on your computer, and Chrome blocks extensions from files until you allow it. Open Rulecard's settings, turn on "Allow access to file URLs", then press Capture again.`,
-  toolbar: "This PDF is open in another extension's viewer, which Chrome only lets Rulecard see after you click the Rulecard icon in the toolbar (top right) while you're on it. Click the icon now: it captures straight away.",
-  refused: "Chrome refused the screenshot. Click the Rulecard icon in the toolbar (top right) while you're on the question: that captures it.",
-  restricted: "Chrome doesn't let extensions capture this page (Chrome's own pages and the Web Store). Open the question in a normal tab."
+  allSites: "Chrome needs your OK once before Rulecard can see the tab you capture.",
+  fileAccess: "This PDF is a file saved on your computer. Chrome blocks extensions from those until you switch one setting on, once.",
+  toolbar: "Chrome won't let Rulecard see this page by itself. That happens when a PDF is open in another extension's viewer, like Adobe Acrobat.",
+  fileOrToolbar: "Chrome wouldn't let Rulecard see this tab. It's usually one of two things:",
+  restricted: "Chrome doesn't let any extension capture this page (Chrome's own pages and the Web Store). Open the question in a normal tab."
+};
+var FIX_STEPS = {
+  allSites: ['Press "Allow and capture" below.', "In Chrome's box, click Allow. You only do this once."],
+  fileAccess: [
+    `Press "Open Rulecard's settings" below.`,
+    'Turn on "Allow access to file URLs".',
+    "Come back to the PDF and press Capture this tab."
+  ],
+  toolbar: [
+    "Stay on the PDF's tab and click the Rulecard icon in Chrome's toolbar (top right; if you don't see it, click the puzzle piece, then Rulecard). That captures it.",
+    "Or open the PDF in Chrome's own viewer instead, and the Capture button works by itself.",
+    "(Chrome's own pages, like Settings, can't be captured at all.)"
+  ],
+  fileOrToolbar: [
+    `A PDF saved on your computer: press "Open Rulecard's settings", turn on "Allow access to file URLs", then press Try again.`,
+    "A PDF in another extension's viewer (like Adobe Acrobat): click the Rulecard icon in Chrome's toolbar while you're on it. That captures it.",
+    "(Chrome's own pages, like Settings, can't be captured at all.)"
+  ]
 };
 function isRestrictedUrl(url) {
   if (!url) return false;
@@ -100,7 +118,7 @@ function classifyCaptureError(message, url, opts) {
   const other = /chrome-extension:\/\/([a-p]{32})/i.exec(where);
   if (other && other[1] !== opts.ownId) return new CaptureBlocked(HELP.toolbar, "toolbar");
   if (!opts.allSites) return new CaptureBlocked(HELP.allSites, "allSites");
-  return new CaptureBlocked(HELP.refused, "toolbar");
+  return opts.fileAccess ? new CaptureBlocked(HELP.toolbar, "toolbar") : new CaptureBlocked(HELP.fileOrToolbar, "fileOrToolbar");
 }
 async function activeTabIn(windowId) {
   const [tab] = await chrome.tabs.query(windowId === null ? { active: true, currentWindow: true } : { active: true, windowId });
@@ -17092,8 +17110,8 @@ function planText(plan) {
   return lines.join("\n");
 }
 var open3 = null;
-function renderPlan(plan, actions = {}) {
-  const isOpen = open3 ?? (plan.doneToday === 0 && !plan.complete);
+function renderPlan(plan, actions = {}, opts = {}) {
+  const isOpen = open3 ?? (!opts.subtle && plan.doneToday === 0 && !plan.complete);
   const share = plan.goal ? Math.min(1, plan.doneToday / plan.goal) : plan.complete ? 1 : 0;
   const actionFor2 = (i2) => {
     if (i2.complete) return null;
@@ -17125,7 +17143,7 @@ function renderPlan(plan, actions = {}) {
   );
   return h(
     "details",
-    { class: `card rc-plan${plan.complete ? " complete" : ""}`, open: isOpen ? "" : null, ontoggle: (ev) => {
+    { class: `card rc-plan${plan.complete ? " complete" : ""}${opts.subtle ? " rc-plan-subtle" : ""}`, open: isOpen ? "" : null, ontoggle: (ev) => {
       open3 = ev.target.open;
     } },
     h(
@@ -19806,7 +19824,6 @@ var freshReview = () => ({ open: false, forced: null, rule: null, drill: null, p
 var GRID_IN_SKIP = "This one needs a typed answer, so it is skipped here.";
 var PANEL_TABS = [
   { id: "home", label: "Home" },
-  { id: "plan", label: "Plan" },
   { id: "progress", label: "Progress" },
   { id: "practice", label: "Practice" },
   { id: "words", label: "Words" },
@@ -20482,7 +20499,7 @@ function createAddons(ctx, host) {
       openFlashcards: s.prefs.practice ? () => openPractice({ mode: "flashcards", deck: createDeck(s.log, s.srs, Date.now()) }) : void 0,
       startSet: s.sets.active ? void 0 : (n) => void beginSet(n),
       copy: (text2) => void navigator.clipboard.writeText(text2).then(() => toast("Plan copied"), () => toast("Couldn't copy"))
-    });
+    }, { subtle: true });
   }
   function renderSetStrip() {
     const a = s.sets.active;
@@ -20561,7 +20578,8 @@ function createAddons(ctx, host) {
     u.rate = 1.02;
     speechSynthesis.speak(u);
   }
-  function renderCaptureExtras() {
+  function renderActiveSet() {
+    if (!s.sets.active) return [];
     const out = [];
     out.push(renderSetStrip());
     if (s.prefs.timer) out.push(renderTimer(s.timer, { reset: async () => {
@@ -20789,10 +20807,8 @@ function createAddons(ctx, host) {
       })
     );
   }
-  function renderPlanTab() {
-    const out = [renderRecap(), ...renderCaptureExtras(), renderPlanCard()];
-    if (!s.prefs.plan) out.push(h("div", { class: "card" }, h("h2", { text: "Today's plan" }), h("p", { class: "small muted", text: "Today's plan is switched off. Turn it on in Settings." })));
-    return out;
+  function renderHomeBelow() {
+    return [renderRecap(), ...renderActiveSet(), renderPlanCard()];
   }
   function renderProgressTab() {
     const cd = s.summary ? countdown(s.prefs.testDate, s.summary) : null;
@@ -20842,7 +20858,6 @@ function createAddons(ctx, host) {
     ];
   }
   function renderTab(tab) {
-    if (tab === "plan") return renderPlanTab();
     if (tab === "progress") return renderProgressTab();
     if (tab === "practice") return renderPracticeTab();
     if (tab === "words") return renderWordsTab();
@@ -20866,6 +20881,7 @@ function createAddons(ctx, host) {
     showTab,
     renderTabBar,
     renderTab,
+    renderHomeBelow,
     renderOverlays,
     // render slots (Home)
     /** Home shows only the capture card; a quiz set aside while one of its misses is explained sits above it. */
@@ -20890,6 +20906,7 @@ var state = {
   recent: null,
   health: null,
   capturing: null,
+  canSeeTabs: null,
   captureError: null,
   captureFix: null,
   question: null,
@@ -21037,6 +21054,7 @@ async function connect() {
     await saveSettings(state.settings);
     if (previous !== server) await dropServerPermission(previous);
     await addons.accountChanged();
+    await refreshTabAccess();
     state.view = "main";
     render3();
     void consumePendingQuestion();
@@ -21121,6 +21139,7 @@ function renderMain() {
   if (tab === "home") {
     nodes.push(...addons.renderAboveCapture(), renderCaptureCard());
     if (state.result && state.question) nodes.push(renderResult(state.result, state.question));
+    nodes.push(...addons.renderHomeBelow());
   } else {
     if (tab === "progress" && state.recent?.length) nodes.push(renderRecent(state.recent));
     if (tab === "settings") nodes.push(renderHowTo());
@@ -21185,17 +21204,27 @@ function renderRecent(items) {
 }
 function renderCaptureCard() {
   const busy = state.capturing !== null;
-  const label = state.capturing === "reading" ? "Reading the question..." : state.capturing === "explaining" ? "Writing your explanation..." : state.result ? "Capture another question" : "Capture this tab";
+  const label = state.capturing === "allowing" ? "Click Allow in Chrome's box..." : state.capturing === "reading" ? "Reading the question..." : state.capturing === "explaining" ? "Writing your explanation..." : state.result ? "Capture another question" : "Capture this tab";
   const children = [
-    h2("button", { id: "capture-tab", class: "btn primary big", disabled: busy, onclick: () => void captureThisTab() }, busy ? spinner2() : null, label)
+    h2("button", { id: "capture-tab", class: "btn primary big", disabled: busy, onclick: () => onCaptureClick() }, busy ? spinner2() : null, label)
   ];
-  if (!state.result && !busy) {
+  if (state.capturing === "allowing") {
     children.push(
-      h2("p", {
-        class: "muted small",
-        text: "Open a Question Bank PDF, or a practice-test question you're reviewing, so the whole question is on screen. Press Capture: you get the answer and the 2 or 3 rules that explain it."
-      }),
-      h2("p", { class: "muted small", text: "Tip: clicking the Rulecard icon in Chrome's toolbar captures too." })
+      h2(
+        "div",
+        { class: "banner accent", "data-testid": "allow-hint" },
+        h2("p", { text: "One-time setup: Chrome is asking if Rulecard can see the tab you capture. Click Allow. After this, one press of Capture does everything." })
+      )
+    );
+  } else if (!state.result && !busy) {
+    children.push(
+      h2(
+        "ol",
+        { class: "steps small muted", "data-testid": "capture-steps" },
+        h2("li", { text: "Open the question: a Question Bank PDF, or a practice-test question you're reviewing. Scroll so the whole question and its choices are on screen." }),
+        h2("li", { text: "Press Capture this tab. That's it: you get the answer and the 2 or 3 rules that explain it." })
+      ),
+      state.canSeeTabs === false ? h2("p", { class: "small", "data-testid": "first-time-note", text: "First time only: Chrome will ask once if Rulecard can see the tab you capture. Click Allow." }) : null
     );
   }
   if (state.health && !state.health.ai.live && !state.health.ai.stub && state.health.ai.configured.length === 0) {
@@ -21205,8 +21234,18 @@ function renderCaptureCard() {
   return h2("div", { class: "card", id: "capture-card" }, ...children);
 }
 function renderCaptureError(message, fix) {
-  const action = fix === "allSites" ? h2("button", { id: "allow-capture", class: "btn primary", text: "Allow", onclick: () => void allowAllSites() }) : fix === "fileAccess" ? h2("button", { id: "open-ext-settings", class: "btn", text: "Open Rulecard's settings", onclick: () => void openExtensionSettings() }) : null;
-  return h2("div", { class: "banner danger", role: "alert", "data-testid": "capture-error" }, h2("p", { text: message }), action ? h2("div", { class: "row", style: "margin-top:8px" }, action) : null);
+  const actions = [];
+  if (fix === "allSites") actions.push(h2("button", { id: "allow-capture", class: "btn primary", text: "Allow and capture", onclick: () => onCaptureClick() }));
+  if (fix === "fileAccess" || fix === "fileOrToolbar") actions.push(h2("button", { id: "open-ext-settings", class: "btn", text: "Open Rulecard's settings", onclick: () => void openExtensionSettings() }));
+  if (fix) actions.push(h2("button", { class: "btn", text: "Try again", onclick: () => onCaptureClick() }));
+  const steps = fix ? FIX_STEPS[fix] : null;
+  return h2(
+    "div",
+    { class: "banner danger", role: "alert", "data-testid": "capture-error" },
+    h2("p", { text: message }),
+    steps ? h2("ol", { class: "steps small" }, ...steps.map((step) => h2("li", { text: step }))) : null,
+    actions.length ? h2("div", { class: "row", style: "margin-top:8px" }, ...actions) : null
+  );
 }
 function renderHowTo() {
   return h2(
@@ -21490,16 +21529,30 @@ async function choosePick(picked) {
     render3();
   }
 }
-async function allowAllSites() {
-  const granted = await requestAllSites();
-  if (!granted) {
-    state.captureError = "Not allowed. You can still click the Rulecard icon in Chrome's toolbar while you're on the question: that captures it.";
-    state.captureFix = null;
-    render3();
+function onCaptureClick() {
+  if (state.capturing) return;
+  if (state.canSeeTabs === true) {
+    void captureThisTab();
     return;
   }
-  await captureThisTab();
+  const asked = requestAllSites();
+  addons.showTab("home");
+  state.capturing = "allowing";
+  state.captureError = null;
+  state.captureFix = null;
+  render3();
+  void asked.then((granted) => {
+    state.canSeeTabs = granted;
+    state.capturing = null;
+    return captureThisTab();
+  });
 }
+async function refreshTabAccess() {
+  state.canSeeTabs = await chrome.permissions.contains({ origins: [ALL_SITES] }).catch(() => false);
+  render3();
+}
+chrome.permissions.onAdded.addListener(() => void refreshTabAccess());
+chrome.permissions.onRemoved.addListener(() => void refreshTabAccess());
 async function consumePendingQuestion() {
   const stored = await chrome.storage.session.get("pendingQuestion");
   const pending = stored.pendingQuestion;
@@ -21564,6 +21617,7 @@ async function bootInner() {
     return;
   }
   await addons.accountChanged();
+  await refreshTabAccess();
   state.view = "main";
   render3();
   void consumePendingQuestion();
@@ -21598,7 +21652,7 @@ var addons = createAddons(
       }
     }),
     settingsReady,
-    capture: () => void captureThisTab(),
+    capture: () => onCaptureClick(),
     pick: (letter) => {
       if (!state.result || !state.question || letter === "correct") return;
       if (isGridIn2(state.question)) return;
