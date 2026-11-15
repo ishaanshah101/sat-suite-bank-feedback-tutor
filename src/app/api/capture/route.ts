@@ -8,6 +8,21 @@ import { abortAfter, isNoOutputError, noteStreamError, noteStreamOk, pickProvide
 import { chargeAiQuota } from "@/lib/ai/quota";
 import { createAttempt, deleteAttempt, finishAttempt, getQuestion, setModelAnswer, setModelGridInAnswer, upsertQuestion } from "@/db/queries";
 import { getRule } from "@/content/rules";
+import { createGateway } from "@ai-sdk/gateway";
+
+// TEMPORARY speed bench, preview deployments only: pick a model and thinking budget per request.
+type Bench = { model: string; thinking: number | null };
+function benchOf(request: Request): Bench | null {
+  if (process.env.VERCEL_ENV !== "preview") return null;
+  const raw = request.headers.get("x-rulecard-bench");
+  if (!raw) return null;
+  try {
+    const b = JSON.parse(raw) as Bench;
+    return typeof b.model === "string" ? b : null;
+  } catch {
+    return null;
+  }
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -29,6 +44,7 @@ type Event =
  */
 export async function POST(request: Request) {
   return withApi(async (session) => {
+    const bench = benchOf(request);
     const body = Body.parse(await readJson(request));
     // Fail fast on a bad image before charging anything.
     if ("image" in body) parseDataUrl(body.image);
@@ -50,18 +66,24 @@ export async function POST(request: Request) {
         const send = (event: Event) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
         try {
           const result = streamText({
-            model: provider.model("capture"),
+            model: bench ? createGateway()(bench.model) : provider.model("capture"),
             instructions: captureInstructions(),
             messages: [{ role: "user", content }],
             output: Output.object({ schema: CaptureOutputSchema, name: "captured_card" }),
-            providerOptions: provider.providerOptions("capture"),
+            providerOptions: bench ? (bench.thinking === null ? {} : { google: { thinkingConfig: { thinkingBudget: bench.thinking } } }) : provider.providerOptions("capture"),
             maxOutputTokens: 9000,
             maxRetries: 1,
             abortSignal: abortAfter(55_000),
           });
           // Send the card fields as they grow; skip repeats, and stop once the transcription starts.
           let last = "";
+          const marks: Record<string, number> = {};
           for await (const partial of result.partialOutputStream) {
+            const at = Date.now() - started;
+            marks.first ??= at;
+            if (partial.correct_letter || partial.correct_answer) marks.answer ??= at;
+            if (partial.rule_id) marks.bullets ??= at;
+            if (partial.stem) marks.transcribe ??= at;
             const card: Record<string, unknown> = {};
             for (const key of PARTIAL_FIELDS) if (partial[key] !== undefined) card[key] = partial[key];
             const serialized = JSON.stringify(card);
@@ -98,7 +120,8 @@ export async function POST(request: Request) {
             const rule = getRule(card.rule_id);
             const ms = Date.now() - started;
             console.info(`[capture] ${ms} ms ${question.exam}/${question.section} ${card.rule_id}`);
-            send({ type: "done", attemptId: attempt.id, card, question: updated, rule: { id: card.rule_id, name: rule?.name ?? null }, provider: provider.name, model: provider.modelId("capture"), ms });
+            const benchInfo = bench ? { marks, usage: await result.usage, outputChars: JSON.stringify(output).length } : undefined;
+            send({ type: "done", attemptId: attempt.id, card, question: updated, rule: { id: card.rule_id, name: rule?.name ?? null }, provider: provider.name, model: provider.modelId("capture"), ms, ...(benchInfo ? { bench: benchInfo } : {}) } as Event);
           } catch (error) {
             await deleteAttempt(session.userId, attempt.id).catch(() => undefined);
             throw error;
