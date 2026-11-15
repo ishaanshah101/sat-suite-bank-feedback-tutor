@@ -1,10 +1,16 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
-export type Letter = "A" | "B" | "C" | "D";
-export type Section = "rw" | "math";
+import type { Exam, Section } from "@/lib/questions/taxonomy";
+
+/** E is the fifth choice of older ACT Math questions. */
+export type Letter = "A" | "B" | "C" | "D" | "E";
+export type { Exam, Section };
 export type QuestionFormat = "mcq" | "spr";
-export type Choices = Record<Letter, string>;
+/** A to D always; E only on a five-choice (older ACT Math) question. */
+export type Choices = Record<"A" | "B" | "C" | "D", string> & { E?: string };
+/** The letters printed on screen: "fghj" for ACT even-numbered questions (F G H J K), else A B C D (E). */
+export type LetterStyle = "abcd" | "fghj";
 
 const base = {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -18,7 +24,9 @@ export const questions = pgTable(
   {
     ...base,
     qbId: text("qb_id"),
+    exam: text("exam").$type<Exam>().notNull().default("sat"),
     section: text("section").$type<Section>().notNull().default("rw"),
+    letterStyle: text("letter_style").$type<LetterStyle>(),
     format: text("format").$type<QuestionFormat>().notNull().default("mcq"),
     source: text("source").$type<"capture" | "pdf" | "paste" | "image">().notNull(),
     test: text("test"),

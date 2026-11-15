@@ -2,7 +2,19 @@ import { generateText, Output } from "ai";
 import { EXTRACT_INSTRUCTIONS } from "./prompts";
 import { ExtractionOutputSchema, ParsedQuestionSchema, QUESTION_LIMITS, type ExtractionOutput, type ParsedQuestion } from "./schemas";
 import { abortAfter, isNoOutputError, retryOnNoOutput, withFailover, type FailoverResult } from "./providers";
-import { SECTION_TEST_NAME, domainForSkill, inferSection, normalizeDifficulty, normalizeDomain, normalizeSkill } from "@/lib/questions/taxonomy";
+import {
+  ACT_SECTIONS,
+  SECTION_LABEL,
+  SECTION_TEST_NAME,
+  actDomainForSection,
+  domainForSkill,
+  inferSection,
+  normalizeDifficulty,
+  normalizeDomain,
+  normalizeSkill,
+  type ActSection,
+  type Section,
+} from "@/lib/questions/taxonomy";
 import { splitAcceptedAnswers } from "@/lib/questions/spr";
 
 export class ExtractionError extends Error {
@@ -29,18 +41,40 @@ const cut = (text: string | null | undefined, max: number): string => (text ?? "
  * Turn the model's reply into a stored question. `sourceText` is the pasted text when there was one:
  * the model's answer fields only count as official when that text really shows an answer line.
  */
-export function normalizeExtraction(output: ExtractionOutput, sourceText?: string): ParsedQuestion {
-  const stem = cut(output.stem, QUESTION_LIMITS.stem);
+/** The test, section, skill and domain of a question, from what the model read (ACT or SAT). */
+export function classify(output: { exam?: string | null; section?: string | null; test?: string | null; skill?: string | null; domain?: string | null }): {
+  exam: "sat" | "act";
+  section: Section;
+  skill: ReturnType<typeof normalizeSkill>;
+  domain: string | null;
+} {
+  const actHint = output.exam === "act" || /\bACT\b/.test(output.test ?? "");
+  if (actHint) {
+    const section: ActSection = (ACT_SECTIONS as readonly string[]).includes(output.section ?? "")
+      ? (output.section as ActSection)
+      : output.section === "rw"
+        ? "english"
+        : "math";
+    return { exam: "act", section, skill: normalizeSkill(output.skill, "act"), domain: actDomainForSection(section) };
+  }
   const skill = normalizeSkill(output.skill);
   const domain = normalizeDomain(output.domain) ?? domainForSkill(skill);
   const section = inferSection({ section: output.section, test: output.test, skill: output.skill, domain: output.domain });
+  return { exam: "sat", section, skill, domain };
+}
+
+export function normalizeExtraction(output: ExtractionOutput, sourceText?: string): ParsedQuestion {
+  const stem = cut(output.stem, QUESTION_LIMITS.stem);
+  const { exam, section, skill, domain } = classify(output);
+  const fifth = cut(output.choices?.E, QUESTION_LIMITS.choice);
   const choices = {
     A: cut(output.choices?.A, QUESTION_LIMITS.choice),
     B: cut(output.choices?.B, QUESTION_LIMITS.choice),
     C: cut(output.choices?.C, QUESTION_LIMITS.choice),
     D: cut(output.choices?.D, QUESTION_LIMITS.choice),
+    ...(fifth && exam === "act" && section === "math" ? { E: fifth } : {}),
   };
-  const hasChoices = Object.values(choices).every((c) => c.length > 0);
+  const hasChoices = [choices.A, choices.B, choices.C, choices.D].every((c) => c.length > 0);
   // Only Math has grid-ins; a Math question without four choices is one.
   const format = section === "math" && (output.format === "spr" || !hasChoices) ? "spr" : "mcq";
   if (!output.question_found || !stem || (format === "mcq" && !hasChoices)) {
@@ -58,10 +92,12 @@ export function normalizeExtraction(output: ExtractionOutput, sourceText?: strin
       ? [...new Set((output.accepted_answers ?? []).flatMap((a) => splitAcceptedAnswers(a)))].slice(0, 12)
       : [];
   const parsed = ParsedQuestionSchema.safeParse({
-    qb_id,
+    qb_id: exam === "sat" ? qb_id : null,
+    exam,
+    letter_style: exam === "act" && output.letter_style === "fghj" ? "fghj" : null,
     section,
     format,
-    test: cut(output.test, QUESTION_LIMITS.label) || (skill || section === "math" ? SECTION_TEST_NAME[section] : null),
+    test: cut(output.test, QUESTION_LIMITS.label) || (exam === "act" ? `ACT ${SECTION_LABEL[section]}` : skill || section === "math" ? SECTION_TEST_NAME[section] : null),
     domain,
     skill,
     difficulty,

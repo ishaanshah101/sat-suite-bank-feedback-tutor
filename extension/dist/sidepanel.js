@@ -32,6 +32,7 @@ function normalizeServer(input) {
   return url.origin;
 }
 var REQUEST_TIMEOUT_MS = 9e4;
+var STREAM_IDLE_MS = 12e4;
 var timedOut = () => new ApiError(0, "The request timed out. Try again.");
 async function request(settings, path2, init = {}) {
   const headers = { accept: "application/json" };
@@ -70,6 +71,89 @@ async function authenticate(server, mode, email, password) {
 async function webLink(settings, path2) {
   const { code } = await request(settings, "/api/auth/handoff", { method: "POST", body: {} });
   return `${settings.server}/api/auth/handoff?code=${encodeURIComponent(code)}&next=${encodeURIComponent(path2)}`;
+}
+async function streamCapture(settings, body, onPartial) {
+  const control = new AbortController();
+  let timer = setTimeout(() => control.abort(), STREAM_IDLE_MS);
+  const touch = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => control.abort(), STREAM_IDLE_MS);
+  };
+  let response;
+  try {
+    response = await fetch(settings.server + "/api/capture", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/x-ndjson", authorization: `Bearer ${settings.token ?? ""}` },
+      body: JSON.stringify(body),
+      signal: control.signal
+    });
+  } catch {
+    clearTimeout(timer);
+    if (control.signal.aborted) throw timedOut();
+    throw new ApiError(0, `Could not reach ${settings.server}. Check your connection.`);
+  }
+  if (!response.ok || !response.body) {
+    clearTimeout(timer);
+    const text2 = await response.text().catch(() => "");
+    let message = response.statusText;
+    let code;
+    try {
+      const parsed = JSON.parse(text2);
+      message = parsed.error ?? message;
+      code = parsed.code;
+    } catch {
+      if (text2) message = text2.slice(0, 200);
+    }
+    throw new ApiError(response.status, message, code);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let done = null;
+  const take = (line) => {
+    if (!line.trim()) return;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      return;
+    }
+    if (event.type === "partial") onPartial(event.card);
+    else if (event.type === "done") done = event;
+    else if (event.type === "error") throw new ApiError(event.status, event.error, event.code);
+  };
+  try {
+    for (; ; ) {
+      let chunk;
+      try {
+        chunk = await reader.read();
+      } catch {
+        if (control.signal.aborted) throw timedOut();
+        throw new ApiError(0, "The connection dropped. Try again.");
+      }
+      touch();
+      if (chunk.done) {
+        buffer += decoder.decode();
+        take(buffer);
+        break;
+      }
+      buffer += decoder.decode(chunk.value, { stream: true });
+      let newline = buffer.indexOf("\n");
+      while (newline >= 0) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
+        newline = buffer.indexOf("\n");
+        take(line);
+      }
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => void 0);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!done) throw new ApiError(502, "The explanation stopped before it finished. Try again.");
+  return done;
 }
 
 // extension/src/capture.ts
@@ -15520,8 +15604,8 @@ function badgeToast(ids) {
   const labels = ids.map((id) => BY_ID.get(id)?.label ?? id);
   if (!labels.length) return "";
   if (labels.length === 1) return `Badge earned: ${labels[0]}`;
-  const shown = labels.slice(0, 3).join(", ");
-  return `${labels.length} badges earned: ${shown}${labels.length > 3 ? ", and more" : ""}`;
+  const shown2 = labels.slice(0, 3).join(", ");
+  return `${labels.length} badges earned: ${shown2}${labels.length > 3 ? ", and more" : ""}`;
 }
 async function readBadges() {
   return kv().get(KEYS.badges);
@@ -17752,13 +17836,13 @@ function diagnosisBar(s) {
   );
 }
 function groupList(title, items, onClick) {
-  const shown = items.filter((g) => g.misses > 0).slice(0, 5);
-  if (!shown.length) return null;
+  const shown2 = items.filter((g) => g.misses > 0).slice(0, 5);
+  if (!shown2.length) return null;
   return h(
     "section",
     null,
     h("h2", { text: title }),
-    h("ul", { class: "rc-groups" }, ...shown.map((g) => {
+    h("ul", { class: "rc-groups" }, ...shown2.map((g) => {
       const inner2 = [
         h("span", { class: "rc-group-label", text: g.label }),
         h("span", { class: "rc-meter" }, h("span", { style: `width:${Math.round(g.missRate * 100)}%` })),
@@ -18678,13 +18762,13 @@ function trapReport(entries) {
 }
 function renderTraps(r) {
   if (r.total < 3) return null;
-  const shown = r.counts.filter((c) => c.id !== "other").slice(0, 4);
-  if (!shown.length) return null;
+  const shown2 = r.counts.filter((c) => c.id !== "other").slice(0, 4);
+  if (!shown2.length) return null;
   return h(
     "section",
     { class: "card rc-traps" },
     h("h2", { text: "Traps you fall for" }),
-    h("ul", { class: "rc-groups" }, ...shown.map((c) => h("li", null, h(
+    h("ul", { class: "rc-groups" }, ...shown2.map((c) => h("li", null, h(
       "div",
       { class: "rc-group", title: c.tip },
       h("span", { class: "rc-group-label", text: c.label }),
@@ -19484,12 +19568,12 @@ function buildQuestion(item, kind, bank, seed) {
   if (wrong.length < 3) return null;
   const options = shuffled([word, ...wrong.slice(0, 3)], mix(seed, salt + 1));
   const at = options.indexOf(word);
-  const shown = options.map((o, i2) => i2 === at ? o : matchCase(o, word));
+  const shown2 = options.map((o, i2) => i2 === at ? o : matchCase(o, word));
   return {
     word,
     kind,
     prompt,
-    choices: { A: shown[0], B: shown[1], C: shown[2], D: shown[3] },
+    choices: { A: shown2[0], B: shown2[1], C: shown2[2], D: shown2[3] },
     correct: LETTERS2[at],
     sentence: sentenceOf(item),
     meaning: cleanMeaning(item.meaning)
@@ -20897,6 +20981,22 @@ function createAddons(ctx, host) {
 }
 
 // extension/src/sidepanel.ts
+function lettersOf(q) {
+  return q.choices?.E?.trim() ? [...LETTERS, "E"] : LETTERS;
+}
+function shown(letter, style) {
+  if (!letter) return "?";
+  return style === "fghj" ? { A: "F", B: "G", C: "H", D: "J", E: "K" }[letter] ?? letter : letter;
+}
+function testLabel(q) {
+  const section = { rw: "Reading and Writing", math: "Math", english: "English", reading: "Reading", science: "Science" }[q.section] ?? "";
+  return `${q.exam === "act" ? "ACT" : "SAT"} ${section}`;
+}
+function forAddons(q) {
+  const section = q.section === "math" ? "math" : "rw";
+  const choices = q.choices ? { A: q.choices.A, B: q.choices.B, C: q.choices.C, D: q.choices.D } : null;
+  return { ...q, section, choices, correct: q.correct === "E" ? null : q.correct };
+}
 var state = {
   view: "loading",
   settings: { server: DEFAULT_SERVER, token: null },
@@ -20914,7 +21014,8 @@ var state = {
   picking: false,
   pickError: null,
   sprInput: "",
-  questionOpen: false
+  questionOpen: false,
+  live: null
 };
 var panelWindowId = null;
 var bootedAt = Date.now();
@@ -21003,7 +21104,7 @@ function renderConnect() {
       "div",
       { class: "card" },
       h2("h1", { text: "Rulecard" }),
-      h2("p", { class: "muted small", text: "Capture a Reading and Writing or Math question from a Question Bank PDF or a practice test and get the answer plus the 2 or 3 rules behind it. Your history is saved to your account, on the web app too." }),
+      h2("p", { class: "muted small", text: "Capture an SAT or ACT question (a Question Bank PDF, a practice test) and get the answer plus the real rules behind it. Your history is saved to your account, on the web app too." }),
       h2("div", { class: "tabs", role: "tablist" }, tab("signin", "Sign in"), tab("signup", "Create account")),
       h2("label", { class: "field" }, "Email", email),
       h2("label", { class: "field" }, "Password", password),
@@ -21139,6 +21240,7 @@ function renderMain() {
   if (tab === "home") {
     nodes.push(...addons.renderAboveCapture(), renderCaptureCard());
     if (state.result && state.question) nodes.push(renderResult(state.result, state.question));
+    else if (state.live) nodes.push(renderLiveCard(state.live));
     nodes.push(...addons.renderHomeBelow());
   } else {
     if (tab === "progress" && state.recent?.length) nodes.push(renderRecent(state.recent));
@@ -21204,7 +21306,7 @@ function renderRecent(items) {
 }
 function renderCaptureCard() {
   const busy = state.capturing !== null;
-  const label = state.capturing === "allowing" ? "Click Allow in Chrome's box..." : state.capturing === "reading" ? "Reading the question..." : state.capturing === "explaining" ? "Writing your explanation..." : state.result ? "Capture another question" : "Capture this tab";
+  const label = state.capturing === "allowing" ? "Click Allow in Chrome's box..." : state.capturing === "reading" ? "Reading the question..." : state.capturing === "explaining" ? "Explaining..." : state.result ? "Capture another question" : "Capture this tab";
   const children = [
     h2("button", { id: "capture-tab", class: "btn primary big", disabled: busy, onclick: () => onCaptureClick() }, busy ? spinner2() : null, label)
   ];
@@ -21221,8 +21323,8 @@ function renderCaptureCard() {
       h2(
         "ol",
         { class: "steps small muted", "data-testid": "capture-steps" },
-        h2("li", { text: "Open the question: a Question Bank PDF, or a practice-test question you're reviewing. Scroll so the whole question and its choices are on screen." }),
-        h2("li", { text: "Press Capture this tab. That's it: you get the answer and the 2 or 3 rules that explain it." })
+        h2("li", { text: "Open the question: an SAT Question Bank PDF, an SAT or ACT practice test, a question you're reviewing. Scroll so the whole question and its choices are on screen." }),
+        h2("li", { text: "Press Capture this tab. That's it: the answer and the rules that explain it show up as they are written." })
       ),
       state.canSeeTabs === false ? h2("p", { class: "small", "data-testid": "first-time-note", text: "First time only: Chrome will ask once if Rulecard can see the tab you capture. Click Allow." }) : null
     );
@@ -21255,19 +21357,35 @@ function renderHowTo() {
     h2(
       "ol",
       { class: "steps small" },
-      h2("li", { text: "Open the question: a SAT Suite Question Bank PDF, or a practice-test question in My Practice that you got wrong. Make sure the whole question and its choices are on screen." }),
+      h2("li", { text: "Open the question: a SAT Suite Question Bank PDF, a practice-test question in My Practice that you got wrong, or an ACT practice test. Make sure the whole question and its choices are on screen." }),
       h2("li", { text: "Press Capture this tab (or click the Rulecard icon in Chrome's toolbar). Rulecard takes one screenshot of that tab, only when you ask." }),
-      h2("li", { text: "You get the answer and 2 or 3 bullets with the rules behind it, in plain words." }),
+      h2("li", { text: "You get the answer and a few bullets with the rules behind it, in plain words: as many as the question needs." }),
       h2("li", { text: "Tap the letter you picked to see why it's wrong. Your plan, progress and review are in the other tabs." })
     )
+  );
+}
+function renderLiveCard(live) {
+  const answer = live.format === "spr" ? live.correct_answer : live.correct_letter ? shown(live.correct_letter, live.letter_style) : null;
+  const bullets = (live.key_rules ?? []).filter((b) => typeof b === "string" && b.trim());
+  return h2(
+    "div",
+    { class: "card live", id: "live-card", "aria-busy": "true" },
+    h2(
+      "div",
+      { class: "row between" },
+      h2("strong", { class: "answer-line", "data-testid": "live-answer", text: answer ? `Answer: ${answer}` : "Finding the answer..." }),
+      live.exam && live.section ? chip2(testLabel({ exam: live.exam, section: live.section })) : null
+    ),
+    bullets.length ? h2("ul", { class: "key-rules", "data-testid": "live-rules" }, ...bullets.map((rule) => mathEl("li", rule))) : null,
+    h2("div", { class: "row small muted" }, spinner2(), bullets.length ? "Writing the rules..." : "Reading the question...")
   );
 }
 function renderResult(r, q) {
   const card = r.card;
   const math2 = isMathQuestion(q);
-  const answer = card.correct_letter ?? card.correct_answer ?? "?";
+  const answer = card.correct_letter ? shown(card.correct_letter, q.letterStyle) : card.correct_answer ?? "?";
   const bullets = card.key_rules?.length ? card.key_rules : [card.rule_statement];
-  const rulePath = `/rules${math2 ? "?section=math" : ""}#${card.rule_id}`;
+  const rulePath = `/rules?section=${q.exam === "act" ? `act-${q.section}` : math2 ? "math" : "rw"}#${card.rule_id}`;
   return h2(
     "div",
     { class: "card", id: "result-card" },
@@ -21275,7 +21393,7 @@ function renderResult(r, q) {
       "div",
       { class: "row between" },
       h2("strong", { class: "answer-line", "data-testid": "card-answer", text: `Answer: ${answer}` }),
-      card.solved_by_model ? chip2("worked out by Rulecard, check it", "warn") : null
+      h2("span", { class: "row" }, chip2(testLabel(q)), card.solved_by_model ? chip2("worked out by Rulecard, check it", "warn") : null)
     ),
     h2("ul", { class: "key-rules", "data-testid": "key-rules" }, ...bullets.map((rule) => mathEl("li", rule))),
     h2(
@@ -21291,7 +21409,7 @@ function renderResult(r, q) {
 function renderPickSection(r, q) {
   const gridIn = isGridIn2(q);
   const card = r.card;
-  const answer = card.correct_letter ?? card.correct_answer ?? "?";
+  const answer = card.correct_letter ? shown(card.correct_letter, q.letterStyle) : card.correct_answer ?? "?";
   const children = [h2("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
   if (gridIn) {
     const entry = state.sprInput.trim() ? parseSprEntry(state.sprInput) : null;
@@ -21328,10 +21446,10 @@ function renderPickSection(r, q) {
       h2(
         "div",
         { class: "picks", role: "group", "aria-label": "The letter you picked" },
-        ...LETTERS.map(
+        ...lettersOf(q).map(
           (letter) => h2("button", {
             class: `pick ${r.pick?.picked === letter ? "on" : ""}`.trim(),
-            text: letter,
+            text: shown(letter, q.letterStyle),
             disabled: state.picking,
             "aria-pressed": String(r.pick?.picked === letter),
             onclick: () => void choosePick(letter)
@@ -21343,7 +21461,7 @@ function renderPickSection(r, q) {
   if (state.pickError) children.push(h2("div", { class: "banner danger", role: "alert", text: state.pickError }));
   const p = r.pick;
   if (p && !state.picking) {
-    const yours = p.picked === "spr" ? p.response ?? "your answer" : p.picked;
+    const yours = p.picked === "spr" ? p.response ?? "your answer" : p.picked === "correct" ? "That" : shown(p.picked, q.letterStyle);
     if (p.isCorrect === true) {
       children.push(h2("div", { class: "banner good", "data-testid": "pick-why" }, h2("p", { class: "stem", text: `${yours} is right. Nice.` }), h2("p", { class: "small muted", text: "The bullets above are why, so you get it right every time." })));
     } else {
@@ -21377,7 +21495,7 @@ function renderQuestionRead(q) {
     h2(
       "div",
       { class: "row" },
-      chip2(isMathQuestion(q) ? "Math" : "Reading and Writing"),
+      chip2(testLabel(q)),
       q.qbId ? chip2(`ID ${q.qbId}`) : null,
       q.skill ? chip2(q.skill, "accent") : null,
       q.difficulty ? chip2(q.difficulty) : null
@@ -21385,7 +21503,7 @@ function renderQuestionRead(q) {
     q.passage ? mathEl("div", q.passage, { class: "passage" }) : null,
     q.figure ? h2("div", { class: "figure" }, h2("div", { class: "figure-label", text: "Figure (as read)" }), mathEl("div", q.figure)) : null,
     mathEl("p", q.stem, { class: "stem" }),
-    choices ? h2("ol", { class: "choices" }, ...LETTERS.map((letter) => h2("li", { class: "choice" }, h2("span", { class: "letter", text: `${letter}.` }), mathEl("span", choices[letter])))) : null
+    choices ? h2("ol", { class: "choices" }, ...lettersOf(q).map((letter) => h2("li", { class: "choice" }, h2("span", { class: "letter", text: `${shown(letter, q.letterStyle)}.` }), mathEl("span", choices[letter] ?? "")))) : null
   );
 }
 function renderFooter() {
@@ -21426,6 +21544,7 @@ function resetQuestion() {
   state.pickError = null;
   state.sprInput = "";
   state.questionOpen = false;
+  state.live = null;
 }
 async function refreshHealth() {
   try {
@@ -21473,18 +21592,45 @@ function captureThisTab() {
     }
   });
 }
+var redrawQueued = false;
+function renderSoon() {
+  if (redrawQueued) return;
+  redrawQueued = true;
+  requestAnimationFrame(() => {
+    redrawQueued = false;
+    render3();
+  });
+}
 async function explainSource(body, picked = null) {
+  resetQuestion();
   state.capturing = "reading";
+  state.live = null;
   render3();
-  const data = await request(state.settings, "/api/extract", { body });
-  await explainQuestion(data.question, picked);
+  try {
+    const done = await streamCapture(state.settings, body, (partial) => {
+      state.live = partial;
+      if (state.capturing === "reading" && (partial.correct_letter || partial.correct_answer || partial.key_rules?.length)) state.capturing = "explaining";
+      renderSoon();
+    });
+    const question = done.question;
+    state.question = question;
+    state.result = { attemptId: done.attemptId, card: done.card, ruleName: done.rule?.name ?? null, pick: null };
+    void addons.afterExtract(normalizeQuestion(forAddons(question)));
+    void refreshRecent();
+  } finally {
+    state.live = null;
+  }
+  if (picked && state.question?.format !== "spr") {
+    state.capturing = null;
+    await choosePick(picked);
+  }
 }
 async function explainQuestion(question, picked = null) {
   resetQuestion();
   state.question = question;
   state.capturing = "explaining";
   render3();
-  void addons.afterExtract(normalizeQuestion(question));
+  void addons.afterExtract(normalizeQuestion(forAddons(question)));
   const data = await request(state.settings, "/api/explain", {
     body: { questionId: question.id, picked: "none", allowModelSolve: true }
   });
@@ -21519,7 +21665,10 @@ async function choosePick(picked) {
     const data = await request(state.settings, "/api/explain/pick", { body: { attemptId: r.attemptId, picked, ...response ? { response } : {} } });
     r.card = data.card;
     r.pick = { picked: data.picked, response: data.response, isCorrect: data.isCorrect };
-    void addons.afterExplain({ attemptId: r.attemptId, card: data.card, question: q, rule: { id: data.card.rule_id, name: r.ruleName }, isCorrect: data.isCorrect }, data.picked, data.response);
+    if (data.picked !== "E") {
+      const card = { ...data.card, correct_letter: data.card.correct_letter === "E" ? null : data.card.correct_letter };
+      void addons.afterExplain({ attemptId: r.attemptId, card, question: forAddons(q), rule: { id: data.card.rule_id, name: r.ruleName }, isCorrect: data.isCorrect }, data.picked, data.response);
+    }
     void refreshRecent();
   } catch (error) {
     if (await handleAuthFailure(error)) return;
@@ -21635,11 +21784,11 @@ var addons = createAddons(
     describe
   },
   {
-    getQuestion: () => state.question ? normalizeQuestion(state.question) : null,
+    getQuestion: () => state.question ? normalizeQuestion(forAddons(state.question)) : null,
     getExplained: () => {
       const r = state.result;
       if (!r?.pick) return null;
-      return { attemptId: r.attemptId, picked: r.pick.picked === "spr" ? "correct" : r.pick.picked };
+      return { attemptId: r.attemptId, picked: r.pick.picked === "spr" || r.pick.picked === "E" ? "correct" : r.pick.picked };
     },
     // A miss from the Question Bank export quiz: its picture, with the letter the student picked.
     processImage: (image, picked) => serialCapture(async () => {

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { QuestionRow } from "@/db/schema";
-import type { Letter, Pick, RuleCard } from "@/lib/ai/schemas";
+import { choiceLetters, displayLetter, type Pick, type RuleCard } from "@/lib/ai/schemas";
 import { postJson } from "@/lib/client/api";
 import { parseSprEntry } from "@/lib/questions/spr";
 import { ChatPanel } from "./chat-panel";
@@ -13,7 +13,6 @@ import { QuestionCard } from "./question-card";
 import { RuleCardView } from "./rule-card";
 import { Button, Card, ErrorNote, Spinner } from "./ui";
 
-const LETTERS: Letter[] = ["A", "B", "C", "D"];
 
 interface Explained {
   attemptId: string;
@@ -189,7 +188,7 @@ export function ReviewWorkspace() {
                       data-testid="spr-input"
                     />
                   ) : (
-                    LETTERS.map((l) => (
+                    choiceLetters(question?.choices).map((l) => (
                       <button
                         key={l}
                         type="button"
@@ -198,7 +197,7 @@ export function ReviewWorkspace() {
                         className={`h-10 w-10 rounded-lg border text-sm font-semibold transition ${picked === l ? "border-accent bg-accent text-white" : "border-line hover:bg-bg"}`}
                         data-testid={`pick-${l}`}
                       >
-                        {l}
+                        {displayLetter(l, question?.letterStyle)}
                       </button>
                     ))
                   )}

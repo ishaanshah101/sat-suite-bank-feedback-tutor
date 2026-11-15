@@ -5,7 +5,7 @@ import { getRule } from "@/content/rules";
 import type { Drill, ExtractionOutput } from "@/lib/ai/schemas";
 
 const rule = getRule("LE1-01")!;
-const empty = { A: "", B: "", C: "", D: "" };
+const empty = { A: "", B: "", C: "", D: "", E: "" };
 
 const sprDrill: Drill = {
   rule_id: "x",
@@ -26,7 +26,7 @@ describe("math drills", () => {
     const d = normalizeDrill(sprDrill, rule);
     expect(d.rule_id).toBe("LE1-01");
     expect(d.correct).toBeNull();
-    expect(d.choices).toEqual(empty);
+    expect(d.choices).toEqual({ A: "", B: "", C: "", D: "" });
     expect(d.accepted_answers).toEqual(["6"]);
     expect(d.solution).toEqual(["Subtract 3."]);
   });
@@ -74,8 +74,10 @@ describe("math drills", () => {
 
 const base: ExtractionOutput = {
   question_found: true,
+  exam: "sat",
   section: "math",
   format: "spr",
+  letter_style: "abcd",
   qb_id: "5EEDF00D",
   test: null,
   domain: null,
@@ -105,7 +107,7 @@ describe("math extraction", () => {
   });
 
   it("treats a Math question with four choices as multiple choice and keeps the figure", () => {
-    const q = normalizeExtraction({ ...base, format: "mcq", choices: { A: "1", B: "2", C: "3", D: "4" }, figure: "Line through (0, 2) and (4, 0)" });
+    const q = normalizeExtraction({ ...base, format: "mcq", choices: { A: "1", B: "2", C: "3", D: "4", E: "" }, figure: "Line through (0, 2) and (4, 0)" });
     expect(q).toMatchObject({ format: "mcq", correct: "B", answers: null, figure: "Line through (0, 2) and (4, 0)" });
   });
 
@@ -114,7 +116,7 @@ describe("math extraction", () => {
     expect(normalizeExtraction(base, text).answers).toBeNull();
     expect(normalizeExtraction(base, `${text}\nCorrect Answer: 3/17`).answers).toEqual([".1764", ".1765", "3/17"]);
     expect(normalizeExtraction(base, `${text}\ncorrect answer: 3/17`).answers).toEqual([".1764", ".1765", "3/17"]);
-    const mcq = { ...base, format: "mcq" as const, choices: { A: "1", B: "2", C: "3", D: "4" } };
+    const mcq = { ...base, format: "mcq" as const, choices: { A: "1", B: "2", C: "3", D: "4", E: "" } };
     expect(normalizeExtraction(mcq, text).correct).toBeNull();
     expect(normalizeExtraction(mcq, `${text} Correct Answer: B`).correct).toBe("B");
     // Screenshots keep the model's own flag.
@@ -128,7 +130,7 @@ describe("math extraction", () => {
     expect(q.figure).toHaveLength(6000);
     expect(q.rationale).toHaveLength(20000);
     expect(q.test).toHaveLength(200);
-    const mcq = normalizeExtraction({ ...base, format: "mcq", choices: { A: "a".repeat(3000), B: "2", C: "3", D: "4" } });
+    const mcq = normalizeExtraction({ ...base, format: "mcq", choices: { A: "a".repeat(3000), B: "2", C: "3", D: "4", E: "" } });
     expect(mcq.choices?.A).toHaveLength(2000);
   });
 
@@ -136,7 +138,7 @@ describe("math extraction", () => {
     expect(normalizeExtraction({ ...base, section: "rw" }).section).toBe("math");
     const rw = { ...base, section: "rw" as const, skill: "Boundaries", format: "spr" as const };
     expect(() => normalizeExtraction(rw)).toThrow();
-    const ok = normalizeExtraction({ ...rw, choices: { A: "a", B: "b", C: "c", D: "d" } });
+    const ok = normalizeExtraction({ ...rw, choices: { A: "a", B: "b", C: "c", D: "d", E: "" } });
     expect(ok).toMatchObject({ section: "rw", format: "mcq", test: "SAT Reading and Writing" });
   });
 });

@@ -27,6 +27,8 @@ export async function upsertQuestion(userId: string, parsed: ParsedQuestionInput
   const official = format === "spr" ? Boolean(answers) : Boolean(parsed.correct);
   const values = {
     qbId: parsed.qb_id,
+    exam: parsed.exam ?? "sat",
+    letterStyle: parsed.letter_style ?? null,
     section: parsed.section ?? "rw",
     format,
     source,

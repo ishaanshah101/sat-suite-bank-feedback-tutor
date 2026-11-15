@@ -5,8 +5,10 @@ import type { ProviderHandle, TaskKind } from "./providers";
 /** Deterministic model used by tests and local runs without API keys (RULECARD_STUB_AI=1). */
 const STUB_EXTRACTION = {
   question_found: true,
+  exam: "sat",
   section: "rw",
   format: "mcq",
+  letter_style: "abcd",
   qb_id: "0badf00d",
   test: "SAT Reading and Writing",
   domain: "Standard English Conventions",
@@ -14,7 +16,7 @@ const STUB_EXTRACTION = {
   difficulty: "Medium",
   passage: "The study ended in 2019 _____ the results were published a year later.",
   stem: "Which choice completes the text so that it conforms to the conventions of Standard English?",
-  choices: { A: "2019, the", B: "2019; the", C: "2019 the", D: "2019, and the" },
+  choices: { A: "2019, the", B: "2019; the", C: "2019 the", D: "2019, and the", E: "" },
   figure: null,
   visible_answer_panel: true,
   correct: "B",
@@ -26,8 +28,10 @@ const STUB_EXTRACTION = {
 /** Used when the extraction input mentions "SAT Math": a grid-in with several accepted forms. */
 const STUB_MATH_EXTRACTION = {
   question_found: true,
+  exam: "sat",
   section: "math",
   format: "spr",
+  letter_style: "abcd",
   qb_id: "5eedf00d",
   test: "SAT Math",
   domain: "Algebra",
@@ -36,7 +40,7 @@ const STUB_MATH_EXTRACTION = {
   passage: "\\(17x - 2 = 1\\)",
   stem: "What value of \\(x\\) is the solution to the given equation?",
   figure: null,
-  choices: { A: "", B: "", C: "", D: "" },
+  choices: { A: "", B: "", C: "", D: "", E: "" },
   visible_answer_panel: true,
   correct: null,
   accepted_answers: [".1764", ".1765", "3/17"],
@@ -140,8 +144,89 @@ const STUB_DRILL = {
   },
 };
 
+/** One-call capture replies: SAT Reading and Writing (default), SAT Math grid-in, or ACT English. */
+const STUB_CAPTURE_RW = {
+  question_found: true,
+  exam: "sat",
+  section: "rw",
+  format: "mcq",
+  letter_style: "abcd",
+  answer_shown: true,
+  correct_letter: "B",
+  correct_answer: null,
+  key_rules: STUB_QUICK_CARD.key_rules,
+  rule_id: "BND-01",
+  rule_statement: STUB_CARD.rule_statement,
+  eliminations: STUB_QUICK_CARD.eliminations,
+  why_correct: STUB_CARD.why_correct,
+  steps: [],
+  shortcut: null,
+  takeaway: STUB_CARD.takeaway,
+  confidence: 0.95,
+  suggested_rule: null,
+  qb_id: STUB_EXTRACTION.qb_id,
+  test: STUB_EXTRACTION.test,
+  domain: STUB_EXTRACTION.domain,
+  skill: STUB_EXTRACTION.skill,
+  difficulty: STUB_EXTRACTION.difficulty,
+  passage: STUB_EXTRACTION.passage,
+  stem: STUB_EXTRACTION.stem,
+  figure: null,
+  choices: STUB_EXTRACTION.choices,
+  accepted_answers: [],
+  notes: null,
+};
+
+const STUB_CAPTURE_MATH = {
+  ...STUB_CAPTURE_RW,
+  section: "math",
+  format: "spr",
+  correct_letter: null,
+  correct_answer: "3/17",
+  key_rules: ["To solve for \\(x\\), undo the last operation first: add back what was subtracted, then divide by the coefficient.", "Add 2 to both sides: \\(17x = 3\\), so \\(x = \\frac{3}{17}\\)."],
+  rule_id: "LE1-01",
+  rule_statement: STUB_MATH_CARD.rule_statement,
+  eliminations: [],
+  why_correct: STUB_MATH_CARD.why_correct,
+  steps: STUB_MATH_CARD.steps,
+  shortcut: STUB_MATH_CARD.shortcut,
+  qb_id: STUB_MATH_EXTRACTION.qb_id,
+  test: STUB_MATH_EXTRACTION.test,
+  domain: STUB_MATH_EXTRACTION.domain,
+  skill: STUB_MATH_EXTRACTION.skill,
+  difficulty: STUB_MATH_EXTRACTION.difficulty,
+  passage: STUB_MATH_EXTRACTION.passage,
+  stem: STUB_MATH_EXTRACTION.stem,
+  choices: { A: "", B: "", C: "", D: "", E: "" },
+  accepted_answers: STUB_MATH_EXTRACTION.accepted_answers,
+};
+
+const STUB_CAPTURE_ACT = {
+  ...STUB_CAPTURE_RW,
+  exam: "act",
+  section: "english",
+  letter_style: "fghj",
+  answer_shown: false,
+  correct_letter: "C",
+  key_rules: ["Two complete sentences need a period, a semicolon, or a comma plus and/but/so between them.", "Both halves are complete, so H's semicolon is the clean join; F's comma alone is a comma splice."],
+  eliminations: [
+    { letter: "A", reason: "NO CHANGE keeps a comma splice: a comma alone cannot join two sentences. H's semicolon can." },
+    { letter: "B", reason: "No punctuation at all makes a run-on. H fixes it with a semicolon." },
+    { letter: "D", reason: "'and the' adds a second join on top of the break. H keeps one clean join." },
+  ],
+  qb_id: null,
+  test: "ACT English",
+  domain: null,
+  skill: "Sentence Structure and Formation",
+  difficulty: null,
+  passage: "The bridge reopened in March[[, commuters]] returned within a week.",
+  stem: "Which choice is best? (The first choice is NO CHANGE.)",
+  choices: { A: "NO CHANGE", B: "March commuters", C: "March; commuters", D: "March, and the commuters", E: "" },
+};
+
 /** Pick the stub reply from the task and from what the prompt asks for (Math or Reading and Writing). */
 function jsonFor(kind: TaskKind, prompt: string, userText: string): string {
+  if (kind === "capture") return JSON.stringify(/SAT Math/.test(userText) ? STUB_CAPTURE_MATH : /ACT (English|Math|Reading|Science)/.test(userText) ? STUB_CAPTURE_ACT : STUB_CAPTURE_RW);
   if (kind === "extract") return JSON.stringify(/SAT Math/.test(userText) ? STUB_MATH_EXTRACTION : STUB_EXTRACTION);
   if (kind === "drill") return JSON.stringify(STUB_DRILL);
   if (kind === "math") {

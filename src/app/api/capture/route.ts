@@ -1,0 +1,117 @@
+import { Output, streamText } from "ai";
+import { z } from "zod";
+import { apiErrorPayload, readJson, withApi } from "@/lib/api";
+import { captureInstructions, captureToCard, captureToExtraction, CaptureOutputSchema, PARTIAL_FIELDS, type CaptureOutput } from "@/lib/ai/capture";
+import { hasKnownAnswer, sanitizeRuleCard, usableModelAnswer } from "@/lib/ai/explain";
+import { ExtractionError, normalizeExtraction, parseDataUrl } from "@/lib/ai/extract";
+import { abortAfter, isNoOutputError, noteStreamError, noteStreamOk, pickProvider } from "@/lib/ai/providers";
+import { chargeAiQuota } from "@/lib/ai/quota";
+import { createAttempt, deleteAttempt, finishAttempt, getQuestion, setModelAnswer, setModelGridInAnswer, upsertQuestion } from "@/db/queries";
+import { getRule } from "@/content/rules";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const Body = z.union([
+  z.object({ image: z.string().min(32).max(6_000_000), source: z.enum(["capture", "image"]).default("capture") }),
+  z.object({ text: z.string().min(20).max(20_000), source: z.literal("paste").default("paste") }),
+]);
+
+type Event =
+  | { type: "partial"; card: Partial<Pick<CaptureOutput, (typeof PARTIAL_FIELDS)[number]>> }
+  | { type: "done"; attemptId: string; card: unknown; question: unknown; rule: { id: string; name: string | null }; provider: string; model: string; ms: number }
+  | { type: "error"; error: string; code?: string; status: number };
+
+/**
+ * POST /api/capture {image | text}: read the question and write its card in ONE model call, streamed as
+ * newline-delimited JSON. "partial" events carry the answer and the bullets as they are written; "done"
+ * carries the saved attempt (for "Which did you pick?"), the stored question and the final card.
+ */
+export async function POST(request: Request) {
+  return withApi(async (session) => {
+    const body = Body.parse(await readJson(request));
+    // Fail fast on a bad image before charging anything.
+    if ("image" in body) parseDataUrl(body.image);
+    const provider = await pickProvider();
+    await chargeAiQuota(session.userId, "explain");
+    const started = Date.now();
+    const content: Array<{ type: "text"; text: string } | { type: "file"; mediaType: string; data: string }> = [];
+    if ("image" in body) {
+      const { mediaType, base64 } = parseDataUrl(body.image);
+      content.push({ type: "file", mediaType, data: base64 });
+      content.push({ type: "text", text: "Here is the question on my screen. Explain it." });
+    } else {
+      content.push({ type: "text", text: `Here is the text of the question on my screen. Explain it.\n\n${body.text}` });
+    }
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const send = (event: Event) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        try {
+          const result = streamText({
+            model: provider.model("capture"),
+            instructions: captureInstructions(),
+            messages: [{ role: "user", content }],
+            output: Output.object({ schema: CaptureOutputSchema, name: "captured_card" }),
+            providerOptions: provider.providerOptions("capture"),
+            maxOutputTokens: 9000,
+            maxRetries: 1,
+            abortSignal: abortAfter(55_000),
+          });
+          // Send the card fields as they grow; skip repeats, and stop once the transcription starts.
+          let last = "";
+          for await (const partial of result.partialOutputStream) {
+            const card: Record<string, unknown> = {};
+            for (const key of PARTIAL_FIELDS) if (partial[key] !== undefined) card[key] = partial[key];
+            const serialized = JSON.stringify(card);
+            if (serialized !== last) {
+              last = serialized;
+              send({ type: "partial", card });
+            }
+          }
+          let output: CaptureOutput;
+          try {
+            output = (await result.output) as CaptureOutput;
+          } catch (error) {
+            if (isNoOutputError(error)) throw new ExtractionError("The model could not read a complete question. Try again, with the whole question on screen.");
+            throw error;
+          }
+          noteStreamOk(provider);
+
+          const parsed = normalizeExtraction(captureToExtraction(output), "text" in body ? body.text : undefined);
+          const question = await upsertQuestion(session.userId, parsed, body.source);
+          const attempt = await createAttempt(session.userId, { questionId: question.id, picked: "none", reasoning: null });
+          try {
+            const raw = captureToCard(output);
+            // An official answer already stored for this question (same Question ID) wins over the model's.
+            const card = sanitizeRuleCard(raw, question, "none", null, "quick");
+            const gridIn = question.format === "spr";
+            const modelGridIn = gridIn && !question.answers?.length ? usableModelAnswer(card) : null;
+            const modelLetter = !gridIn && !question.correct ? card.correct_letter : null;
+            await finishAttempt(session.userId, attempt.id, { explanation: card, ruleId: card.rule_id, provider: provider.name, model: provider.modelId("capture"), isCorrect: null });
+            if (!hasKnownAnswer(question)) {
+              if (modelGridIn) await setModelGridInAnswer(session.userId, question.id, modelGridIn);
+              else if (modelLetter) await setModelAnswer(session.userId, question.id, modelLetter);
+            }
+            const updated = (await getQuestion(session.userId, question.id)) ?? question;
+            const rule = getRule(card.rule_id);
+            const ms = Date.now() - started;
+            console.info(`[capture] ${ms} ms ${question.exam}/${question.section} ${card.rule_id}`);
+            send({ type: "done", attemptId: attempt.id, card, question: updated, rule: { id: card.rule_id, name: rule?.name ?? null }, provider: provider.name, model: provider.modelId("capture"), ms });
+          } catch (error) {
+            await deleteAttempt(session.userId, attempt.id).catch(() => undefined);
+            throw error;
+          }
+        } catch (error) {
+          noteStreamError(provider, error);
+          const { status, body: payload } = apiErrorPayload(error);
+          send({ type: "error", error: payload.error, code: payload.code, status });
+        } finally {
+          controller.close();
+        }
+      },
+    });
+    return new Response(stream, { headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-accel-buffering": "no" } });
+  });
+}

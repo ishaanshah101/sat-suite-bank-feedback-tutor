@@ -16,6 +16,8 @@ const question: QuestionRow = {
   id: "q1",
   userId: "u1",
   qbId: "960dec02",
+  exam: "sat",
+  letterStyle: null,
   section: "rw",
   format: "mcq",
   source: "capture",
@@ -71,20 +73,20 @@ describe("quick card (capture first, pick later)", () => {
     expect(cardModeForPick(question, "A")).toBe("translated");
   });
 
-  it("asks for 2 to 3 cheat-sheet bullets and a reason for every wrong choice", () => {
+  it("asks for as many cheat-sheet bullets as needed and a reason for every wrong choice", () => {
     const text = explainInstructions([getRule("BND-01")!], false, question, "quick");
     expect(text).toMatch(/QUICK EXPLANATION/);
-    expect(text).toMatch(/2 or 3 bullet points/);
+    expect(text).toMatch(/as many bullet points as this question needs/);
     expect(text).toMatch(/one entry for EVERY wrong choice/);
     expect(text).toMatch(/why_pick_fails: always null/);
     expect(text).toMatch(/diagnosis: always unknown/);
     expect(text).not.toMatch(/TRANSLATES College Board/);
   });
 
-  it("sanitizes a quick card: at most 3 bullets, no pick verdict, every wrong letter explained", () => {
+  it("sanitizes a quick card: the bullets it needs, no pick verdict, every wrong letter explained", () => {
     const out = sanitizeRuleCard(card, question, "none", null);
     expect(out.mode).toBe("quick");
-    expect(out.key_rules).toEqual(["A semicolon joins two complete sentences.", "Both sides are complete, so B's semicolon is the only clean join.", "Third."]);
+    expect(out.key_rules).toEqual(["A semicolon joins two complete sentences.", "Both sides are complete, so B's semicolon is the only clean join.", "Third.", "Fourth is too many."]);
     expect(out.simple_explanation).toBeNull();
     expect(out.why_pick_fails).toBeNull();
     expect(out.diagnosis).toBe("unknown");

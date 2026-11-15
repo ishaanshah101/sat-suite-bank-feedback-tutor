@@ -388,6 +388,8 @@ function parseBlock(lines: Line[], id: string): ParsedPdfQuestion {
     if (!rationale) issues.push("No rationale found");
     return {
       qb_id: id,
+      exam: "sat",
+      letter_style: null,
       section,
       format,
       test: header.test ?? "SAT Math",
@@ -415,6 +417,8 @@ function parseBlock(lines: Line[], id: string): ParsedPdfQuestion {
 
   return {
     qb_id: id,
+    exam: "sat",
+    letter_style: null,
     section: "rw",
     format: "mcq",
     test: header.test,

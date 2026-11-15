@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GENERAL_RULES, RULES, RULE_BY_ID, formatRulesForPrompt, generalRules, getRule, rulesForSkill } from "@/content/rules";
-import { MATH_SKILLS, SKILLS, SKILL_DOMAIN, sectionOfSkill } from "@/lib/questions/taxonomy";
+import { ACT_DOMAINS, MATH_SKILLS, SKILLS, SKILL_DOMAIN, isActSkill, sectionOfSkill, type SatSkill } from "@/lib/questions/taxonomy";
 
 describe("rule library", () => {
   it("has unique, well-formed ids", () => {
@@ -27,7 +27,8 @@ describe("rule library", () => {
         expect(r.domain).toBe("General");
         continue;
       }
-      expect(SKILL_DOMAIN[r.skill]).toBe(r.domain);
+      if (isActSkill(r.skill)) expect(ACT_DOMAINS as readonly string[]).toContain(r.domain);
+      else expect(SKILL_DOMAIN[r.skill as SatSkill]).toBe(r.domain);
     }
   });
 

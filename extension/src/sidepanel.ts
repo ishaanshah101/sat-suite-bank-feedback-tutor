@@ -1,16 +1,16 @@
-import { ApiError, authenticate, DEFAULT_SERVER, loadSettings, normalizeServer, request, saveSettings, webLink } from "./api";
+import { ApiError, authenticate, DEFAULT_SERVER, loadSettings, normalizeServer, request, saveSettings, streamCapture, webLink } from "./api";
 import { activeTabIn, ALL_SITES, captureTab, CaptureBlocked, FIX_STEPS, HELP, openExtensionSettings, requestAllSites, type CaptureFix } from "./capture";
 import { isPracticeUrl, readPracticeTab } from "./practice";
 import { downscale } from "./image";
 import { renderMathHtml } from "../../src/lib/math/render";
 import { parseSprEntry } from "../../src/lib/questions/spr";
-import { LETTERS, type ExplainResponse, type ExtractResponse, type Health, type Letter, type PickResponse, type Question, type RecentAttempt, type RuleCard, type Settings } from "./types";
+import { LETTERS, type ChoiceLetter, type ExplainResponse, type Health, type Letter, type LetterStyle, type PickResponse, type Question, type RecentAttempt, type RuleCard, type Settings } from "./types";
 import { createAddons } from "./addons";
 import { normalizeQuestion } from "./addons/types";
 
 /** What the student said they picked on the card, once they have. */
 interface PickResult {
-  picked: Letter | "spr" | "correct";
+  picked: ChoiceLetter | "spr" | "correct";
   response: string | null;
   isCorrect: boolean | null;
 }
@@ -48,6 +48,43 @@ interface State {
   sprInput: string;
   /** Whether "Question it read" is open (kept across re-renders). */
   questionOpen: boolean;
+  /** The card while it is still being written: the answer and the bullets so far. */
+  live: LiveCard | null;
+}
+
+/** What the capture stream has written so far. */
+interface LiveCard {
+  exam?: "sat" | "act";
+  section?: string;
+  format?: "mcq" | "spr";
+  letter_style?: LetterStyle;
+  correct_letter?: ChoiceLetter | null;
+  correct_answer?: string | null;
+  key_rules?: string[];
+}
+
+/** The choices this question has: A to D, plus E on an older five-choice ACT Math question. */
+function lettersOf(q: Pick<Question, "choices">): ChoiceLetter[] {
+  return q.choices?.E?.trim() ? [...LETTERS, "E"] : LETTERS;
+}
+
+/** The letter as printed on screen: ACT even-numbered questions print F G H J K for A B C D E. */
+function shown(letter: string | null | undefined, style: LetterStyle | null | undefined): string {
+  if (!letter) return "?";
+  return style === "fghj" ? ({ A: "F", B: "G", C: "H", D: "J", E: "K" } as Record<string, string>)[letter] ?? letter : letter;
+}
+
+/** "SAT Math", "ACT English"... for the chips. */
+function testLabel(q: Pick<Question, "exam" | "section">): string {
+  const section = { rw: "Reading and Writing", math: "Math", english: "English", reading: "Reading", science: "Science" }[q.section] ?? "";
+  return `${q.exam === "act" ? "ACT" : "SAT"} ${section}`;
+}
+
+/** The local study log (Plan, Progress, Practice) keeps SAT-shaped entries: ACT English, Reading and Science go in the verbal bucket. */
+function forAddons(q: Question): Parameters<typeof normalizeQuestion>[0] {
+  const section = q.section === "math" ? "math" : "rw";
+  const choices = q.choices ? { A: q.choices.A, B: q.choices.B, C: q.choices.C, D: q.choices.D } : null;
+  return { ...q, section, choices, correct: q.correct === "E" ? null : q.correct } as Parameters<typeof normalizeQuestion>[0];
 }
 
 const state: State = {
@@ -68,6 +105,7 @@ const state: State = {
   pickError: null,
   sprInput: "",
   questionOpen: false,
+  live: null,
 };
 
 /** The browser window this panel belongs to (the toolbar icon sends its clicks per window). */
@@ -183,7 +221,7 @@ function renderConnect(): Node[] {
       "div",
       { class: "card" },
       h("h1", { text: "Rulecard" }),
-      h("p", { class: "muted small", text: "Capture a Reading and Writing or Math question from a Question Bank PDF or a practice test and get the answer plus the 2 or 3 rules behind it. Your history is saved to your account, on the web app too." }),
+      h("p", { class: "muted small", text: "Capture an SAT or ACT question (a Question Bank PDF, a practice test) and get the answer plus the real rules behind it. Your history is saved to your account, on the web app too." }),
       h("div", { class: "tabs", role: "tablist" }, tab("signin", "Sign in"), tab("signup", "Create account")),
       h("label", { class: "field" }, "Email", email),
       h("label", { class: "field" }, "Password", password),
@@ -334,6 +372,7 @@ function renderMain(): Node[] {
     // Home is only this: one button, then the answer and its 2 to 3 bullets, then "Which did you pick?".
     nodes.push(...addons.renderAboveCapture(), renderCaptureCard());
     if (state.result && state.question) nodes.push(renderResult(state.result, state.question));
+    else if (state.live) nodes.push(renderLiveCard(state.live));
     // Today's plan sits at the bottom, quiet and folded, so the capture stays the main thing.
     nodes.push(...addons.renderHomeBelow());
   } else {
@@ -411,7 +450,7 @@ function renderCaptureCard(): Node {
       : state.capturing === "reading"
       ? "Reading the question..."
       : state.capturing === "explaining"
-        ? "Writing your explanation..."
+        ? "Explaining..."
         : state.result
           ? "Capture another question"
           : "Capture this tab";
@@ -431,8 +470,8 @@ function renderCaptureCard(): Node {
       h(
         "ol",
         { class: "steps small muted", "data-testid": "capture-steps" },
-        h("li", { text: "Open the question: a Question Bank PDF, or a practice-test question you're reviewing. Scroll so the whole question and its choices are on screen." }),
-        h("li", { text: "Press Capture this tab. That's it: you get the answer and the 2 or 3 rules that explain it." }),
+        h("li", { text: "Open the question: an SAT Question Bank PDF, an SAT or ACT practice test, a question you're reviewing. Scroll so the whole question and its choices are on screen." }),
+        h("li", { text: "Press Capture this tab. That's it: the answer and the rules that explain it show up as they are written." }),
       ),
       state.canSeeTabs === false
         ? h("p", { class: "small", "data-testid": "first-time-note", text: "First time only: Chrome will ask once if Rulecard can see the tab you capture. Click Allow." })
@@ -469,21 +508,39 @@ function renderHowTo(): Node {
     h(
       "ol",
       { class: "steps small" },
-      h("li", { text: "Open the question: a SAT Suite Question Bank PDF, or a practice-test question in My Practice that you got wrong. Make sure the whole question and its choices are on screen." }),
+      h("li", { text: "Open the question: a SAT Suite Question Bank PDF, a practice-test question in My Practice that you got wrong, or an ACT practice test. Make sure the whole question and its choices are on screen." }),
       h("li", { text: "Press Capture this tab (or click the Rulecard icon in Chrome's toolbar). Rulecard takes one screenshot of that tab, only when you ask." }),
-      h("li", { text: "You get the answer and 2 or 3 bullets with the rules behind it, in plain words." }),
+      h("li", { text: "You get the answer and a few bullets with the rules behind it, in plain words: as many as the question needs." }),
       h("li", { text: "Tap the letter you picked to see why it's wrong. Your plan, progress and review are in the other tabs." }),
     ),
   );
 }
 
-/** The card: the answer, 2 to 3 bullets, then "Which did you pick?". */
+/** The card while it streams in: the answer as soon as it is known, then each bullet as it is written. */
+function renderLiveCard(live: LiveCard): Node {
+  const answer = live.format === "spr" ? live.correct_answer : live.correct_letter ? shown(live.correct_letter, live.letter_style) : null;
+  const bullets = (live.key_rules ?? []).filter((b) => typeof b === "string" && b.trim());
+  return h(
+    "div",
+    { class: "card live", id: "live-card", "aria-busy": "true" },
+    h(
+      "div",
+      { class: "row between" },
+      h("strong", { class: "answer-line", "data-testid": "live-answer", text: answer ? `Answer: ${answer}` : "Finding the answer..." }),
+      live.exam && live.section ? chip(testLabel({ exam: live.exam, section: live.section as Question["section"] })) : null,
+    ),
+    bullets.length ? h("ul", { class: "key-rules", "data-testid": "live-rules" }, ...bullets.map((rule) => mathEl("li", rule))) : null,
+    h("div", { class: "row small muted" }, spinner(), bullets.length ? "Writing the rules..." : "Reading the question..."),
+  );
+}
+
+/** The card: the answer, the bullets it needs, then "Which did you pick?". */
 function renderResult(r: CardResult, q: Question): Node {
   const card = r.card;
   const math = isMathQuestion(q);
-  const answer = card.correct_letter ?? card.correct_answer ?? "?";
+  const answer = card.correct_letter ? shown(card.correct_letter, q.letterStyle) : card.correct_answer ?? "?";
   const bullets = card.key_rules?.length ? card.key_rules : [card.rule_statement];
-  const rulePath = `/rules${math ? "?section=math" : ""}#${card.rule_id}`;
+  const rulePath = `/rules?section=${q.exam === "act" ? `act-${q.section}` : math ? "math" : "rw"}#${card.rule_id}`;
   return h(
     "div",
     { class: "card", id: "result-card" },
@@ -491,7 +548,7 @@ function renderResult(r: CardResult, q: Question): Node {
       "div",
       { class: "row between" },
       h("strong", { class: "answer-line", "data-testid": "card-answer", text: `Answer: ${answer}` }),
-      card.solved_by_model ? chip("worked out by Rulecard, check it", "warn") : null,
+      h("span", { class: "row" }, chip(testLabel(q)), card.solved_by_model ? chip("worked out by Rulecard, check it", "warn") : null),
     ),
     h("ul", { class: "key-rules", "data-testid": "key-rules" }, ...bullets.map((rule) => mathEl("li", rule))),
     h(
@@ -508,7 +565,7 @@ function renderResult(r: CardResult, q: Question): Node {
 function renderPickSection(r: CardResult, q: Question): Node {
   const gridIn = isGridIn(q);
   const card = r.card;
-  const answer = card.correct_letter ?? card.correct_answer ?? "?";
+  const answer = card.correct_letter ? shown(card.correct_letter, q.letterStyle) : card.correct_answer ?? "?";
   const children: Child[] = [h("h2", { text: gridIn ? "What did you enter?" : "Which did you pick?" })];
   if (gridIn) {
     const entry = state.sprInput.trim() ? parseSprEntry(state.sprInput) : null;
@@ -545,10 +602,10 @@ function renderPickSection(r: CardResult, q: Question): Node {
       h(
         "div",
         { class: "picks", role: "group", "aria-label": "The letter you picked" },
-        ...LETTERS.map((letter) =>
+        ...lettersOf(q).map((letter) =>
           h("button", {
             class: `pick ${r.pick?.picked === letter ? "on" : ""}`.trim(),
-            text: letter,
+            text: shown(letter, q.letterStyle),
             disabled: state.picking,
             "aria-pressed": String(r.pick?.picked === letter),
             onclick: () => void choosePick(letter),
@@ -560,7 +617,7 @@ function renderPickSection(r: CardResult, q: Question): Node {
   if (state.pickError) children.push(h("div", { class: "banner danger", role: "alert", text: state.pickError }));
   const p = r.pick;
   if (p && !state.picking) {
-    const yours = p.picked === "spr" ? p.response ?? "your answer" : p.picked;
+    const yours = p.picked === "spr" ? p.response ?? "your answer" : p.picked === "correct" ? "That" : shown(p.picked, q.letterStyle);
     if (p.isCorrect === true) {
       children.push(h("div", { class: "banner good", "data-testid": "pick-why" }, h("p", { class: "stem", text: `${yours} is right. Nice.` }), h("p", { class: "small muted", text: "The bullets above are why, so you get it right every time." })));
     } else {
@@ -596,7 +653,7 @@ function renderQuestionRead(q: Question): Node {
     h(
       "div",
       { class: "row" },
-      chip(isMathQuestion(q) ? "Math" : "Reading and Writing"),
+      chip(testLabel(q)),
       q.qbId ? chip(`ID ${q.qbId}`) : null,
       q.skill ? chip(q.skill, "accent") : null,
       q.difficulty ? chip(q.difficulty) : null,
@@ -604,7 +661,7 @@ function renderQuestionRead(q: Question): Node {
     q.passage ? mathEl("div", q.passage, { class: "passage" }) : null,
     q.figure ? h("div", { class: "figure" }, h("div", { class: "figure-label", text: "Figure (as read)" }), mathEl("div", q.figure)) : null,
     mathEl("p", q.stem, { class: "stem" }),
-    choices ? h("ol", { class: "choices" }, ...LETTERS.map((letter) => h("li", { class: "choice" }, h("span", { class: "letter", text: `${letter}.` }), mathEl("span", choices[letter])))) : null,
+    choices ? h("ol", { class: "choices" }, ...lettersOf(q).map((letter) => h("li", { class: "choice" }, h("span", { class: "letter", text: `${shown(letter, q.letterStyle)}.` }), mathEl("span", choices[letter] ?? "")))) : null,
   );
 }
 
@@ -651,6 +708,7 @@ function resetQuestion() {
   state.pickError = null;
   state.sprInput = "";
   state.questionOpen = false;
+  state.live = null;
 }
 
 async function refreshHealth() {
@@ -713,12 +771,44 @@ function captureThisTab(): Promise<void> {
   });
 }
 
-/** Read the question, then write its card (no pick needed). A known pick is recorded straight after. */
+/** Coalesce stream updates into one redraw per frame. */
+let redrawQueued = false;
+function renderSoon() {
+  if (redrawQueued) return;
+  redrawQueued = true;
+  requestAnimationFrame(() => {
+    redrawQueued = false;
+    render();
+  });
+}
+
+/**
+ * Read the question and write its card in ONE streamed call (/api/capture): the answer and the bullets show
+ * as they are written. A known pick (a quiz miss) is recorded straight after.
+ */
 async function explainSource(body: Source, picked: Letter | null = null): Promise<void> {
+  resetQuestion();
   state.capturing = "reading";
+  state.live = null;
   render();
-  const data = await request<ExtractResponse>(state.settings, "/api/extract", { body });
-  await explainQuestion(data.question, picked);
+  try {
+    const done = await streamCapture(state.settings, body, (partial) => {
+      state.live = partial as LiveCard;
+      if (state.capturing === "reading" && (partial.correct_letter || partial.correct_answer || (partial.key_rules as unknown[] | undefined)?.length)) state.capturing = "explaining";
+      renderSoon();
+    });
+    const question = done.question as Question;
+    state.question = question;
+    state.result = { attemptId: done.attemptId, card: done.card as RuleCard, ruleName: done.rule?.name ?? null, pick: null };
+    void addons.afterExtract(normalizeQuestion(forAddons(question)));
+    void refreshRecent();
+  } finally {
+    state.live = null;
+  }
+  if (picked && state.question?.format !== "spr") {
+    state.capturing = null;
+    await choosePick(picked);
+  }
 }
 
 async function explainQuestion(question: Question, picked: Letter | null = null): Promise<void> {
@@ -726,7 +816,7 @@ async function explainQuestion(question: Question, picked: Letter | null = null)
   state.question = question;
   state.capturing = "explaining";
   render();
-  void addons.afterExtract(normalizeQuestion(question));
+  void addons.afterExtract(normalizeQuestion(forAddons(question)));
   const data = await request<ExplainResponse>(state.settings, "/api/explain", {
     body: { questionId: question.id, picked: "none", allowModelSolve: true },
   });
@@ -740,7 +830,7 @@ async function explainQuestion(question: Question, picked: Letter | null = null)
 }
 
 /** "Which did you pick?": no model call, the card already knows why each wrong choice is wrong. */
-async function choosePick(picked: Letter | "spr"): Promise<void> {
+async function choosePick(picked: ChoiceLetter | "spr"): Promise<void> {
   const r = state.result;
   const q = state.question;
   if (!r || !q || state.picking) return;
@@ -764,7 +854,11 @@ async function choosePick(picked: Letter | "spr"): Promise<void> {
     r.card = data.card;
     r.pick = { picked: data.picked, response: data.response, isCorrect: data.isCorrect };
     // The local study log (Plan, Progress, Practice) records the question once the student says what they picked.
-    void addons.afterExplain({ attemptId: r.attemptId, card: data.card, question: q, rule: { id: data.card.rule_id, name: r.ruleName }, isCorrect: data.isCorrect }, data.picked, data.response);
+    // E (a fifth ACT choice) has no slot in the local log's four-letter picks; it is kept on the server.
+    if (data.picked !== "E") {
+      const card = { ...data.card, correct_letter: data.card.correct_letter === "E" ? null : data.card.correct_letter } as RuleCard;
+      void addons.afterExplain({ attemptId: r.attemptId, card, question: forAddons(q), rule: { id: data.card.rule_id, name: r.ruleName }, isCorrect: data.isCorrect } as Parameters<typeof addons.afterExplain>[0], data.picked, data.response);
+    }
     void refreshRecent();
   } catch (error) {
     if (await handleAuthFailure(error)) return;
@@ -908,11 +1002,11 @@ const addons = createAddons(
     describe,
   },
   {
-    getQuestion: () => (state.question ? normalizeQuestion(state.question) : null),
+    getQuestion: () => (state.question ? normalizeQuestion(forAddons(state.question)) : null),
     getExplained: () => {
       const r = state.result;
       if (!r?.pick) return null;
-      return { attemptId: r.attemptId, picked: r.pick.picked === "spr" ? "correct" : r.pick.picked };
+      return { attemptId: r.attemptId, picked: r.pick.picked === "spr" || r.pick.picked === "E" ? "correct" : r.pick.picked };
     },
     // A miss from the Question Bank export quiz: its picture, with the letter the student picked.
     processImage: (image, picked) =>

@@ -1,6 +1,13 @@
 export type Letter = "A" | "B" | "C" | "D";
-export type Pick = Letter | "correct" | "spr" | "none";
+/** E is the fifth choice of older ACT Math questions. */
+export type ChoiceLetter = Letter | "E";
+export type Pick = ChoiceLetter | "correct" | "spr" | "none";
 export type Section = "rw" | "math";
+/** Every section a captured question can be in: SAT rw/math, ACT english/math/reading/science. */
+export type QuestionSection = Section | "english" | "reading" | "science";
+export type Exam = "sat" | "act";
+/** "fghj": the question's choices are printed F G H J (K), ACT even-numbered questions. */
+export type LetterStyle = "abcd" | "fghj";
 export type QuestionFormat = "mcq" | "spr";
 export const LETTERS: Letter[] = ["A", "B", "C", "D"];
 
@@ -9,12 +16,17 @@ export interface Choices {
   B: string;
   C: string;
   D: string;
+  /** Five-choice questions only (older ACT Math). */
+  E?: string;
 }
 
 export interface Question {
   id: string;
   qbId: string | null;
-  section: Section;
+  /** Missing on questions saved before the ACT was added: the SAT. */
+  exam?: Exam;
+  section: QuestionSection;
+  letterStyle?: LetterStyle | null;
   format: QuestionFormat;
   source: string;
   test: string | null;
@@ -25,7 +37,7 @@ export interface Question {
   passage: string | null;
   /** Null for grid-in (student-produced response) questions. */
   choices: Choices | null;
-  correct: Letter | null;
+  correct: ChoiceLetter | null;
   /** Grid-in only: every accepted form of the answer. */
   answers: string[] | null;
   /** A figure or table described in words (may contain math). */
@@ -44,11 +56,11 @@ export interface RuleCard {
   /** "quick": a captured question, explained before the student says what they picked (the extension's card).
    *  "translated" / "explained": the web app's pick-first cards. */
   mode?: "translated" | "explained" | "quick";
-  correct_letter: Letter | null;
+  correct_letter: ChoiceLetter | null;
   correct_answer: string | null;
   why_correct: string;
   why_pick_fails: string | null;
-  eliminations: { letter: Letter; reason: string }[];
+  eliminations: { letter: ChoiceLetter; reason: string }[];
   steps: string[];
   shortcut: string | null;
   takeaway: string;
@@ -76,7 +88,7 @@ export interface ExplainResponse {
 export interface PickResponse {
   attemptId: string;
   card: RuleCard;
-  picked: Letter | "spr" | "correct";
+  picked: ChoiceLetter | "spr" | "correct";
   response: string | null;
   isCorrect: boolean | null;
 }

@@ -1,12 +1,34 @@
 import { generateText, Output } from "ai";
-import { generalRules, getRule, rulesForSection, rulesForSkill } from "@/content/rules";
+import { getRule, ruleFits, rulesForExamSection, type Rule } from "@/content/rules";
 import { HttpError } from "@/lib/api";
 import type { QuestionRow } from "@/db/schema";
 import { normalizeSkill } from "@/lib/questions/taxonomy";
 import { displayAnswer, parseNumber } from "@/lib/questions/spr";
 import { cardModeFor, explainInstructions, explainUserMessage, isGridIn, isMath } from "./prompts";
 import { abortAfter, isNoOutputError, retryOnNoOutput, withFailover, type FailoverResult } from "./providers";
-import { LETTERS, MAX_KEY_RULES, RuleCardOutputSchema, type CardMode, type Pick, type RuleCard } from "./schemas";
+import { choiceLetters, MAX_KEY_RULES, RuleCardOutputSchema, type CardMode, type Pick, type RuleCard } from "./schemas";
+import type { Exam, Section } from "@/lib/questions/taxonomy";
+
+/** The fallback rule when the cited one does not exist or does not fit this test and section. */
+export function fallbackRule(exam: Exam, section: Section): Rule {
+  const ids =
+    exam === "act"
+      ? section === "math"
+        ? ["AMA-00", "MTH-02"]
+        : section === "english"
+          ? ["AEN-00", "GEN-03"]
+          : section === "reading"
+            ? ["ARD-00", "GEN-03"]
+            : ["ASC-00", "GEN-03"]
+      : section === "math"
+        ? ["MTH-02"]
+        : ["GEN-03"];
+  for (const id of ids) {
+    const rule = getRule(id);
+    if (rule) return rule;
+  }
+  return getRule(section === "math" ? "MTH-02" : "GEN-03")!;
+}
 
 export class NeedsAnswerError extends Error {
   constructor() {
@@ -27,12 +49,13 @@ export function cardModeForPick(question: QuestionRow, picked: Pick): CardMode {
 }
 
 export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: Pick, gotItRight: boolean | null, mode: CardMode = cardModeForPick(question, picked)): RuleCard {
-  const section = isMath(question) ? "math" : "rw";
-  const next: RuleCard = { ...card, mode, rule_id: card.rule_id.trim().toUpperCase(), steps: [...(card.steps ?? [])], eliminations: [...(card.eliminations ?? [])] };
+  const exam: Exam = question.exam ?? "sat";
+  const section = question.section;
+  const next: RuleCard = { ...card, mode, rule_id: (card.rule_id ?? "").trim().toUpperCase(), steps: [...(card.steps ?? [])], eliminations: [...(card.eliminations ?? [])] };
   const cited = getRule(next.rule_id);
-  if (!cited || cited.section !== section) {
+  if (!cited || !ruleFits(cited, exam, section)) {
     // The prompt promised the closest general rule as the fallback; do not pin the miss on an unrelated skill.
-    const fallback = getRule(section === "math" ? "MTH-02" : "GEN-03")!;
+    const fallback = fallbackRule(exam, section);
     next.suggested_rule = next.suggested_rule ?? card.rule_id;
     next.rule_id = fallback.id;
     next.rule_statement = fallback.statement;
@@ -66,7 +89,7 @@ export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: 
       seen.add(e.letter);
       return true;
     });
-    for (const letter of LETTERS) {
+    for (const letter of choiceLetters(question.choices)) {
       if (!exclude.has(letter) && !seen.has(letter)) next.eliminations.push({ letter, reason: "Does not satisfy the rule above." });
     }
   }
@@ -89,7 +112,7 @@ export function sanitizeRuleCard(card: RuleCard, question: QuestionRow, picked: 
       seenRules.add(key);
       return true;
     })
-    .map((r) => (r.length > 320 ? `${r.slice(0, 317).trimEnd()}...` : r))
+    .map((r) => (r.length > 400 ? `${r.slice(0, 397).trimEnd()}...` : r))
     .slice(0, MAX_KEY_RULES);
   if (!next.key_rules.length) next.key_rules = [next.rule_statement];
   // Translating (and the quick card) never adds an explanation of its own; explaining always has one.
@@ -138,10 +161,12 @@ export async function generateRuleCard(input: {
   const known = hasKnownAnswer(question);
   if (!known && !allowModelSolve) throw new NeedsAnswerError();
   const math = isMath(question);
-  const section = math ? "math" : "rw";
-  const skill = normalizeSkill(question.skill);
-  const fromSkill = skill ? rulesForSkill(skill).filter((r) => r.section === section) : [];
-  const slice = fromSkill.length ? [...fromSkill, ...generalRules(section)] : rulesForSection(section);
+  const exam: Exam = question.exam ?? "sat";
+  const skill = normalizeSkill(question.skill, exam);
+  const sectionRules = rulesForExamSection(exam, question.section);
+  const fromSkill = skill ? sectionRules.filter((r) => r.skill === skill) : [];
+  const general = sectionRules.filter((r) => r.domain === "General");
+  const slice = fromSkill.length ? [...fromSkill, ...general] : sectionRules;
   const kind = math ? "math" : "explain";
   const mode = cardModeForPick(question, picked);
   const result = await withFailover(kind, async (provider) => {
