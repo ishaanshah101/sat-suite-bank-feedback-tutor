@@ -14,7 +14,7 @@ import { createGateway } from "ai";
 type Bench = { model: string; thinking: number | null; work?: boolean };
 const WORK_NOTE = `
 
-Scratch work (the "work" field, written right after answer_shown and before the answer): solve the question there first, the way a strong student writes on scratch paper: only the equations, numbers and checks, at most about 60 words, then check your result against the choices before you write correct_letter or correct_answer. If answer_shown is true, write "shown". For Reading and Writing, one short line naming the deciding words.`;
+Scratch work (the "work" field, written right after answer_shown and before the answer): solve the question there first, the way a strong student writes on scratch paper: only the equations, numbers and checks, at most about 60 words, then check your result against the choices before you write correct_letter or correct_answer. If answer_shown is true, write "shown". For Reading and Writing, one short line naming the deciding words. Write work in plain text: no LaTeX and no backslashes.`;
 const { question_found, exam, section, format, letter_style, answer_shown, ...restShape } = CaptureOutputSchema.shape;
 const WorkSchema = z.object({ question_found, exam, section, format, letter_style, answer_shown, work: z.string(), ...restShape });
 function benchOf(request: Request): Bench | null {
@@ -101,7 +101,10 @@ export async function POST(request: Request) {
           try {
             output = (await result.output) as CaptureOutput;
           } catch (error) {
-            if (isNoOutputError(error)) throw new ExtractionError("The model could not read a complete question. Try again, with the whole question on screen.");
+            if (isNoOutputError(error)) {
+              if (bench) console.error("[bench] no output", String((error as { text?: string }).text ?? "").slice(0, 3000), String((error as { cause?: unknown }).cause ?? "").slice(0, 600));
+              throw new ExtractionError("The model could not read a complete question. Try again, with the whole question on screen.");
+            }
             throw error;
           }
           noteStreamOk(provider);
