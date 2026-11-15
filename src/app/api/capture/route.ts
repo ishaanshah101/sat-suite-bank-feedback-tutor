@@ -11,7 +11,12 @@ import { getRule } from "@/content/rules";
 import { createGateway } from "ai";
 
 // TEMPORARY speed bench, preview deployments only: pick a model and thinking budget per request.
-type Bench = { model: string; thinking: number | null };
+type Bench = { model: string; thinking: number | null; work?: boolean };
+const WORK_NOTE = `
+
+Scratch work (the "work" field, written right after answer_shown and before the answer): solve the question there first, the way a strong student writes on scratch paper: only the equations, numbers and checks, at most about 60 words, then check your result against the choices before you write correct_letter or correct_answer. If answer_shown is true, write "shown". For Reading and Writing, one short line naming the deciding words.`;
+const { question_found, exam, section, format, letter_style, answer_shown, ...restShape } = CaptureOutputSchema.shape;
+const WorkSchema = z.object({ question_found, exam, section, format, letter_style, answer_shown, work: z.string(), ...restShape });
 function benchOf(request: Request): Bench | null {
   if (process.env.VERCEL_ENV !== "preview") return null;
   const raw = request.headers.get("x-rulecard-bench");
@@ -67,9 +72,9 @@ export async function POST(request: Request) {
         try {
           const result = streamText({
             model: bench ? createGateway()(bench.model) : provider.model("capture"),
-            instructions: captureInstructions(),
+            instructions: bench?.work ? captureInstructions() + WORK_NOTE : captureInstructions(),
             messages: [{ role: "user", content }],
-            output: Output.object({ schema: CaptureOutputSchema, name: "captured_card" }),
+            output: Output.object({ schema: (bench?.work ? WorkSchema : CaptureOutputSchema) as typeof CaptureOutputSchema, name: "captured_card" }),
             providerOptions: bench ? (bench.thinking === null ? {} : { google: { thinkingConfig: { thinkingBudget: bench.thinking } } }) : provider.providerOptions("capture"),
             maxOutputTokens: 9000,
             maxRetries: 1,
@@ -120,7 +125,7 @@ export async function POST(request: Request) {
             const rule = getRule(card.rule_id);
             const ms = Date.now() - started;
             console.info(`[capture] ${ms} ms ${question.exam}/${question.section} ${card.rule_id}`);
-            const benchInfo = bench ? { marks, usage: await result.usage, outputChars: JSON.stringify(output).length } : undefined;
+            const benchInfo = bench ? { marks, usage: await result.usage, meta: await result.providerMetadata, work: (output as { work?: string }).work, outputChars: JSON.stringify(output).length } : undefined;
             send({ type: "done", attemptId: attempt.id, card, question: updated, rule: { id: card.rule_id, name: rule?.name ?? null }, provider: provider.name, model: provider.modelId("capture"), ms, ...(benchInfo ? { bench: benchInfo } : {}) } as Event);
           } catch (error) {
             await deleteAttempt(session.userId, attempt.id).catch(() => undefined);
