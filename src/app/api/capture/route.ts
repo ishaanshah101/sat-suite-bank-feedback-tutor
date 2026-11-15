@@ -8,7 +8,7 @@ import { abortAfter, isNoOutputError, noteStreamError, noteStreamOk, pickProvide
 import { chargeAiQuota } from "@/lib/ai/quota";
 import { createAttempt, deleteAttempt, finishAttempt, getQuestion, setModelAnswer, setModelGridInAnswer, upsertQuestion } from "@/db/queries";
 import { getRule } from "@/content/rules";
-import { createGateway } from "@ai-sdk/gateway";
+import { createGateway } from "ai";
 
 // TEMPORARY speed bench, preview deployments only: pick a model and thinking budget per request.
 type Bench = { model: string; thinking: number | null };
