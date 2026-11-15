@@ -196,3 +196,101 @@ export async function streamChat(
   }
   return full;
 }
+
+/** One line of the /api/capture stream. */
+export type CaptureEvent =
+  | { type: "partial"; card: Record<string, unknown> }
+  | { type: "done"; attemptId: string; card: unknown; question: unknown; rule: { id: string; name: string | null }; ms?: number }
+  | { type: "error"; error: string; code?: string; status: number };
+
+/**
+ * POST /api/capture: the question read and explained in one streamed call. Calls onPartial as the answer and
+ * the bullets arrive, and resolves with the final "done" event. Errors become ApiError, like request().
+ */
+export async function streamCapture(
+  settings: Settings,
+  body: { image: string; source: "capture" | "image" } | { text: string; source: "paste" },
+  onPartial: (card: Record<string, unknown>) => void,
+): Promise<Extract<CaptureEvent, { type: "done" }>> {
+  const control = new AbortController();
+  let timer = setTimeout(() => control.abort(), STREAM_IDLE_MS);
+  const touch = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => control.abort(), STREAM_IDLE_MS);
+  };
+  let response: Response;
+  try {
+    response = await fetch(settings.server + "/api/capture", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/x-ndjson", authorization: `Bearer ${settings.token ?? ""}` },
+      body: JSON.stringify(body),
+      signal: control.signal,
+    });
+  } catch {
+    clearTimeout(timer);
+    if (control.signal.aborted) throw timedOut();
+    throw new ApiError(0, `Could not reach ${settings.server}. Check your connection.`);
+  }
+  if (!response.ok || !response.body) {
+    clearTimeout(timer);
+    const text = await response.text().catch(() => "");
+    let message = response.statusText;
+    let code: string | undefined;
+    try {
+      const parsed = JSON.parse(text) as { error?: string; code?: string };
+      message = parsed.error ?? message;
+      code = parsed.code;
+    } catch {
+      if (text) message = text.slice(0, 200);
+    }
+    throw new ApiError(response.status, message, code);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let done: Extract<CaptureEvent, { type: "done" }> | null = null;
+  const take = (line: string) => {
+    if (!line.trim()) return;
+    let event: CaptureEvent;
+    try {
+      event = JSON.parse(line) as CaptureEvent;
+    } catch {
+      return;
+    }
+    if (event.type === "partial") onPartial(event.card);
+    else if (event.type === "done") done = event;
+    else if (event.type === "error") throw new ApiError(event.status, event.error, event.code);
+  };
+  try {
+    for (;;) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch {
+        if (control.signal.aborted) throw timedOut();
+        throw new ApiError(0, "The connection dropped. Try again.");
+      }
+      touch();
+      if (chunk.done) {
+        buffer += decoder.decode();
+        take(buffer);
+        break;
+      }
+      buffer += decoder.decode(chunk.value, { stream: true });
+      let newline = buffer.indexOf("\n");
+      while (newline >= 0) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
+        newline = buffer.indexOf("\n");
+        take(line);
+      }
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!done) throw new ApiError(502, "The explanation stopped before it finished. Try again.");
+  return done;
+}

@@ -12,13 +12,16 @@ export const metadata = { title: "History · Rulecard" };
 
 export default async function HistoryPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
   const params = await searchParams;
-  const filter: Section | null = params.section === "math" || params.section === "rw" ? params.section : null;
+  const filter: Section | "act" | null = params.section === "math" || params.section === "rw" || params.section === "act" ? params.section : null;
   const session = await requirePageSession();
   const all = await listAttempts(session.userId);
-  const rows = filter ? all.filter(({ question }) => (question.section ?? "rw") === filter) : all;
-  const tabs: Array<{ key: Section | null; label: string; href: string }> = [
+  const rows = filter
+    ? all.filter(({ question }) => (filter === "act" ? question.exam === "act" : question.exam !== "act" && (question.section ?? "rw") === filter))
+    : all;
+  const tabs: Array<{ key: Section | "act" | null; label: string; href: string }> = [
     { key: null, label: "All", href: "/history" },
-    ...SECTIONS.map((s) => ({ key: s, label: SECTION_LABEL[s], href: `/history?section=${s}` })),
+    ...SECTIONS.map((s) => ({ key: s, label: `SAT ${SECTION_LABEL[s]}`, href: `/history?section=${s}` })),
+    { key: "act", label: "ACT", href: "/history?section=act" },
   ];
   return (
     <Shell>
@@ -39,7 +42,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
         ))}
       </nav>
       {rows.length === 0 ? (
-        <Card className="text-sm text-muted">Nothing reviewed yet{filter ? ` in ${SECTION_LABEL[filter]}` : ""}. Capture or paste a question on the Review page.</Card>
+        <Card className="text-sm text-muted">Nothing reviewed yet{filter ? ` in ${filter === "act" ? "the ACT" : `SAT ${SECTION_LABEL[filter]}`}` : ""}. Capture or paste a question on the Review page.</Card>
       ) : (
         <Card className="overflow-x-auto p-0">
           <table className="w-full text-sm">
@@ -68,7 +71,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                         {attempt.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </Link>
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap">{question.section === "math" ? "Math" : "R&W"}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{question.exam === "act" ? `ACT ${SECTION_LABEL[question.section]}` : question.section === "math" ? "Math" : "R&W"}</td>
                     <td className="px-4 py-2">{question.skill ?? question.domain ?? "?"}</td>
                     <td className="px-4 py-2">{rule ? `${rule.id} ${rule.name}` : (attempt.ruleId ?? "pending")}</td>
                     <td className="px-4 py-2">{yours}</td>

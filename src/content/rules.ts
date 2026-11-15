@@ -1,12 +1,19 @@
-import type { Domain, Section, Skill } from "@/lib/questions/taxonomy";
+import type { ActDomain, ActSection, Domain, Exam, Section, Skill } from "@/lib/questions/taxonomy";
 import { MATH_RULES } from "./math-rules";
 import { EXTRA_MATH_RULES, EXTRA_RW_RULES } from "./rules-extra";
 import { RULE_TIPS } from "./rule-tips";
+import { SAT_GAP_RULES, SAT_GAP_TIPS } from "./sat-gaps";
+import { ACT_ENGLISH_RULES, SAT_RULES_FOR_ACT_ENGLISH } from "./act-english";
+import { ACT_MATH_RULES, SAT_RULES_FOR_ACT_MATH } from "./act-math";
+import { ACT_READING_RULES, SAT_RULES_FOR_ACT_READING } from "./act-reading";
+import { ACT_SCIENCE_RULES, SAT_RULES_FOR_ACT_SCIENCE } from "./act-science";
 
 export interface Rule {
   id: string;
   section: Section;
-  domain: Domain | "General";
+  /** Which tests the rule applies to. Missing means the SAT only. */
+  exams?: Exam[];
+  domain: Domain | ActDomain | "General";
   skill: Skill | "General";
   /** 3 to 6 words */
   name: string;
@@ -592,10 +599,46 @@ const RW_RULES: Omit<Rule, "section">[] = [
   },
 ];
 
+/** SAT rules that also decide ACT questions, and the ACT section each one serves. */
+const SHARED_WITH_ACT: ReadonlyMap<string, ActSection[]> = (() => {
+  const map = new Map<string, ActSection[]>();
+  const add = (ids: string[], section: ActSection) => {
+    for (const id of ids) map.set(id, [...(map.get(id) ?? []), section]);
+  };
+  add(SAT_RULES_FOR_ACT_ENGLISH, "english");
+  add(SAT_RULES_FOR_ACT_MATH, "math");
+  add(SAT_RULES_FOR_ACT_READING, "reading");
+  add(SAT_RULES_FOR_ACT_SCIENCE, "science");
+  return map;
+})();
+
+const SAT_RULES: Rule[] = [...RW_RULES.map((r) => ({ ...r, section: "rw" as const })), ...EXTRA_RW_RULES, ...MATH_RULES, ...EXTRA_MATH_RULES, ...SAT_GAP_RULES];
+const ACT_RULES: Rule[] = [...ACT_ENGLISH_RULES, ...ACT_MATH_RULES, ...ACT_READING_RULES, ...ACT_SCIENCE_RULES].map((r) => ({ ...r, exams: r.exams ?? ["act"] }));
+
 /** Every rule, with its study-material tips attached. Within a skill, rules keep their id order. */
-export const RULES: Rule[] = [...RW_RULES.map((r) => ({ ...r, section: "rw" as const })), ...EXTRA_RW_RULES, ...MATH_RULES, ...EXTRA_MATH_RULES].map((r) =>
-  RULE_TIPS[r.id] ? { ...r, tips: [...(r.tips ?? []), ...RULE_TIPS[r.id]] } : r,
-);
+export const RULES: Rule[] = [
+  ...SAT_RULES.map((r) => (SHARED_WITH_ACT.has(r.id) ? { ...r, exams: ["sat", "act"] as Exam[] } : r)),
+  ...ACT_RULES,
+].map((r) => {
+  const tips = [...(RULE_TIPS[r.id] ?? []), ...(SAT_GAP_TIPS[r.id] ?? [])];
+  return tips.length ? { ...r, tips: [...(r.tips ?? []), ...tips] } : r;
+});
+
+/** The tests a rule serves. */
+export function examsOf(rule: Rule): Exam[] {
+  return rule.exams ?? ["sat"];
+}
+
+/** Rules that decide questions in one section of one test (SAT rules shared with the ACT included). */
+export function rulesForExamSection(exam: Exam, section: Section): Rule[] {
+  if (exam === "sat") return RULES.filter((r) => r.section === section && examsOf(r).includes("sat"));
+  return RULES.filter((r) => (examsOf(r).includes("act") && r.section === section && !examsOf(r).includes("sat")) || (SHARED_WITH_ACT.get(r.id) ?? []).includes(section as ActSection));
+}
+
+/** Whether a rule may be cited for a question in this test and section. */
+export function ruleFits(rule: Rule, exam: Exam, section: Section): boolean {
+  return rulesForExamSection(exam, section).some((r) => r.id === rule.id);
+}
 
 export const RULE_BY_ID: ReadonlyMap<string, Rule> = new Map(RULES.map((r) => [r.id, r]));
 
@@ -614,8 +657,8 @@ export function rulesForSection(section: Section): Rule[] {
 }
 
 /** Section-wide strategy rules (GEN-xx for Reading and Writing, MGEN-xx for Math). */
-export function generalRules(section: Section): Rule[] {
-  return RULES.filter((r) => r.domain === "General" && r.section === section);
+export function generalRules(section: Section, exam: Exam = "sat"): Rule[] {
+  return rulesForExamSection(exam, section).filter((r) => r.domain === "General");
 }
 
 export const GENERAL_RULES: Rule[] = generalRules("rw");

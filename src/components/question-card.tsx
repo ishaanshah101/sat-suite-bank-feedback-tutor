@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import type { QuestionRow } from "@/db/schema";
-import type { Letter, Pick } from "@/lib/ai/schemas";
+import { choiceLetters, displayLetter, type Pick } from "@/lib/ai/schemas";
 import { MathText } from "./math-text";
 import { Chip } from "./ui";
 
-const LETTERS: Letter[] = ["A", "B", "C", "D"];
 const PREVIEW_CHARS = 700;
 
 /**
@@ -83,13 +82,13 @@ export function QuestionCard({
       <MathText as="p" text={question.stem} className="font-medium leading-relaxed" />
       {!gridIn && question.choices ? (
         <ol className="space-y-2">
-          {LETTERS.map((letter) => {
+          {choiceLetters(question.choices).map((letter) => {
             const isPick = picked === letter;
             const isCorrect = correct === letter;
             const tone = isCorrect ? "border-good bg-good-soft" : isPick ? "border-miss bg-miss-soft" : "border-line";
             return (
               <li key={letter} className={`flex gap-3 rounded-xl border px-3 py-2 text-[15px] ${tone}`}>
-                <span className="w-5 shrink-0 font-semibold">{letter}.</span>
+                <span className="w-5 shrink-0 font-semibold">{displayLetter(letter, question.letterStyle)}.</span>
                 <MathText text={question.choices?.[letter] ?? ""} className="leading-relaxed" />
                 {isCorrect ? <span className="ml-auto text-xs font-semibold text-good">correct</span> : null}
                 {isPick && !isCorrect ? <span className="ml-auto text-xs font-semibold text-miss">your pick</span> : null}

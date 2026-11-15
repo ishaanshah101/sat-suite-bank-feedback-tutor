@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { HttpError, json, readJson, withApi } from "@/lib/api";
-import { DrillSchema, LetterSchema } from "@/lib/ai/schemas";
+import { DrillSchema, FourLetterSchema } from "@/lib/ai/schemas";
 import { answerDrill, getDrill } from "@/db/queries";
 import { displayAnswer, isSprCorrect, parseSprEntry } from "@/lib/questions/spr";
 
 export const runtime = "nodejs";
 
 const Body = z.union([
-  z.object({ drillId: z.string().uuid(), picked: LetterSchema }),
+  z.object({ drillId: z.string().uuid(), picked: FourLetterSchema }),
   z.object({ drillId: z.string().uuid(), response: z.string().max(20) }),
 ]);
 

@@ -123,6 +123,35 @@ then optionally say which letter they picked and see why it's wrong. The PDF pic
   such as Adobe Acrobat (Chrome only allows that after the toolbar icon is clicked on it). Today's plan is back on
   Home, at the bottom, folded and lighter (`.rc-plan-subtle`).
 
+## 0.9.0: faster cards, any number of bullets, and the ACT (2026-11-15)
+
+- **One streamed call per capture** (`POST /api/capture`, `src/lib/ai/capture.ts`). The model reads the question
+  off the screenshot (or My Practice text) AND writes its card in one call, card first, streamed as NDJSON:
+  "partial" lines carry the answer and the bullets as they are written (the panel shows them live), "done" carries
+  the saved attempt, the stored question and the final card. Before: extract (~3 s) then explain (~9 s), two
+  calls in a row, plus a wasted refused model call for each.
+- **Free-tier models first.** Gateway usage showed half the calls hitting models the free tier refuses (about
+  0.3 s each) before reaching Gemini. The candidate lists now start with `google/gemini-2.5-flash` (cards) and
+  `google/gemini-2.5-flash-lite` (extraction); `GATEWAY_CAPTURE_MODEL` etc. override them on a paid account.
+  Capture uses a 2048-token thinking budget (it must solve Math when no answer is on screen).
+- **The prompt is one fixed prefix** (~36k tokens: every rule in one line each, every playbook compacted), the
+  same for every call, so the provider can cache it; only the screenshot changes.
+- **Bullets:** as many as the question needs (1 for a one-step question, up to 6), never padded (`BULLET_COUNT`).
+- **The ACT.** Questions carry `exam` (sat|act); sections add `english`, `reading`, `science` (ACT Math shares
+  `math`); a fifth choice `E` for older ACT Math; `letter_style` "fghj" when the choices are printed F G H J (K).
+  Letters are stored by position (A to E) and shown as printed (`displayLetter`). Migration `0009_act.sql`
+  (applied to Supabase before the deploy).
+- **Rule library: 317 rules (151 SAT, 166 ACT-only).** New files `src/content/act-english.ts` (AEN, 39), `act-math.ts` (AMA, 61),
+  `act-reading.ts` (ARD, 31), `act-science.ts` (ASC, 35), each with its ACT playbook and the list of SAT rules
+  that decide the same ACT questions (`exams: ["sat","act"]`), plus `sat-gaps.ts` (30 SAT rules and 28 tips that
+  filled gaps found in an audit against College Board's skill descriptions). `rulesForExamSection(exam,
+  section)` and `ruleFits` keep a card's rule inside its test and section; `fallbackRule` picks AEN-00, AMA-00,
+  ARD-00 or ASC-00 for the ACT. The research was done from ACT and College Board pages via web search (act.org
+  and satsuite.collegeboard.org could not be fetched from the build session); facts that could not be confirmed
+  first-hand are noted in each file's playbook.
+- **Web app:** the Rules page has six tabs (SAT R&W, SAT Math, ACT English, Math, Reading, Science); History can
+  filter the ACT; the review page shows ACT letters.
+
 ## Publishing the extension on the Chrome Web Store (only you can do this)
 
 1. Register as a Chrome Web Store developer at https://chrome.google.com/webstore/devconsole with your Google account and pay the one-time $5 fee.

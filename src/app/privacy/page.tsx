@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>Your email address and a salted hash of your password (never the password itself).</li>
         <li>
-          The SAT practice questions (Reading and Writing or Math) you send it. In the Chrome extension, that is one screenshot of the tab
+          The SAT or ACT practice questions you send it. In the Chrome extension, that is one screenshot of the tab
           you are on, taken only when you press &quot;Capture this tab&quot; (or click the Rulecard icon with the panel open). On a My Practice
           question page it reads the question&apos;s text instead (with a screenshot when the question has a graph). On the website you can
           also send a PDF page, an image or pasted text. Rulecard reads the question out of it, including equations and a written

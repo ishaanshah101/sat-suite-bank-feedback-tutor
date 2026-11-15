@@ -4,7 +4,11 @@
 // notes, and the cheat sheets, formula sheets and grammar guides he collected. The explain and chat prompts
 // receive the entry for the question's skill plus the section's general entry, so cards teach the fastest
 // route and name the trap. Mix-ups found in real student notes are listed so cards can correct them.
-import type { Section, Skill } from "@/lib/questions/taxonomy";
+import type { Exam, SatSection, Section, Skill } from "@/lib/questions/taxonomy";
+import { ACT_ENGLISH_GENERAL_PLAYBOOK, ACT_ENGLISH_PLAYBOOK } from "./act-english";
+import { ACT_MATH_GENERAL_PLAYBOOK, ACT_MATH_PLAYBOOK } from "./act-math";
+import { ACT_READING_GENERAL_PLAYBOOK, ACT_READING_PLAYBOOK } from "./act-reading";
+import { ACT_SCIENCE_GENERAL_PLAYBOOK, ACT_SCIENCE_PLAYBOOK } from "./act-science";
 
 const r = String.raw;
 
@@ -19,7 +23,7 @@ export interface PlaybookEntry {
   mixups?: string[];
 }
 
-export const GENERAL_PLAYBOOK: Record<Section, PlaybookEntry> = {
+export const GENERAL_PLAYBOOK: Record<SatSection, PlaybookEntry> = {
   rw: {
     route: [
       "Every answer is in the passage; outside knowledge that goes beyond the text is a trap.",
@@ -377,18 +381,61 @@ export const SKILL_PLAYBOOK: Partial<Record<Skill, PlaybookEntry>> = {
   },
 };
 
+const ACT_GENERAL: Record<"english" | "math" | "reading" | "science", { title: string; entry: PlaybookEntry; skills: Record<string, PlaybookEntry> }> = {
+  english: { title: "Playbook for all ACT English questions", entry: ACT_ENGLISH_GENERAL_PLAYBOOK, skills: ACT_ENGLISH_PLAYBOOK },
+  math: { title: "Playbook for all ACT Math questions", entry: ACT_MATH_GENERAL_PLAYBOOK, skills: ACT_MATH_PLAYBOOK },
+  reading: { title: "Playbook for all ACT Reading questions", entry: ACT_READING_GENERAL_PLAYBOOK, skills: ACT_READING_PLAYBOOK },
+  science: { title: "Playbook for all ACT Science questions", entry: ACT_SCIENCE_GENERAL_PLAYBOOK, skills: ACT_SCIENCE_PLAYBOOK },
+};
+
+function formatEntry(lines: string[], title: string, e: PlaybookEntry) {
+  if (!e.route.length && !e.traps.length && !e.lists?.length && !e.mixups?.length) return;
+  lines.push(`${title}:`);
+  for (const x of e.route) lines.push(`- Route: ${x}`);
+  for (const x of e.traps) lines.push(`- Trap: ${x}`);
+  for (const x of e.lists ?? []) lines.push(`- List: ${x}`);
+  for (const x of e.mixups ?? []) lines.push(`- Common mix-up to correct: ${x}`);
+}
+
 /** The playbook text for a skill (plus the section's general entry), formatted for a prompt. */
-export function playbookForPrompt(section: Section, skill: Skill | null): string {
+export function playbookForPrompt(section: Section, skill: Skill | null, exam: Exam = "sat"): string {
   const lines: string[] = [];
-  const add = (title: string, e: PlaybookEntry) => {
-    lines.push(`${title}:`);
-    for (const x of e.route) lines.push(`- Route: ${x}`);
-    for (const x of e.traps) lines.push(`- Trap: ${x}`);
-    for (const x of e.lists ?? []) lines.push(`- List: ${x}`);
-    for (const x of e.mixups ?? []) lines.push(`- Common mix-up to correct: ${x}`);
-  };
+  if (exam === "act" && section !== "rw") {
+    const act = ACT_GENERAL[section];
+    const entry = skill ? act.skills[skill] : undefined;
+    if (entry && skill) formatEntry(lines, `Playbook for ${skill}`, entry);
+    formatEntry(lines, act.title, act.entry);
+    return lines.join("\n");
+  }
+  const sat: SatSection = section === "math" ? "math" : "rw";
   const entry = skill ? SKILL_PLAYBOOK[skill] : undefined;
-  if (entry && skill) add(`Playbook for ${skill}`, entry);
-  add(section === "math" ? "Playbook for all Math questions" : "Playbook for all Reading and Writing questions", GENERAL_PLAYBOOK[section]);
+  if (entry && skill) formatEntry(lines, `Playbook for ${skill}`, entry);
+  formatEntry(lines, sat === "math" ? "Playbook for all Math questions" : "Playbook for all Reading and Writing questions", GENERAL_PLAYBOOK[sat]);
+  return lines.join("\n");
+}
+
+/**
+ * Every playbook, compact, for a prompt that has not classified the question yet (one line per entry):
+ * the first routes and traps, a word list, and the mix-ups (those correct real student mistakes).
+ */
+export function allPlaybooksForPrompt(): string {
+  const lines: string[] = [];
+  const add = (title: string, e: PlaybookEntry | undefined) => {
+    if (!e) return;
+    const parts = [
+      ...e.route.slice(0, 3),
+      ...e.traps.slice(0, 2).map((t) => `Trap: ${t}`),
+      ...(e.lists ?? []).slice(0, 1),
+      ...(e.mixups ?? []).slice(0, 2).map((m) => `Mix-up: ${m}`),
+    ];
+    if (parts.length) lines.push(`${title}: ${parts.join(" | ")}`);
+  };
+  add("SAT Reading and Writing (all)", GENERAL_PLAYBOOK.rw);
+  add("SAT Math (all)", GENERAL_PLAYBOOK.math);
+  for (const [skill, e] of Object.entries(SKILL_PLAYBOOK)) add(`SAT ${skill}`, e);
+  for (const act of Object.values(ACT_GENERAL)) {
+    add(act.title.replace("Playbook for all ", ""), act.entry);
+    for (const [skill, e] of Object.entries(act.skills)) add(`ACT ${skill}`, e);
+  }
   return lines.join("\n");
 }

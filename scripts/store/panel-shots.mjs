@@ -108,6 +108,33 @@ const sprCard = {
   diagnosis: "careless", confidence: 0.9, solved_by_model: false, suggested_rule: null,
 };
 
+// ACT English, even-numbered question: choices printed F G H J.
+const actQuestion = {
+  id: "q4", qbId: null, exam: "act", letterStyle: "fghj", section: "english", format: "mcq", source: "capture", test: "ACT English", domain: "ACT English", skill: "Usage", difficulty: null,
+  passage: "The members of the committee, [[who]] the mayor appointed last spring, finally released their report.",
+  stem: "Which choice is best? (The first choice is NO CHANGE.)",
+  choices: { A: "NO CHANGE", B: "whom", C: "which", D: "whose" },
+  correct: null, answers: null, figure: null, answerSource: null, rationale: null,
+};
+const actCard = {
+  rule_id: "AEN-23", rule_statement: "Use whom when the pronoun is the object of a verb or preposition.", mode: "quick",
+  key_rules: [
+    "Who does the action; whom receives it. Test it: if him fits, use whom.",
+    "Flip the clause: \"the mayor appointed them,\" so it is them, not they.",
+    "Them means whom, so G is right; which is only for things, not people.",
+  ],
+  simple_explanation: null, correct_letter: "B", correct_answer: null,
+  why_correct: "The pronoun is the object of appointed, so it takes the object form whom.",
+  why_pick_fails: null,
+  eliminations: [
+    { letter: "A", reason: "Who is the subject form, but the mayor did the appointing; the members received it. G's whom is the object form." },
+    { letter: "C", reason: "Which refers to things, not people. The committee members are people, so G's whom fits." },
+    { letter: "D", reason: "Whose shows possession, but nothing here is owned. G's whom is the object of appointed." },
+  ],
+  steps: [], shortcut: null, takeaway: "If him fits, whom it is.",
+  diagnosis: "unknown", confidence: 0.92, solved_by_model: true, suggested_rule: null,
+};
+
 const recent = [
   { id: "a1", createdAt: "2026-10-29T18:00:00Z", result: "missed", section: "math", format: "mcq", ruleId: "LFN-03", ruleName: "Equal steps in tables", skill: "Linear functions", stem: "The table shows three values of x and their corresponding values of f(x) for the linear function f. What is f(10)?" },
   { id: "a2", createdAt: "2026-10-29T17:40:00Z", result: "missed", section: "math", format: "spr", response: "-1/17", ruleId: "LE1-01", ruleName: "Undo operations in order", skill: "Linear equations in one variable", stem: "17x − 2 = 1. What value of x is the solution to the given equation?" },
@@ -128,18 +155,19 @@ const recent = [
   const json = (route, body) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   await context.route("https://rulecard.vercel.app/**", async (route) => {
     const p = new URL(route.request().url()).pathname;
-    if (p === "/api/health") return json(route, { ok: true, version: "0.8.2", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
+    if (p === "/api/health") return json(route, { ok: true, version: "0.9.0", db: { ok: true }, ai: { live: "anthropic", configured: ["anthropic"], stub: false } });
     if (p === "/api/attempts") return json(route, { attempts: recent });
-    const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : rwQuestion;
+    const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : mode === "act" ? actQuestion : rwQuestion;
     if (p === "/api/extract") return json(route, { question: q, provider: "anthropic", model: "x" });
     if (p === "/api/explain") {
       if (mode === "math") return json(route, { attemptId: "att2", card: mathCard, question: q, rule: { id: "LFN-03", name: "Equal steps in tables" }, isCorrect: false });
       if (mode === "spr") return json(route, { attemptId: "att3", card: sprCard, question: q, rule: { id: "LE1-01", name: "Undo operations in order" }, isCorrect: false });
+      if (mode === "act") return json(route, { attemptId: "att4", card: actCard, question: q, rule: { id: "AEN-23", name: "Who does it, whom receives it" }, isCorrect: false });
       return json(route, { attemptId: "att1", card: rwCard, question: q, rule: { id: "BND-01", name: "Joining two complete sentences" }, isCorrect: false });
     }
     if (p === "/api/explain/pick") {
       const body = route.request().postDataJSON();
-      const card = mode === "math" ? mathCard : mode === "spr" ? sprCard : rwCard;
+      const card = mode === "math" ? mathCard : mode === "spr" ? sprCard : mode === "act" ? actCard : rwCard;
       const isCorrect = mode === "spr" ? body.response === "3/17" : body.picked === card.correct_letter;
       const why = card.eliminations.find((e) => e.letter === body.picked)?.reason ?? null;
       return json(route, { attemptId: "att", card: { ...card, why_pick_fails: isCorrect ? null : why }, picked: body.picked, response: body.response ?? null, isCorrect });
@@ -160,7 +188,7 @@ const recent = [
   };
   // Hand the panel the question for the current mode, as if it had just been captured.
   const capture = async () => {
-    const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : rwQuestion;
+    const q = mode === "math" ? mathQuestion : mode === "spr" ? sprQuestion : mode === "act" ? actQuestion : rwQuestion;
     await worker.evaluate(async (question) => chrome.storage.session.set({ pendingQuestion: question }), q);
   };
 
@@ -193,5 +221,13 @@ const recent = [
   await panel.locator("#spr-check").click();
   await panel.locator('[data-testid="pick-why"]').waitFor();
   await shot("spr-rule.png");
+
+  // ACT English, letters as printed (F G H J), picked F.
+  mode = "act";
+  await capture();
+  await panel.getByText("Answer: G").waitFor();
+  await panel.locator(".pick", { hasText: /^F$/ }).click();
+  await panel.locator('[data-testid="pick-why"]').waitFor();
+  await shot("act-rule.png");
   await context.close();
 })();

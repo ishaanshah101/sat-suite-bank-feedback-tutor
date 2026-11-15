@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Choices, Letter } from "@/lib/ai/schemas";
+import type { Choices, FourLetter as Letter } from "@/lib/ai/schemas";
 import { ApiError, postJson } from "@/lib/client/api";
 import { parseSprEntry } from "@/lib/questions/spr";
 import { MathText } from "./math-text";

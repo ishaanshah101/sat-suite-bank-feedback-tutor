@@ -6,8 +6,11 @@ import { recordProviderError, recordProviderOk } from "@/db/queries";
 
 export type ProviderName = "openai" | "anthropic" | "gateway";
 const KNOWN: ProviderName[] = ["openai", "anthropic", "gateway"];
-/** "math" is Math explanations, drills and drill checks: the stronger model with more room to reason. */
-export type TaskKind = "extract" | "explain" | "chat" | "drill" | "math";
+/**
+ * "math" is Math explanations, drills and drill checks: the stronger model with more room to reason.
+ * "capture" reads a screenshot and writes its card in one streamed call: fast, with a moderate reasoning budget.
+ */
+export type TaskKind = "extract" | "explain" | "chat" | "drill" | "math" | "capture";
 
 export interface ProviderHandle {
   name: ProviderName;
@@ -34,6 +37,7 @@ function openaiModels(): Record<TaskKind, string> {
     chat: env("OPENAI_CHAT_MODEL") ?? explain,
     drill: explain,
     math: env("OPENAI_MATH_MODEL") ?? explain,
+    capture: env("OPENAI_CAPTURE_MODEL") ?? explain,
   };
 }
 
@@ -45,6 +49,7 @@ function anthropicModels(): Record<TaskKind, string> {
     chat: env("ANTHROPIC_CHAT_MODEL") ?? explain,
     drill: explain,
     math: env("ANTHROPIC_MATH_MODEL") ?? explain,
+    capture: env("ANTHROPIC_CAPTURE_MODEL") ?? explain,
   };
 }
 
@@ -62,17 +67,19 @@ export function gatewayEnabled(): boolean {
  * gateway walks this list and remembers (per server instance) which ones the account may not use.
  * All candidates read images and support structured output.
  */
+// The models Vercel's free tier allows come first: every refused model costs a round trip on each new
+// server instance. GATEWAY_*_MODEL env vars override the lists for a paid account.
 const GATEWAY_CHEAP = [
+  "google/gemini-2.5-flash-lite",
   "openai/gpt-6-luna",
   "google/gemini-3.1-flash-lite",
-  "google/gemini-2.5-flash-lite",
   "openai/gpt-5-nano",
   "anthropic/claude-haiku-5.5",
   "openai/gpt-4o-mini",
   "mistral/mistral-small",
   "alibaba/qwen3.7-flash",
 ];
-const GATEWAY_STRONG = ["openai/gpt-6.1-sol", "anthropic/claude-sonnet-5.5", "google/gemini-2.5-flash", "openai/gpt-5-mini", ...GATEWAY_CHEAP];
+const GATEWAY_STRONG = ["google/gemini-2.5-flash", "openai/gpt-6.1-sol", "anthropic/claude-sonnet-5.5", "openai/gpt-5-mini", ...GATEWAY_CHEAP];
 
 function gatewayCandidates(): Record<TaskKind, string[]> {
   const list = (name: string, fallback: string[]) => {
@@ -86,6 +93,7 @@ function gatewayCandidates(): Record<TaskKind, string[]> {
     chat: list("GATEWAY_CHAT_MODEL", explain),
     drill: explain,
     math: list("GATEWAY_MATH_MODEL", explain),
+    capture: list("GATEWAY_CAPTURE_MODEL", explain),
   };
 }
 
@@ -116,15 +124,20 @@ export function isModelUnavailableError(error: unknown): boolean {
 // Provider options are JSON values passed straight through to the model provider.
 type ProviderOptionsValue = Record<string, Record<string, string | number | boolean | Record<string, number>>>;
 
-const ANTHROPIC_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium", math: "high" };
-const OPENAI_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "low", chat: "low", drill: "low", math: "medium" };
+const ANTHROPIC_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium", math: "high", capture: "low" };
+const OPENAI_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "low", chat: "low", drill: "low", math: "medium", capture: "low" };
+/** Gemini thinking budgets (tokens). Capture has to solve Math when no answer is shown, so it gets room, but less than a full Math explanation. */
+const GEMINI_THINKING: Record<TaskKind, number> = { extract: 0, explain: 512, chat: 512, drill: 512, math: 6000, capture: 2048 };
 
 function gatewayOptionsFor(id: string, kind: TaskKind): ProviderOptionsValue {
   if (id.startsWith("anthropic/")) return { anthropic: { effort: ANTHROPIC_EFFORT[kind] } };
   if (id.startsWith("openai/gpt-5") || id.startsWith("openai/gpt-6")) return { openai: { reasoningEffort: OPENAI_EFFORT[kind] } };
   // Gemini thinks by default and its thinking tokens count against the output limit, which truncates JSON.
   // Math gets a bigger budget (its callers raise maxOutputTokens to match).
-  if (id.startsWith("google/gemini")) return { google: { thinkingConfig: { thinkingBudget: kind === "math" ? 6000 : 512 } } };
+  if (id.startsWith("google/gemini")) {
+    // Flash-Lite and Flash take a budget of 0 (no thinking); extraction only copies text.
+    return { google: { thinkingConfig: { thinkingBudget: GEMINI_THINKING[kind] } } };
+  }
   return {};
 }
 

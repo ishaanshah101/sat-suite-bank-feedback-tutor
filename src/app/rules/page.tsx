@@ -2,16 +2,29 @@ import Link from "next/link";
 import { MathText } from "@/components/math-text";
 import { Shell } from "@/components/shell";
 import { Card, Chip } from "@/components/ui";
-import { rulesForSection, type Rule } from "@/content/rules";
+import { examsOf, rulesForExamSection, type Rule } from "@/content/rules";
 import { getRuleStats, type RuleStat } from "@/db/queries";
 import { requirePageSession } from "@/lib/auth/session";
-import { SECTION_LABEL, SECTIONS, domainsForSection, skillsForSection, type Section } from "@/lib/questions/taxonomy";
+import { actSkillsForSection, domainsForSection, skillsForSection, type ActSection, type Exam, type Section } from "@/lib/questions/taxonomy";
+
+/** The tabs: two SAT sections, four ACT sections. ACT tabs also show the SAT rules that decide ACT questions. */
+const TABS = [
+  { key: "rw", exam: "sat", section: "rw", label: "SAT Reading and Writing" },
+  { key: "math", exam: "sat", section: "math", label: "SAT Math" },
+  { key: "act-english", exam: "act", section: "english", label: "ACT English" },
+  { key: "act-math", exam: "act", section: "math", label: "ACT Math" },
+  { key: "act-reading", exam: "act", section: "reading", label: "ACT Reading" },
+  { key: "act-science", exam: "act", section: "science", label: "ACT Science" },
+] as const satisfies ReadonlyArray<{ key: string; exam: Exam; section: Section; label: string }>;
+type Tab = (typeof TABS)[number];
+const hrefOf = (t: Tab) => (t.key === "rw" ? "/rules" : `/rules?section=${t.key}`);
 
 export const metadata = { title: "Rules · Rulecard" };
 
 export default async function RulesPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
   const params = await searchParams;
-  const section: Section = params.section === "math" ? "math" : "rw";
+  const tab: Tab = TABS.find((t) => t.key === params.section) ?? TABS[0];
+  const section = tab.section;
   const session = await requirePageSession();
   let stats: RuleStat[] = [];
   try {
@@ -20,41 +33,56 @@ export default async function RulesPage({ searchParams }: { searchParams: Promis
     console.error("[rules] stats unavailable", error);
   }
   const misses = new Map(stats.map((s) => [s.ruleId, s]));
-  const rules = rulesForSection(section);
+  const rules = rulesForExamSection(tab.exam, section);
   const missed = rules.filter((r) => (misses.get(r.id)?.misses ?? 0) > 0).sort((a, b) => (misses.get(b.id)?.misses ?? 0) - (misses.get(a.id)?.misses ?? 0));
 
-  // Official domain and skill order, then the section-wide strategy rules.
-  const skills = skillsForSection(section);
-  const groups: Array<{ domain: string; skills: Array<{ skill: string; rules: Rule[] }> }> = domainsForSection(section).map((domain) => ({
-    domain,
-    skills: skills
-      .filter((skill) => rules.some((r) => r.domain === domain && r.skill === skill))
-      .map((skill) => ({ skill, rules: rules.filter((r) => r.skill === skill) })),
-  }));
+  const groups: Array<{ domain: string; skills: Array<{ skill: string; rules: Rule[] }> }> = [];
+  if (tab.exam === "sat") {
+    // Official domain and skill order, then the section-wide strategy rules.
+    const sat = section === "math" ? "math" : "rw";
+    const skills = skillsForSection(sat);
+    for (const domain of domainsForSection(sat)) {
+      groups.push({
+        domain,
+        skills: skills.filter((skill) => rules.some((r) => r.domain === domain && r.skill === skill)).map((skill) => ({ skill, rules: rules.filter((r) => r.skill === skill) })),
+      });
+    }
+  } else {
+    // ACT: the ACT-only rules by skill, then the SAT rules that decide the same questions.
+    const actOnly = rules.filter((r) => !examsOf(r).includes("sat"));
+    groups.push({
+      domain: tab.label,
+      skills: actSkillsForSection(section as ActSection)
+        .filter((skill) => actOnly.some((r) => r.skill === skill))
+        .map((skill) => ({ skill, rules: actOnly.filter((r) => r.skill === skill) })),
+    });
+    const shared = rules.filter((r) => examsOf(r).includes("sat") && r.skill !== "General");
+    if (shared.length) groups.push({ domain: "Same rule on the SAT", skills: [...new Set(shared.map((r) => r.skill))].map((skill) => ({ skill, rules: shared.filter((r) => r.skill === skill) })) });
+  }
   const general = rules.filter((r) => r.skill === "General");
   if (general.length) groups.push({ domain: section === "math" ? "Test-wide strategy" : "General", skills: [{ skill: "General", rules: general }] });
 
-  const missesIn = (s: Section) => rulesForSection(s).reduce((sum, r) => sum + (misses.get(r.id)?.misses ?? 0), 0);
+  const missesIn = (t: Tab) => rulesForExamSection(t.exam, t.section).reduce((sum, r) => sum + (misses.get(r.id)?.misses ?? 0), 0);
 
   return (
     <Shell>
       <h1 className="text-xl font-semibold tracking-tight">Rules</h1>
       <p className="mt-1 text-sm text-muted">The cheat sheet. Rules you keep missing float to the top.</p>
 
-      <nav className="mt-4 flex gap-1 rounded-xl bg-bg p-1 text-sm" aria-label="Section">
-        {SECTIONS.map((s) => {
-          const active = s === section;
-          const count = rulesForSection(s).length;
-          const missedCount = missesIn(s);
+      <nav className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-bg p-1 text-sm sm:grid-cols-3" aria-label="Section">
+        {TABS.map((t) => {
+          const active = t.key === tab.key;
+          const count = rulesForExamSection(t.exam, t.section).length;
+          const missedCount = missesIn(t);
           return (
             <Link
-              key={s}
-              href={s === "math" ? "/rules?section=math" : "/rules"}
+              key={t.key}
+              href={hrefOf(t)}
               aria-current={active ? "page" : undefined}
-              className={`flex-1 rounded-lg px-3 py-2 text-center font-medium transition ${active ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}
-              data-testid={`rules-tab-${s}`}
+              className={`rounded-lg px-3 py-2 text-center font-medium transition ${active ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}
+              data-testid={`rules-tab-${t.key}`}
             >
-              {SECTION_LABEL[s]} <span className="text-xs text-muted">· {count} rules{missedCount ? ` · ${missedCount} missed` : ""}</span>
+              {t.label} <span className="text-xs text-muted">· {count} rules{missedCount ? ` · ${missedCount} missed` : ""}</span>
             </Link>
           );
         })}
@@ -63,7 +91,7 @@ export default async function RulesPage({ searchParams }: { searchParams: Promis
       <section className="mt-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Rules you keep missing</h2>
         {missed.length === 0 ? (
-          <Card className="mt-2 text-sm text-muted">No {SECTION_LABEL[section]} misses recorded yet.</Card>
+          <Card className="mt-2 text-sm text-muted">No {tab.label} misses recorded yet.</Card>
         ) : (
           <div className="mt-2 grid gap-3 md:grid-cols-2">
             {missed.map((rule) => (

@@ -5,7 +5,7 @@ import { getRule, RULES, RULE_BY_ID, formatRulesForPrompt } from "@/content/rule
 import { RULE_TIPS } from "@/content/rule-tips";
 import { EXTRA_MATH_RULES, EXTRA_RW_RULES } from "@/content/rules-extra";
 import { GENERAL_PLAYBOOK, SKILL_PLAYBOOK, playbookForPrompt } from "@/content/playbook";
-import { SKILLS, SKILL_DOMAIN } from "@/lib/questions/taxonomy";
+import { SAT_SKILLS as SKILLS, SKILL_DOMAIN, type SatSkill } from "@/lib/questions/taxonomy";
 import { explainInstructions } from "@/lib/ai/prompts";
 import type { QuestionRow } from "@/db/schema";
 
@@ -28,7 +28,7 @@ describe("study-material additions", () => {
       for (const field of [r.name, r.statement, r.spot_it, r.test, r.trap, r.example.wrong, r.example.right]) expect(field.trim().length, r.id).toBeGreaterThan(5);
       if (r.skill !== "General") {
         expect(SKILLS).toContain(r.skill);
-        expect(SKILL_DOMAIN[r.skill]).toBe(r.domain);
+        expect(SKILL_DOMAIN[r.skill as SatSkill]).toBe(r.domain);
       }
     }
     expect(getRule("BND-12")?.example.wrong).toMatch(/; despite,/);

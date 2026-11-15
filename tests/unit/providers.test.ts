@@ -102,7 +102,9 @@ describe("gateway fallback", () => {
       expect(mod.configuredProviders()).toEqual(["openai", "gateway"]);
       const handles = await mod.availableProviders();
       expect(handles.map((h) => h.name)).toEqual(["openai", "gateway"]);
-      expect(handles[1].modelId("extract")).toBe("openai/gpt-6-luna");
+      // Free-tier models first, so no call is spent on a model the account cannot use.
+      expect(handles[1].modelId("extract")).toBe("google/gemini-2.5-flash-lite");
+      expect(handles[1].modelId("capture")).toBe("google/gemini-2.5-flash");
       const refused = (message: string, statusCode: number) => Object.assign(new Error(message), { statusCode });
       expect(mod.isModelUnavailableError(refused("Free tier users do not have access to this model.", 403))).toBe(true);
       expect(mod.isModelUnavailableError(refused("Model not found", 404))).toBe(true);

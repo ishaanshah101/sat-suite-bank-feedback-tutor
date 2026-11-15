@@ -1,10 +1,25 @@
 import { z } from "zod";
 
-export const LetterSchema = z.enum(["A", "B", "C", "D"]);
+/** E is the fifth choice of older ACT Math questions. */
+export const LetterSchema = z.enum(["A", "B", "C", "D", "E"]);
 export type Letter = z.infer<typeof LetterSchema>;
-export const LETTERS: Letter[] = ["A", "B", "C", "D"];
+/** The four choices every multiple-choice question has (drills always have exactly these). */
+export const FourLetterSchema = z.enum(["A", "B", "C", "D"]);
+export type FourLetter = z.infer<typeof FourLetterSchema>;
+export const LETTERS: FourLetter[] = ["A", "B", "C", "D"];
+export const ALL_LETTERS: Letter[] = ["A", "B", "C", "D", "E"];
+/** The choice letters this question actually has: A to D, plus E on a five-choice question. */
+export function choiceLetters(choices: { E?: string | null } | null | undefined): Letter[] {
+  return choices?.E?.trim() ? ALL_LETTERS : LETTERS;
+}
+/** The letter printed on screen: ACT even-numbered questions use F G H J K for A B C D E. */
+export function displayLetter(letter: Letter, style: "abcd" | "fghj" | null | undefined): string {
+  return style === "fghj" ? ({ A: "F", B: "G", C: "H", D: "J", E: "K" } as const)[letter] : letter;
+}
 
-export const SectionSchema = z.enum(["rw", "math"]);
+export const ExamSchema = z.enum(["sat", "act"]);
+export const LetterStyleSchema = z.enum(["abcd", "fghj"]);
+export const SectionSchema = z.enum(["rw", "math", "english", "reading", "science"]);
 export const FormatSchema = z.enum(["mcq", "spr"]);
 
 export const ChoicesSchema = z.object({ A: z.string(), B: z.string(), C: z.string(), D: z.string() });
@@ -18,13 +33,18 @@ const ChoicesInputSchema = z.object({
   B: z.string().max(QUESTION_LIMITS.choice),
   C: z.string().max(QUESTION_LIMITS.choice),
   D: z.string().max(QUESTION_LIMITS.choice),
+  /** Five-choice questions only (older ACT Math). */
+  E: z.string().max(QUESTION_LIMITS.choice).optional(),
 });
 
 /** A question as stored. Shared by the extractors, the PDF parser and the questions API. */
 export const ParsedQuestionSchema = z
   .object({
     qb_id: z.string().regex(/^[0-9a-f]{8}$/).nullable(),
+    exam: ExamSchema.default("sat"),
     section: SectionSchema.default("rw"),
+    /** The letters printed on screen; null means A B C D. */
+    letter_style: LetterStyleSchema.nullable().default(null),
     /** mcq = four choices; spr = student-produced response (Math grid-in), no choices. */
     format: FormatSchema.default("mcq"),
     test: z.string().max(QUESTION_LIMITS.label).nullable(),
@@ -43,17 +63,28 @@ export const ParsedQuestionSchema = z
   .superRefine((q, ctx) => {
     if (q.format === "mcq" && !q.choices) ctx.addIssue({ code: "custom", path: ["choices"], message: "A multiple-choice question needs its four choices." });
   })
-  // A grid-in has no choices, whatever the caller sent.
-  .transform((q) => (q.format === "spr" ? { ...q, choices: null } : q));
+  // A grid-in has no choices, whatever the caller sent; an empty fifth choice is no choice.
+  .transform((q): typeof q => {
+    if (q.format === "spr") return { ...q, choices: null };
+    if (q.choices && !q.choices.E?.trim()) {
+      return { ...q, choices: { A: q.choices.A, B: q.choices.B, C: q.choices.C, D: q.choices.D }, correct: q.correct === "E" ? null : q.correct };
+    }
+    return q;
+  });
 export type ParsedQuestion = z.infer<typeof ParsedQuestionSchema>;
 /** What callers may pass in: the Math fields are optional and default to a Reading and Writing multiple-choice question. */
 export type ParsedQuestionInput = z.input<typeof ParsedQuestionSchema>;
 
 /** Model-facing extraction output. No string constraints so strict JSON schema modes accept it. */
+/** Model-facing choices: E is an empty string unless the question has a fifth choice (older ACT Math). */
+export const ChoicesOutputSchema = z.object({ A: z.string(), B: z.string(), C: z.string(), D: z.string(), E: z.string() });
+
 export const ExtractionOutputSchema = z.object({
   question_found: z.boolean(),
+  exam: ExamSchema,
   section: SectionSchema,
   format: FormatSchema,
+  letter_style: LetterStyleSchema,
   qb_id: z.string().nullable(),
   test: z.string().nullable(),
   domain: z.string().nullable(),
@@ -62,7 +93,7 @@ export const ExtractionOutputSchema = z.object({
   passage: z.string().nullable(),
   stem: z.string(),
   figure: z.string().nullable(),
-  choices: ChoicesSchema,
+  choices: ChoicesOutputSchema,
   visible_answer_panel: z.boolean(),
   correct: LetterSchema.nullable(),
   accepted_answers: z.array(z.string()),
@@ -85,10 +116,8 @@ const DiagnosisSchema = z.enum(["misread", "rule_gap", "careless", "got_it_right
  */
 export const CardModeSchema = z.enum(["translated", "explained", "quick"]);
 export type CardMode = z.infer<typeof CardModeSchema>;
-/** At most this many rule bullets on a card. */
-export const MAX_KEY_RULES = 3;
-/** A "quick" card has at least this many bullets when the model gives them. */
-export const MIN_QUICK_RULES = 2;
+/** At most this many bullets on a card. The model writes as many as the question needs, up to this. */
+export const MAX_KEY_RULES = 6;
 
 /** What the model returns for a rule card (every field required, for strict structured output). */
 export const RuleCardOutputSchema = z.object({
@@ -138,7 +167,7 @@ export const DrillOutputSchema = z.object({
   stem: z.string(),
   /** Empty strings for a grid-in drill. */
   choices: ChoicesSchema,
-  correct: LetterSchema.nullable(),
+  correct: FourLetterSchema.nullable(),
   /** Grid-in: every accepted form of the answer (for example ["3/4", ".75"]); empty for multiple choice. */
   accepted_answers: z.array(z.string()),
   why_correct: z.string(),

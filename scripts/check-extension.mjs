@@ -90,7 +90,7 @@ try {
   await page.bringToFront();
   let sent = null;
   const onRequest = (r) => {
-    if (r.url().endsWith("/api/extract") && r.method() === "POST") sent = r.postData();
+    if (r.url().endsWith("/api/capture") && r.method() === "POST") sent = r.postData();
   };
   panel.on("request", onRequest);
   await panel.locator("#capture-tab").click();
@@ -100,7 +100,7 @@ try {
   ]).catch((e) => "timeout: " + e.message.split("\n")[0]);
   panel.off("request", onRequest);
   const shot = sent ? JSON.parse(sent) : {};
-  ok("Capture sends one screenshot of the tab on screen", captured === "card" && shot.source === "capture" && /^data:image\/(png|jpeg);base64,/.test(shot.image ?? ""), captured);
+  ok("Capture sends one screenshot of the tab on screen, to the one-call capture endpoint", captured === "card" && shot.source === "capture" && /^data:image\/(png|jpeg);base64,/.test(shot.image ?? ""), captured);
   if (captured !== "card") throw new Error("capture failed: " + captured);
   ok(
     "the card is the answer and 2 to 3 bullets, nothing else",
@@ -127,11 +127,11 @@ try {
   const windowId = await panel.evaluate(async () => (await chrome.windows.getCurrent()).id);
   let toolbarCapture = false;
   const onToolbar = (r) => {
-    if (r.url().endsWith("/api/extract") && r.method() === "POST") toolbarCapture = true;
+    if (r.url().endsWith("/api/capture") && r.method() === "POST") toolbarCapture = true;
   };
   panel.on("request", onToolbar);
   await worker.evaluate((id) => chrome.runtime.sendMessage({ type: "rc-toolbar-click", windowId: id }), windowId);
-  await panel.waitForResponse((r) => r.url().endsWith("/api/explain") && r.request().method() === "POST", { timeout: 60000 }).catch(() => undefined);
+  await panel.waitForResponse((r) => r.url().endsWith("/api/capture") && r.request().method() === "POST", { timeout: 60000 }).catch(() => undefined);
   panel.off("request", onToolbar);
   ok("a toolbar click with the panel open captures this tab", toolbarCapture);
   await panel.locator('[data-testid="key-rules"]').waitFor({ timeout: 60000 });
@@ -154,7 +154,7 @@ try {
   sent = null;
   panel.on("request", onRequest);
   await panel.locator("#capture-tab").click();
-  await panel.waitForResponse((r) => r.url().endsWith("/api/explain") && r.request().method() === "POST", { timeout: 60000 }).catch(() => undefined);
+  await panel.waitForResponse((r) => r.url().endsWith("/api/capture") && r.request().method() === "POST", { timeout: 60000 }).catch(() => undefined);
   panel.off("request", onRequest);
   const body = sent ? JSON.parse(sent) : {};
   ok(
@@ -167,6 +167,25 @@ try {
   await panel.locator('[data-testid="pick-why"]').waitFor({ timeout: 30000 });
   ok("practice test: the pick step works on it too", /Why D is wrong/i.test(await panel.locator('[data-testid="pick-why"]').innerText()));
   await practice.close();
+
+  // An ACT question: the card is labeled ACT, and the letters are the ones printed on screen (F G H J).
+  const act0 = await context.newPage();
+  await act0.route("**/*", (route) => route.fulfill({ status: 200, contentType: "text/html", body: PRACTICE_PAGE.replace("SAT Practice 6", "ACT English Practice Test 3").replace("The function", "ACT English question. The function") }));
+  const act = act0;
+  await act.goto("https://mypractice.collegeboard.org/act-question");
+  await act.bringToFront();
+  await panel.locator("#capture-tab").click();
+  await panel.locator("#result-card .chip", { hasText: "ACT English" }).waitFor({ timeout: 60000 }).catch(() => undefined);
+  const actPicks = (await panel.locator(".pick").allInnerTexts()).join("");
+  ok(
+    "ACT: labeled ACT English, answer and picks use the printed letters F G H J",
+    actPicks === "FGHJ" && (await panel.getByText("Answer: H").count()) === 1 && (await panel.locator("#result-card .chip", { hasText: "ACT English" }).count()) >= 1,
+    actPicks,
+  );
+  await panel.locator(".pick", { hasText: /^G$/ }).click();
+  await panel.locator('[data-testid="pick-why"]').waitFor({ timeout: 30000 });
+  ok("ACT: picking G explains why G is wrong", /Why G is wrong/i.test(await panel.locator('[data-testid="pick-why"]').innerText()) && /right answer is H/i.test(await panel.locator('[data-testid="pick-why"]').innerText()));
+  await act.close();
 
   // A page Chrome never lets extensions capture: the panel says so instead of failing silently.
   const blocked = await context.newPage();

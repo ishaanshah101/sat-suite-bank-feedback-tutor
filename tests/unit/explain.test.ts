@@ -8,6 +8,8 @@ const question: QuestionRow = {
   id: "q1",
   userId: "u1",
   qbId: "960dec02",
+  exam: "sat",
+  letterStyle: null,
   section: "rw",
   format: "mcq",
   source: "paste",
@@ -51,6 +53,8 @@ const card: RuleCard = {
 const gridIn: QuestionRow = {
   ...question,
   qbId: "5eedf00d",
+  exam: "sat",
+  letterStyle: null,
   section: "math",
   format: "spr",
   test: "SAT Math",
@@ -203,7 +207,7 @@ describe("the two card modes", () => {
     expect(cardModeFor({ ...gridIn, answers: null, rationale: "x" })).toBe("explained");
   });
 
-  it("a translated card keeps 1 to 3 clean bullets and never adds its own explanation", () => {
+  it("a translated card keeps as many clean bullets as it needs (up to 6) and never adds its own explanation", () => {
     const out = sanitizeRuleCard(
       { ...card, key_rules: ["- Rule one.", "Rule one.", "", "  2) Rule two  ", "Rule three.", "Rule four."], simple_explanation: "extra" },
       withRationale,
@@ -211,7 +215,7 @@ describe("the two card modes", () => {
       false,
     );
     expect(out.mode).toBe("translated");
-    expect(out.key_rules).toEqual(["Rule one.", "Rule two", "Rule three."]);
+    expect(out.key_rules).toEqual(["Rule one.", "Rule two", "Rule three.", "Rule four."]);
     expect(out.simple_explanation).toBeNull();
   });
 
