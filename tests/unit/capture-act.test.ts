@@ -19,6 +19,7 @@ const output: CaptureOutput = {
   format: "mcq",
   letter_style: "fghj",
   answer_shown: false,
+  work: "23 = 4*5 + 3, so i^23 = i^3 = -i.",
   correct_letter: "E",
   correct_answer: null,
   key_rules: ["The powers of i repeat every 4: i, -1, -i, 1.", "Divide the exponent by 4: 23 leaves 3, so \\(i^{23} = -i\\)."],
@@ -119,5 +120,13 @@ describe("ACT support", () => {
     expect(satOnly.rule_id).toBe("AMA-00");
     const rw = sanitizeRuleCard({ ...captureToCard(output), rule_id: "BND-01" }, { ...question, section: "english", choices: { A: "a", B: "b", C: "c", D: "d" } } as QuestionRow, "none", null, "quick");
     expect(rw.rule_id).toBe("BND-01");
+  });
+
+  it("spots a reply stuck repeating itself, and only that", async () => {
+    const { isRunaway } = await import("@/lib/ai/capture");
+    expect(isRunaway({ key_rules: ["The standard form is " + "\n".repeat(40)] })).toBe(true);
+    expect(isRunaway({ work: "=".repeat(200) })).toBe(true);
+    expect(isRunaway({ key_rules: ["Line one.\n\nLine two."], work: "23 = 4*5 + 3, so i^23 = -i." })).toBe(false);
+    expect(isRunaway(output)).toBe(false);
   });
 });

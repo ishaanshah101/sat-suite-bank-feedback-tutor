@@ -50,6 +50,8 @@ interface State {
   questionOpen: boolean;
   /** The card while it is still being written: the answer and the bullets so far. */
   live: LiveCard | null;
+  /** A letter tapped while the card was still being written; saved as the pick once the card is done. */
+  earlyPick: ChoiceLetter | null;
 }
 
 /** What the capture stream has written so far. */
@@ -61,6 +63,7 @@ interface LiveCard {
   correct_letter?: ChoiceLetter | null;
   correct_answer?: string | null;
   key_rules?: string[];
+  eliminations?: Array<{ letter?: ChoiceLetter; reason?: string }>;
 }
 
 /** The choices this question has: A to D, plus E on an older five-choice ACT Math question. */
@@ -102,6 +105,7 @@ const state: State = {
   question: null,
   result: null,
   picking: false,
+  earlyPick: null,
   pickError: null,
   sprInput: "",
   questionOpen: false,
@@ -531,7 +535,65 @@ function renderLiveCard(live: LiveCard): Node {
     ),
     bullets.length ? h("ul", { class: "key-rules", "data-testid": "live-rules" }, ...bullets.map((rule) => mathEl("li", rule))) : null,
     h("div", { class: "row small muted" }, spinner(), bullets.length ? "Writing the rules..." : "Reading the question..."),
+    live.format === "mcq" && live.correct_letter ? renderLivePicks(live) : null,
   );
+}
+
+function chooseEarly(letter: ChoiceLetter): void {
+  if (state.earlyPick === letter) return;
+  state.earlyPick = letter;
+  render();
+}
+
+/** The letters a question still being written has: A to D, plus E once the card mentions an E choice. */
+function liveLetters(live: LiveCard): ChoiceLetter[] {
+  const hasE = live.correct_letter === "E" || (live.eliminations ?? []).some((e) => e?.letter === "E");
+  return hasE ? [...LETTERS, "E"] : LETTERS;
+}
+
+/**
+ * "Which did you pick?" while the card is still being written: the letters work as soon as the answer is known,
+ * and the reason a wrong pick fails shows as soon as it is written. The pick is saved once the card is done.
+ */
+function renderLivePicks(live: LiveCard): Node {
+  const picked = state.earlyPick;
+  const answer = shown(live.correct_letter, live.letter_style);
+  const children: Child[] = [
+    h("h2", { text: "Which did you pick?" }),
+    h(
+      "div",
+      { class: "picks", role: "group", "aria-label": "The letter you picked" },
+      ...liveLetters(live).map((letter) =>
+        h("button", {
+          class: `pick ${picked === letter ? "on" : ""}`.trim(),
+          text: shown(letter, live.letter_style),
+          "aria-pressed": String(picked === letter),
+          // The card redraws as it streams, which can swap this button out between press and release and lose
+          // the click; so a pointer press counts at once, and the click (keyboard) does the same thing.
+          onpointerdown: () => chooseEarly(letter),
+          onclick: () => chooseEarly(letter),
+        }),
+      ),
+    ),
+  ];
+  if (picked) {
+    const yours = shown(picked, live.letter_style);
+    if (picked === live.correct_letter) {
+      children.push(h("div", { class: "banner good", "data-testid": "pick-why" }, h("p", { class: "stem", text: `${yours} is right. Nice.` })));
+    } else {
+      const reason = (live.eliminations ?? []).find((e) => e?.letter === picked)?.reason?.trim();
+      children.push(
+        h(
+          "div",
+          { class: "banner miss", "data-testid": "pick-why" },
+          h("h2", { text: `Why ${yours} is wrong` }),
+          reason ? mathEl("p", reason) : h("p", { class: "row small muted" }, spinner(), "Writing why..."),
+          h("p", { class: "small", text: `The right answer is ${answer}.` }),
+        ),
+      );
+    }
+  }
+  return h("div", { class: "pick-section", style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px" }, ...children);
 }
 
 /** The card: the answer, the bullets it needs, then "Which did you pick?". */
@@ -709,6 +771,7 @@ function resetQuestion() {
   state.sprInput = "";
   state.questionOpen = false;
   state.live = null;
+  state.earlyPick = null;
 }
 
 async function refreshHealth() {
@@ -805,9 +868,12 @@ async function explainSource(body: Source, picked: Letter | null = null): Promis
   } finally {
     state.live = null;
   }
-  if (picked && state.question?.format !== "spr") {
+  // A letter tapped while the card was being written counts as the pick (a quiz miss's own pick wins).
+  const pick = picked ?? state.earlyPick;
+  state.earlyPick = null;
+  if (pick && state.question?.format !== "spr" && lettersOf(state.question!).includes(pick)) {
     state.capturing = null;
-    await choosePick(picked);
+    await choosePick(pick);
   }
 }
 

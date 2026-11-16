@@ -152,6 +152,7 @@ const STUB_CAPTURE_RW = {
   format: "mcq",
   letter_style: "abcd",
   answer_shown: true,
+  work: "shown",
   correct_letter: "B",
   correct_answer: null,
   key_rules: STUB_QUICK_CARD.key_rules,
@@ -207,6 +208,7 @@ const STUB_CAPTURE_ACT = {
   section: "english",
   letter_style: "fghj",
   answer_shown: false,
+  work: "Both halves are complete clauses, so the join needs a semicolon: H.",
   correct_letter: "C",
   key_rules: ["Two complete sentences need a period, a semicolon, or a comma plus and/but/so between them.", "Both halves are complete, so H's semicolon is the clean join; F's comma alone is a comma splice."],
   eliminations: [
@@ -276,11 +278,16 @@ function mockModel(kind: TaskKind): LanguageModel {
     }),
     doStream: async (options) => ({
       stream: new ReadableStream({
-        start(controller) {
+        async start(controller) {
           const text = textFor(options);
+          // RULECARD_STUB_STREAM_MS slows the stream down (per 80-character piece), so a test can act while a card is still being written.
+          const pause = Number(process.env.RULECARD_STUB_STREAM_MS) || 0;
           controller.enqueue({ type: "stream-start", warnings: [] });
           controller.enqueue({ type: "text-start", id: "t1" });
-          controller.enqueue({ type: "text-delta", id: "t1", delta: text });
+          for (let i = 0; i < text.length; i += 80) {
+            controller.enqueue({ type: "text-delta", id: "t1", delta: text.slice(i, i + 80) });
+            if (pause) await new Promise((resolve) => setTimeout(resolve, pause));
+          }
           controller.enqueue({ type: "text-end", id: "t1" });
           controller.enqueue({
             type: "finish",

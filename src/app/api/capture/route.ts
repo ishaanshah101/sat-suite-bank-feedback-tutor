@@ -1,33 +1,13 @@
 import { Output, streamText } from "ai";
 import { z } from "zod";
 import { apiErrorPayload, readJson, withApi } from "@/lib/api";
-import { captureInstructions, captureToCard, captureToExtraction, CaptureOutputSchema, PARTIAL_FIELDS, type CaptureOutput } from "@/lib/ai/capture";
+import { captureInstructions, captureToCard, captureToExtraction, CaptureOutputSchema, isRunaway, PARTIAL_FIELDS, type CaptureOutput } from "@/lib/ai/capture";
 import { hasKnownAnswer, sanitizeRuleCard, usableModelAnswer } from "@/lib/ai/explain";
 import { ExtractionError, normalizeExtraction, parseDataUrl } from "@/lib/ai/extract";
-import { abortAfter, isNoOutputError, noteStreamError, noteStreamOk, pickProvider } from "@/lib/ai/providers";
+import { isNoOutputError, noteStreamError, noteStreamOk, pickProvider } from "@/lib/ai/providers";
 import { chargeAiQuota } from "@/lib/ai/quota";
 import { createAttempt, deleteAttempt, finishAttempt, getQuestion, setModelAnswer, setModelGridInAnswer, upsertQuestion } from "@/db/queries";
 import { getRule } from "@/content/rules";
-import { createGateway } from "ai";
-
-// TEMPORARY speed bench, preview deployments only: pick a model and thinking budget per request.
-type Bench = { model: string; thinking: number | null; work?: boolean };
-const WORK_NOTE = `
-
-Scratch work (the "work" field, written right after answer_shown and before the answer): solve the question there first, the way a strong student writes on scratch paper: only the equations, numbers and checks, at most about 60 words, then check your result against the choices before you write correct_letter or correct_answer. If answer_shown is true, write "shown". For Reading and Writing, one short line naming the deciding words. Write work in plain text: no LaTeX and no backslashes.`;
-const { question_found, exam, section, format, letter_style, answer_shown, ...restShape } = CaptureOutputSchema.shape;
-const WorkSchema = z.object({ question_found, exam, section, format, letter_style, answer_shown, work: z.string(), ...restShape });
-function benchOf(request: Request): Bench | null {
-  if (process.env.VERCEL_ENV !== "preview") return null;
-  const raw = request.headers.get("x-rulecard-bench");
-  if (!raw) return null;
-  try {
-    const b = JSON.parse(raw) as Bench;
-    return typeof b.model === "string" ? b : null;
-  } catch {
-    return null;
-  }
-}
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -49,7 +29,6 @@ type Event =
  */
 export async function POST(request: Request) {
   return withApi(async (session) => {
-    const bench = benchOf(request);
     const body = Body.parse(await readJson(request));
     // Fail fast on a bad image before charging anything.
     if ("image" in body) parseDataUrl(body.image);
@@ -70,43 +49,51 @@ export async function POST(request: Request) {
       async start(controller) {
         const send = (event: Event) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
         try {
-          const result = streamText({
-            model: bench ? createGateway()(bench.model) : provider.model("capture"),
-            instructions: bench?.work ? captureInstructions() + WORK_NOTE : captureInstructions(),
-            messages: [{ role: "user", content }],
-            output: Output.object({ schema: (bench?.work ? WorkSchema : CaptureOutputSchema) as typeof CaptureOutputSchema, name: "captured_card" }),
-            providerOptions: bench ? (bench.thinking === null ? {} : { google: { thinkingConfig: { thinkingBudget: bench.thinking } } }) : provider.providerOptions("capture"),
-            maxOutputTokens: 9000,
-            maxRetries: 1,
-            abortSignal: abortAfter(55_000),
-          });
-          // Send the card fields as they grow; skip repeats, and stop once the transcription starts.
-          let last = "";
-          const marks: Record<string, number> = {};
-          for await (const partial of result.partialOutputStream) {
-            const at = Date.now() - started;
-            marks.first ??= at;
-            if (partial.correct_letter || partial.correct_answer) marks.answer ??= at;
-            if (partial.rule_id) marks.bullets ??= at;
-            if (partial.stem) marks.transcribe ??= at;
-            const card: Record<string, unknown> = {};
-            for (const key of PARTIAL_FIELDS) if (partial[key] !== undefined) card[key] = partial[key];
-            const serialized = JSON.stringify(card);
-            if (serialized !== last) {
-              last = serialized;
-              send({ type: "partial", card });
+          const deadline = AbortSignal.timeout(55_000);
+          let output: CaptureOutput | null = null;
+          // Now and then the model gets stuck writing the same character (a run of newlines) until it hits the
+          // output limit, and the reply cannot be read. That is caught as it streams and the call starts over
+          // once; the panel simply redraws from the new partials.
+          for (let attempt = 1; attempt <= 2 && !output; attempt++) {
+            const stop = new AbortController();
+            let runaway = false;
+            const result = streamText({
+              model: provider.model("capture"),
+              instructions: captureInstructions(),
+              messages: [{ role: "user", content }],
+              output: Output.object({ schema: CaptureOutputSchema, name: "captured_card" }),
+              providerOptions: provider.providerOptions("capture"),
+              maxOutputTokens: 9000,
+              maxRetries: 1,
+              abortSignal: AbortSignal.any([deadline, stop.signal]),
+            });
+            try {
+              // Send the card fields as they grow; skip repeats.
+              let last = "";
+              for await (const partial of result.partialOutputStream) {
+                if (isRunaway(partial)) {
+                  runaway = true;
+                  stop.abort();
+                  // The abandoned reply's result now rejects; nothing waits for it.
+                  Promise.resolve(result.output).catch(() => undefined);
+                  break;
+                }
+                const card: Record<string, unknown> = {};
+                for (const key of PARTIAL_FIELDS) if (partial[key] !== undefined) card[key] = partial[key];
+                const serialized = JSON.stringify(card);
+                if (serialized !== last) {
+                  last = serialized;
+                  send({ type: "partial", card });
+                }
+              }
+              if (!runaway) output = (await result.output) as CaptureOutput;
+            } catch (error) {
+              if (!runaway && !isNoOutputError(error)) throw error;
+              runaway = true;
             }
+            if (runaway) console.warn(`[capture] unreadable reply on attempt ${attempt}${attempt < 2 ? ", trying again" : ""}`);
           }
-          let output: CaptureOutput;
-          try {
-            output = (await result.output) as CaptureOutput;
-          } catch (error) {
-            if (isNoOutputError(error)) {
-              if (bench) console.error("[bench] no output", String((error as { text?: string }).text ?? "").slice(0, 3000), String((error as { cause?: unknown }).cause ?? "").slice(0, 600));
-              throw new ExtractionError("The model could not read a complete question. Try again, with the whole question on screen.");
-            }
-            throw error;
-          }
+          if (!output) throw new ExtractionError("The model could not read a complete question. Try again, with the whole question on screen.");
           noteStreamOk(provider);
 
           const parsed = normalizeExtraction(captureToExtraction(output), "text" in body ? body.text : undefined);
@@ -128,8 +115,7 @@ export async function POST(request: Request) {
             const rule = getRule(card.rule_id);
             const ms = Date.now() - started;
             console.info(`[capture] ${ms} ms ${question.exam}/${question.section} ${card.rule_id}`);
-            const benchInfo = bench ? { marks, usage: await result.usage, meta: await result.providerMetadata, work: (output as { work?: string }).work, outputChars: JSON.stringify(output).length } : undefined;
-            send({ type: "done", attemptId: attempt.id, card, question: updated, rule: { id: card.rule_id, name: rule?.name ?? null }, provider: provider.name, model: provider.modelId("capture"), ms, ...(benchInfo ? { bench: benchInfo } : {}) } as Event);
+            send({ type: "done", attemptId: attempt.id, card, question: updated, rule: { id: card.rule_id, name: rule?.name ?? null }, provider: provider.name, model: provider.modelId("capture"), ms });
           } catch (error) {
             await deleteAttempt(session.userId, attempt.id).catch(() => undefined);
             throw error;

@@ -21,6 +21,11 @@ export const CaptureOutputSchema = z.object({
   letter_style: LetterStyleSchema,
   /** True only when the page shows the correct answer (an answer key line, "The correct answer is", a marked choice). */
   answer_shown: z.boolean(),
+  /**
+   * Scratch work, written before the answer: the few lines a strong student would jot down. Writing it out is
+   * what makes the answer right without a long hidden "thinking" pass, which is what made Math slow. Not shown.
+   */
+  work: z.string(),
   /** By position: A is the first choice even when the screen prints F. Null for a grid-in. */
   correct_letter: LetterSchema.nullable(),
   /** Grid-in only: the exact value. Null for multiple choice. */
@@ -49,8 +54,16 @@ export const CaptureOutputSchema = z.object({
 });
 export type CaptureOutput = z.infer<typeof CaptureOutputSchema>;
 
-/** The fields the panel shows while the card is still being written. */
-export const PARTIAL_FIELDS = ["exam", "section", "format", "letter_style", "answer_shown", "correct_letter", "correct_answer", "key_rules"] as const;
+/** The fields the panel shows while the card is still being written (the eliminations let an early pick show why it is wrong). */
+export const PARTIAL_FIELDS = ["exam", "section", "format", "letter_style", "answer_shown", "correct_letter", "correct_answer", "key_rules", "eliminations"] as const;
+
+/** A reply stuck repeating itself: a long run of newlines or one character, in any text the card has so far. */
+export function isRunaway(value: unknown): boolean {
+  if (typeof value === "string") return /\n{12,}|(.)\1{150,}/s.test(value);
+  if (Array.isArray(value)) return value.some(isRunaway);
+  if (value && typeof value === "object") return Object.values(value).some(isRunaway);
+  return false;
+}
 
 const ruleTags = (rule: Rule): string => {
   const tags: string[] = [];
@@ -86,7 +99,9 @@ export function captureInstructions(): string {
 1. Read and answer
 - question_found: false if no complete question is visible (then explain in notes and keep everything else short).
 - exam, section, format, letter_style: see "Reading the question" below.
-- answer_shown: true only when the page shows the correct answer. Then copy it into correct_letter (multiple choice, by position A to E) or correct_answer (grid-in). Otherwise solve the question carefully and check your answer before writing it: the student will trust it. For a grid-in give the exact value (a fraction like 3/17, not a rounded decimal).
+- answer_shown: true only when the page itself states the correct answer: an answer-key line, "Correct Answer: B", "The correct answer is", or a choice the page marks as correct. A question with its choices and nothing else is NOT showing its answer, and neither is a choice the student merely selected.
+- work: your scratch work, written before the answer. If answer_shown is true, write "shown". Otherwise solve the question here the way a strong student writes on scratch paper: only the equations, numbers and checks that decide it (at most about 60 words). For Reading and Writing, name the rule or the deciding words, then test each choice against it in a few words. For multiple choice, end with the choice your result matches, as printed and by position (for example "-i is choice G, position B"). Plain text: no LaTeX and no backslashes here. The student never sees this field; the answer they trust comes from it.
+- correct_letter (multiple choice, by position A to E) or correct_answer (grid-in): the answer shown on the page, or the one your work found. For a grid-in give the exact value (a fraction like 3/17, not a rounded decimal).
 
 2. The card (the student reads this first)
 - key_rules: ${BULLET_COUNT} The first bullet states the real rule in general terms, the way a good cheat sheet says it (use the rule library and playbooks below, not the official rationale's wording). The next bullets apply it to this exact question so the student sees why it picks the answer: quote the deciding words or numbers, and for Math give the fastest route (backsolving, plugging in, a calculator move, a shortcut) when there is one. Each bullet is one plain sentence of at most 25 words. If an official rationale is on the screen, use it only to check facts.
