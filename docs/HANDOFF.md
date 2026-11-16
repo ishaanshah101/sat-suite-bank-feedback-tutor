@@ -167,6 +167,11 @@ then optionally say which letter they picked and see why it's wrong. The PDF pic
 - **Runaway replies.** About 1 capture in 30, with or without thinking, the model wrote newline after newline
   inside a field until the output limit, and the capture failed. `isRunaway()` spots that in the stream and the
   route starts the call over once (the panel just redraws from the new partials).
+- **One line per card field.** On production the circle question (x^2 + y^2 - 6x + 8y = 0) looped twice in a row:
+  the model tried to set "the standard form is" on its own line. Card fields now stay on one line with any
+  equation inline, `isRunaway()` also catches line breaks mixed with spaces and short repeated pieces, and the
+  retry adds a note saying what went wrong (asked the same way twice, the model loops the same way twice).
+  Server-only: the 0.9.1 extension zip is unchanged.
 - **"answer_shown"** now only counts an answer the page itself states (an answer key line, "The correct answer
   is", a choice the page marks); a plain question with choices is not showing its answer.
 - **Early picks.** The live card shows "Which did you pick?" as soon as the answer is known; the reason for the

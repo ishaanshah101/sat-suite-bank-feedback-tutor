@@ -57,9 +57,9 @@ export type CaptureOutput = z.infer<typeof CaptureOutputSchema>;
 /** The fields the panel shows while the card is still being written (the eliminations let an early pick show why it is wrong). */
 export const PARTIAL_FIELDS = ["exam", "section", "format", "letter_style", "answer_shown", "correct_letter", "correct_answer", "key_rules", "eliminations"] as const;
 
-/** A reply stuck repeating itself: a long run of newlines or one character, in any text the card has so far. */
+/** A reply stuck repeating itself: a run of line breaks (with or without spaces), one character, or one short piece, in any text the card has so far. */
 export function isRunaway(value: unknown): boolean {
-  if (typeof value === "string") return /\n{12,}|(.)\1{150,}/s.test(value);
+  if (typeof value === "string") return /(?:[ \t\r]*\n){12,}|(.)\1{150,}|(.{2,8}?)\2{60,}/s.test(value);
   if (Array.isArray(value)) return value.some(isRunaway);
   if (value && typeof value === "object") return Object.values(value).some(isRunaway);
   return false;
@@ -84,7 +84,7 @@ export function compactRuleLibrary(rules: Rule[] = RULES): string {
     .join("\n");
 }
 
-const MATH_NOTATION = `Write every expression, equation, or number with an operation in LaTeX inside \\( and \\), for example \\(2x + 3 = 11\\) or \\(\\frac{3}{17}\\). Never use $ for math; $ means money only.`;
+const MATH_NOTATION = `Write every expression, equation, or number with an operation in LaTeX inside \\( and \\), for example \\(2x + 3 = 11\\) or \\(\\frac{3}{17}\\). Never use $ for math; $ means money only. Keep every card field (each bullet, reason, step and line) on one line: no line breaks inside it and no equation set on its own line; put the equation inline, as in "The standard form is \\((x-h)^2 + (y-k)^2 = r^2\\)."`;
 
 let cached: string | null = null;
 

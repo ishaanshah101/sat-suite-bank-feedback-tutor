@@ -126,6 +126,9 @@ describe("ACT support", () => {
     const { isRunaway } = await import("@/lib/ai/capture");
     expect(isRunaway({ key_rules: ["The standard form is " + "\n".repeat(40)] })).toBe(true);
     expect(isRunaway({ work: "=".repeat(200) })).toBe(true);
+    expect(isRunaway({ key_rules: ["The standard form is " + "\n \n".repeat(20)] })).toBe(true);
+    expect(isRunaway({ key_rules: ["x " + "\\n ".repeat(80)] })).toBe(true);
+    expect(isRunaway({ stem: "A table:\n1 | 2\n3 | 4\n5 | 6", key_rules: ["\\(x^2 + y^2 = 25\\), so the radius is 5."] })).toBe(false);
     expect(isRunaway({ key_rules: ["Line one.\n\nLine two."], work: "23 = 4*5 + 3, so i^23 = -i." })).toBe(false);
     expect(isRunaway(output)).toBe(false);
   });
