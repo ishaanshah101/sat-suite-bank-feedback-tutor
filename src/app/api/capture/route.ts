@@ -57,10 +57,12 @@ export async function POST(request: Request) {
           for (let attempt = 1; attempt <= 2 && !output; attempt++) {
             const stop = new AbortController();
             let runaway = false;
+            // A retry says what went wrong: asked the same way twice, the model tends to loop the same way twice.
+            const retryNote = { type: "text" as const, text: "Your last reply got stuck repeating line breaks. Keep every card field on one line, with any equation inline." };
             const result = streamText({
               model: provider.model("capture"),
               instructions: captureInstructions(),
-              messages: [{ role: "user", content }],
+              messages: [{ role: "user", content: attempt === 1 ? content : [...content, retryNote] }],
               output: Output.object({ schema: CaptureOutputSchema, name: "captured_card" }),
               providerOptions: provider.providerOptions("capture"),
               maxOutputTokens: 9000,
