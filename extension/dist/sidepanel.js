@@ -21012,6 +21012,7 @@ var state = {
   question: null,
   result: null,
   picking: false,
+  earlyPick: null,
   pickError: null,
   sprInput: "",
   questionOpen: false,
@@ -21377,8 +21378,58 @@ function renderLiveCard(live) {
       live.exam && live.section ? chip2(testLabel({ exam: live.exam, section: live.section })) : null
     ),
     bullets.length ? h2("ul", { class: "key-rules", "data-testid": "live-rules" }, ...bullets.map((rule) => mathEl("li", rule))) : null,
-    h2("div", { class: "row small muted" }, spinner2(), bullets.length ? "Writing the rules..." : "Reading the question...")
+    h2("div", { class: "row small muted" }, spinner2(), bullets.length ? "Writing the rules..." : "Reading the question..."),
+    live.format === "mcq" && live.correct_letter ? renderLivePicks(live) : null
   );
+}
+function chooseEarly(letter) {
+  if (state.earlyPick === letter) return;
+  state.earlyPick = letter;
+  render3();
+}
+function liveLetters(live) {
+  const hasE = live.correct_letter === "E" || (live.eliminations ?? []).some((e) => e?.letter === "E");
+  return hasE ? [...LETTERS, "E"] : LETTERS;
+}
+function renderLivePicks(live) {
+  const picked = state.earlyPick;
+  const answer = shown(live.correct_letter, live.letter_style);
+  const children = [
+    h2("h2", { text: "Which did you pick?" }),
+    h2(
+      "div",
+      { class: "picks", role: "group", "aria-label": "The letter you picked" },
+      ...liveLetters(live).map(
+        (letter) => h2("button", {
+          class: `pick ${picked === letter ? "on" : ""}`.trim(),
+          text: shown(letter, live.letter_style),
+          "aria-pressed": String(picked === letter),
+          // The card redraws as it streams, which can swap this button out between press and release and lose
+          // the click; so a pointer press counts at once, and the click (keyboard) does the same thing.
+          onpointerdown: () => chooseEarly(letter),
+          onclick: () => chooseEarly(letter)
+        })
+      )
+    )
+  ];
+  if (picked) {
+    const yours = shown(picked, live.letter_style);
+    if (picked === live.correct_letter) {
+      children.push(h2("div", { class: "banner good", "data-testid": "pick-why" }, h2("p", { class: "stem", text: `${yours} is right. Nice.` })));
+    } else {
+      const reason = (live.eliminations ?? []).find((e) => e?.letter === picked)?.reason?.trim();
+      children.push(
+        h2(
+          "div",
+          { class: "banner miss", "data-testid": "pick-why" },
+          h2("h2", { text: `Why ${yours} is wrong` }),
+          reason ? mathEl("p", reason) : h2("p", { class: "row small muted" }, spinner2(), "Writing why..."),
+          h2("p", { class: "small", text: `The right answer is ${answer}.` })
+        )
+      );
+    }
+  }
+  return h2("div", { class: "pick-section", style: "display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px" }, ...children);
 }
 function renderResult(r, q) {
   const card = r.card;
@@ -21545,6 +21596,7 @@ function resetQuestion() {
   state.sprInput = "";
   state.questionOpen = false;
   state.live = null;
+  state.earlyPick = null;
 }
 async function refreshHealth() {
   try {
@@ -21620,9 +21672,11 @@ async function explainSource(body, picked = null) {
   } finally {
     state.live = null;
   }
-  if (picked && state.question?.format !== "spr") {
+  const pick = picked ?? state.earlyPick;
+  state.earlyPick = null;
+  if (pick && state.question?.format !== "spr" && lettersOf(state.question).includes(pick)) {
     state.capturing = null;
-    await choosePick(picked);
+    await choosePick(pick);
   }
 }
 async function explainQuestion(question, picked = null) {

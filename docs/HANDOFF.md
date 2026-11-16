@@ -152,6 +152,30 @@ then optionally say which letter they picked and see why it's wrong. The PDF pic
 - **Web app:** the Rules page has six tabs (SAT R&W, SAT Math, ACT English, Math, Reading, Science); History can
   filter the ACT; the review page shows ACT letters.
 
+## 0.9.1: SAT Math answers in about 3 seconds (2026-11-16)
+
+- **Why Math was slow.** Measured on the gateway: the capture call spent 1,300 to 1,900 hidden "thinking" tokens
+  (2,048 budget) before writing anything, so the answer appeared after 8 to 10 s on SAT Math. Turning thinking
+  off alone was fast (2 s) but got 2 of 7 easy Math questions wrong.
+- **The fix: scratch work instead of hidden thinking.** `CaptureOutputSchema` has a `work` field right after
+  `answer_shown`: a few lines of equations and checks (or, for Reading and Writing, the rule tested against each
+  choice), ending with the matching choice as printed and by position. Capture now thinks 0 tokens
+  (`GEMINI_THINKING.capture = 0`). The student never sees `work`.
+- **Measured** on 23 screenshots (16 SAT Math, 5 Reading and Writing, 2 ACT), against the deployed code, two
+  passes: 46 of 46 right, answer shown after about 3 s from the client (was about 8 to 10 s on Math), card done
+  after about 7.5 s (was about 13 s). The old setting scored 22 of 23 on the same set.
+- **Runaway replies.** About 1 capture in 30, with or without thinking, the model wrote newline after newline
+  inside a field until the output limit, and the capture failed. `isRunaway()` spots that in the stream and the
+  route starts the call over once (the panel just redraws from the new partials).
+- **"answer_shown"** now only counts an answer the page itself states (an answer key line, "The correct answer
+  is", a choice the page marks); a plain question with choices is not showing its answer.
+- **Early picks.** The live card shows "Which did you pick?" as soon as the answer is known; the reason for the
+  tapped letter shows as soon as its elimination streams in (eliminations are now in `PARTIAL_FIELDS`), and the
+  pick is saved once the card is done. The buttons act on pointer down, because the streaming redraw can replace
+  a button between press and release and lose a click.
+- **Tests.** The stub model can stream slowly (`RULECARD_STUB_STREAM_MS`), and `scripts/check-extension.mjs` taps
+  a letter mid-stream (36 checks; run the server with `RULECARD_STUB_STREAM_MS=120`).
+
 ## Publishing the extension on the Chrome Web Store (only you can do this)
 
 1. Register as a Chrome Web Store developer at https://chrome.google.com/webstore/devconsole with your Google account and pay the one-time $5 fee.

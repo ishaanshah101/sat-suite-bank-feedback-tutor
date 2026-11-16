@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Rulecard",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Capture an SAT or ACT question on screen and get the answer plus the real rules behind it, in plain words.",
   "minimum_chrome_version": "116",
   "icons": {

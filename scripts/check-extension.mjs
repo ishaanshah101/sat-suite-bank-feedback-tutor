@@ -187,6 +187,29 @@ try {
   ok("ACT: picking G explains why G is wrong", /Why G is wrong/i.test(await panel.locator('[data-testid="pick-why"]').innerText()) && /right answer is H/i.test(await panel.locator('[data-testid="pick-why"]').innerText()));
   await act.close();
 
+  // While the card is still being written, a letter can already be tapped: the reason shows as soon as it is
+  // written, and the pick is saved once the card is done. Needs a slowed stub (RULECARD_STUB_STREAM_MS=120).
+  await page.bringToFront();
+  await panel.locator("#capture-tab").click();
+  const livePicks = await panel.locator("#live-card .pick").first().waitFor({ timeout: 30000 }).then(() => true).catch(() => false);
+  if (livePicks) {
+    // A real press on the button as it streams (it is redrawn constantly, so no "wait until stable" click).
+    const box = await panel.locator("#live-card .pick", { hasText: /^A$/ }).boundingBox();
+    if (box) {
+      await panel.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await panel.mouse.down();
+      await panel.mouse.up();
+    }
+    await panel.locator('#live-card [data-testid="pick-why"]').waitFor({ timeout: 15000 }).catch(() => undefined);
+    const liveWhy = await panel.locator('#live-card [data-testid="pick-why"]').innerText().catch(() => "");
+    await panel.locator('#result-card [data-testid="pick-why"]').waitFor({ timeout: 60000 }).catch(() => undefined);
+    const savedWhy = await panel.locator('#result-card [data-testid="pick-why"]').innerText().catch(() => "");
+    const savedPick = await panel.locator("#result-card .pick.on").innerText().catch(() => "");
+    ok("early pick: a letter tapped mid-stream explains itself, then is saved as the pick", /Why A is wrong/i.test(liveWhy) && /Why A is wrong/i.test(savedWhy) && savedPick === "A", JSON.stringify({ liveWhy: liveWhy.slice(0, 50), savedWhy: savedWhy.slice(0, 50), savedPick }));
+  } else {
+    ok("early pick: a letter tapped mid-stream explains itself, then is saved as the pick", false, "the live card never showed letters; start the server with RULECARD_STUB_STREAM_MS=120");
+  }
+
   // A page Chrome never lets extensions capture: the panel says so instead of failing silently.
   const blocked = await context.newPage();
   await blocked.goto("chrome://version").catch(() => undefined);

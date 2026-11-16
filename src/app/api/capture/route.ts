@@ -1,10 +1,10 @@
 import { Output, streamText } from "ai";
 import { z } from "zod";
 import { apiErrorPayload, readJson, withApi } from "@/lib/api";
-import { captureInstructions, captureToCard, captureToExtraction, CaptureOutputSchema, PARTIAL_FIELDS, type CaptureOutput } from "@/lib/ai/capture";
+import { captureInstructions, captureToCard, captureToExtraction, CaptureOutputSchema, isRunaway, PARTIAL_FIELDS, type CaptureOutput } from "@/lib/ai/capture";
 import { hasKnownAnswer, sanitizeRuleCard, usableModelAnswer } from "@/lib/ai/explain";
 import { ExtractionError, normalizeExtraction, parseDataUrl } from "@/lib/ai/extract";
-import { abortAfter, isNoOutputError, noteStreamError, noteStreamOk, pickProvider } from "@/lib/ai/providers";
+import { isNoOutputError, noteStreamError, noteStreamOk, pickProvider } from "@/lib/ai/providers";
 import { chargeAiQuota } from "@/lib/ai/quota";
 import { createAttempt, deleteAttempt, finishAttempt, getQuestion, setModelAnswer, setModelGridInAnswer, upsertQuestion } from "@/db/queries";
 import { getRule } from "@/content/rules";
@@ -49,34 +49,51 @@ export async function POST(request: Request) {
       async start(controller) {
         const send = (event: Event) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
         try {
-          const result = streamText({
-            model: provider.model("capture"),
-            instructions: captureInstructions(),
-            messages: [{ role: "user", content }],
-            output: Output.object({ schema: CaptureOutputSchema, name: "captured_card" }),
-            providerOptions: provider.providerOptions("capture"),
-            maxOutputTokens: 9000,
-            maxRetries: 1,
-            abortSignal: abortAfter(55_000),
-          });
-          // Send the card fields as they grow; skip repeats, and stop once the transcription starts.
-          let last = "";
-          for await (const partial of result.partialOutputStream) {
-            const card: Record<string, unknown> = {};
-            for (const key of PARTIAL_FIELDS) if (partial[key] !== undefined) card[key] = partial[key];
-            const serialized = JSON.stringify(card);
-            if (serialized !== last) {
-              last = serialized;
-              send({ type: "partial", card });
+          const deadline = AbortSignal.timeout(55_000);
+          let output: CaptureOutput | null = null;
+          // Now and then the model gets stuck writing the same character (a run of newlines) until it hits the
+          // output limit, and the reply cannot be read. That is caught as it streams and the call starts over
+          // once; the panel simply redraws from the new partials.
+          for (let attempt = 1; attempt <= 2 && !output; attempt++) {
+            const stop = new AbortController();
+            let runaway = false;
+            const result = streamText({
+              model: provider.model("capture"),
+              instructions: captureInstructions(),
+              messages: [{ role: "user", content }],
+              output: Output.object({ schema: CaptureOutputSchema, name: "captured_card" }),
+              providerOptions: provider.providerOptions("capture"),
+              maxOutputTokens: 9000,
+              maxRetries: 1,
+              abortSignal: AbortSignal.any([deadline, stop.signal]),
+            });
+            try {
+              // Send the card fields as they grow; skip repeats.
+              let last = "";
+              for await (const partial of result.partialOutputStream) {
+                if (isRunaway(partial)) {
+                  runaway = true;
+                  stop.abort();
+                  // The abandoned reply's result now rejects; nothing waits for it.
+                  Promise.resolve(result.output).catch(() => undefined);
+                  break;
+                }
+                const card: Record<string, unknown> = {};
+                for (const key of PARTIAL_FIELDS) if (partial[key] !== undefined) card[key] = partial[key];
+                const serialized = JSON.stringify(card);
+                if (serialized !== last) {
+                  last = serialized;
+                  send({ type: "partial", card });
+                }
+              }
+              if (!runaway) output = (await result.output) as CaptureOutput;
+            } catch (error) {
+              if (!runaway && !isNoOutputError(error)) throw error;
+              runaway = true;
             }
+            if (runaway) console.warn(`[capture] unreadable reply on attempt ${attempt}${attempt < 2 ? ", trying again" : ""}`);
           }
-          let output: CaptureOutput;
-          try {
-            output = (await result.output) as CaptureOutput;
-          } catch (error) {
-            if (isNoOutputError(error)) throw new ExtractionError("The model could not read a complete question. Try again, with the whole question on screen.");
-            throw error;
-          }
+          if (!output) throw new ExtractionError("The model could not read a complete question. Try again, with the whole question on screen.");
           noteStreamOk(provider);
 
           const parsed = normalizeExtraction(captureToExtraction(output), "text" in body ? body.text : undefined);

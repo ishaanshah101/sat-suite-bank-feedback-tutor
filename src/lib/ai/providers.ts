@@ -126,8 +126,11 @@ type ProviderOptionsValue = Record<string, Record<string, string | number | bool
 
 const ANTHROPIC_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium", math: "high", capture: "low" };
 const OPENAI_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "low", chat: "low", drill: "low", math: "medium", capture: "low" };
-/** Gemini thinking budgets (tokens). Capture has to solve Math when no answer is shown, so it gets room, but less than a full Math explanation. */
-const GEMINI_THINKING: Record<TaskKind, number> = { extract: 0, explain: 512, chat: 512, drill: 512, math: 6000, capture: 2048 };
+/**
+ * Gemini thinking budgets (tokens). Capture thinks 0: it solves in a short visible "work" field instead, which
+ * measured as accurate as a 2,048-token think on SAT Math and shows the answer in about 2 s instead of about 9 s.
+ */
+const GEMINI_THINKING: Record<TaskKind, number> = { extract: 0, explain: 512, chat: 512, drill: 512, math: 6000, capture: 0 };
 
 function gatewayOptionsFor(id: string, kind: TaskKind): ProviderOptionsValue {
   if (id.startsWith("anthropic/")) return { anthropic: { effort: ANTHROPIC_EFFORT[kind] } };
