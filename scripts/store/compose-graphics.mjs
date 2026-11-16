@@ -71,7 +71,7 @@ const smallTile = `<!doctype html><html><head><style>${BASE_CSS}
   .tag{margin-top:22px;font-size:21px;line-height:1.35;font-weight:500;color:#e6ecff;max-width:340px}
 </style></head><body><div class="g"></div><div class="c">
   <div class="row"><div class="ic">${ICON_SVG(56)}</div><div class="name">Rulecard</div></div>
-  <div class="tag">The rules behind every SAT Reading, Writing and Math miss</div>
+  <div class="tag">The rules behind every SAT and ACT question you miss</div>
 </div></body></html>`;
 
 const marquee = `<!doctype html><html><head><style>${BASE_CSS}
@@ -89,9 +89,9 @@ const marquee = `<!doctype html><html><head><style>${BASE_CSS}
   .panel{box-shadow:0 40px 80px rgba(5,12,60,.45)}
 </style></head><body><div class="g"></div>
   <div class="c"><div class="row"><div class="ic">${ICON_SVG(40)}</div>Rulecard</div>
-    <h1>Learn the rule behind every SAT miss</h1>
+    <h1>Learn the rule behind every SAT and ACT miss</h1>
     <p>Capture any SAT or ACT practice question on screen. Get the answer and the real rules behind it, in plain words.</p></div>
-  <div class="panel p1"><div class="bar">${ICON_SVG(16)}Rulecard</div><img class="shot" src="${img("rule.png")}"></div>
+  <div class="panel p1"><div class="bar">${ICON_SVG(16)}Rulecard</div><img class="shot" src="${img("act-rule.png")}"></div>
   <div class="panel p2"><div class="bar">${ICON_SVG(16)}Rulecard</div><img class="shot" src="${img("math-rule.png")}"></div>
 </body></html>`;
 
