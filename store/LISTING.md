@@ -1,6 +1,6 @@
 # Chrome Web Store listing for Rulecard
 
-Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.9.0.zip`
+Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.9.1.zip`
 from this folder (rebuild it with `pnpm package:extension` after changing `extension/`).
 
 ## Store listing tab
@@ -11,13 +11,13 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
 - **Language:** English
 - **Description:**
 
-  Rulecard explains SAT and ACT questions the simple way. Open a SAT Suite Question Bank PDF, a practice-test question you're reviewing in My Practice, or an ACT practice test, and press one button. The answer and the bullets appear in seconds, while Rulecard is still writing: the real rules behind the question, in plain words, instead of a long, confusing rationale. As many bullets as the question needs, no more.
+  Rulecard explains SAT and ACT questions the simple way. Open a SAT Suite Question Bank PDF, a practice-test question you're reviewing in My Practice, or an ACT practice test, and press one button. The answer appears in about two seconds and the bullets right after, while Rulecard is still writing: the real rules behind the question, in plain words, instead of a long, confusing rationale. As many bullets as the question needs, no more.
 
   How it works:
   1. Open the question so the whole question and its answer choices are on screen: a Question Bank PDF, a missed question in My Practice after a Bluebook practice test, or a question from an ACT practice test (English, Math, Reading or Science).
   2. Click the Rulecard icon to open the side panel and press Capture this tab. (With the panel open, clicking the icon or pressing Alt+Shift+R captures too.)
   3. Read the answer and the bullets as they appear: the rule, said the way the best SAT and ACT cheat sheets say it, and how it picks the answer.
-  4. Optional: tap the letter you picked (or type your grid-in answer) to see exactly why it's wrong.
+  4. Optional: tap the letter you picked (or type your grid-in answer) to see exactly why it's wrong. The letters work as soon as the answer shows, even before the card is finished.
 
   The bullets come from a rule library of over 300 rules: all 29 Digital SAT skills, and every part of the ACT (English, Math, Reading and Science), with the shortcuts and traps for each (Desmos moves, plugging in, transition words, punctuation rules, matrices and logarithms, reading graphs and experiments, and more). ACT questions keep the letters printed on screen (F G H J on even-numbered questions), and five-choice ACT Math questions work too.
 
@@ -32,7 +32,7 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
 
   Your reviews are saved to a free Rulecard account (email and password), so your history is there next time, in the extension and on the web app at rulecard.vercel.app.
 
-  Rulecard is an independent study tool. It is not affiliated with or endorsed by College Board. SAT is a trademark of College Board.
+  Rulecard is an independent study tool. It is not affiliated with or endorsed by College Board or ACT Education Corp. SAT is a trademark of College Board. ACT is a registered trademark of ACT Education Corp.
 
 - **Graphic assets (all in this folder):**
   - Store icon (128x128): `store-icon-128.png` (96x96 artwork with 16px transparent padding, per Google's icon guidelines)
@@ -51,7 +51,7 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
 
 ## Privacy practices tab
 
-- **Single purpose:** Help students learn from their SAT practice questions: when the student presses Capture, read the question on the tab they are looking at (a Question Bank PDF or a practice-test question), and explain the answer in a few short rules, then help them practice those rules.
+- **Single purpose:** Help students learn from their SAT and ACT practice questions: when the student presses Capture, read the question on the tab they are looking at (a Question Bank PDF, a practice-test question, or an ACT practice question), and explain the answer in a few short rules, then help them practice those rules.
 - **Permission justifications:**
   - `sidePanel`: the whole interface lives in Chrome's side panel next to the question.
   - `activeTab`: when the student clicks the Rulecard toolbar icon (or its shortcut) on a tab, take one screenshot of that tab so the question on it can be read. Only that tab, only then.
