@@ -94,4 +94,11 @@ describe("rateLimitWaitMs", () => {
     expect(rateLimitWaitMs(Object.assign(new Error("Server error"), { statusCode: 500 }))).toBeNull();
     expect(rateLimitWaitMs(new Error("fetch failed"))).toBeNull();
   });
+  it("treats server errors and dropped connections as worth one more try", async () => {
+    const { isTransientError } = await import("@/lib/ai/providers");
+    expect(isTransientError(Object.assign(new Error("Bad gateway"), { statusCode: 502 }))).toBe(true);
+    expect(isTransientError(new Error("fetch failed"))).toBe(true);
+    expect(isTransientError(Object.assign(new Error("Unauthorized"), { statusCode: 401 }))).toBe(false);
+    expect(isTransientError(Object.assign(new Error("Slow down"), { statusCode: 429 }))).toBe(false);
+  });
 });

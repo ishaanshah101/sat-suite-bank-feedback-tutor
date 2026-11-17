@@ -4,7 +4,7 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { parseNumber } from "@/lib/questions/spr";
-import { abortAfter, isNoOutputError, rateLimitWaitMs, retryOnNoOutput, withFailover, type TaskKind } from "./providers";
+import { abortAfter, isNoOutputError, isTransientError, rateLimitWaitMs, retryOnNoOutput, withFailover, type TaskKind } from "./providers";
 import { ChoicesOutputSchema, ExamSchema, FormatSchema, LetterSchema, LetterStyleSchema, SectionSchema } from "./schemas";
 
 export const SolveOutputSchema = z.object({
@@ -88,6 +88,7 @@ export async function solveOnce(
   deadline = Date.now() + SOLVE_BUDGET_MS,
 ): Promise<SolveOutput> {
   const careful = kind !== "capture";
+  let transientRetries = 0;
   for (;;) {
     const timeLeft = deadline - Date.now();
     try {
@@ -102,7 +103,8 @@ export async function solveOnce(
                 output: Output.object({ schema: SolveOutputSchema, name: "solved_question" }),
                 providerOptions: provider.providerOptions(kind),
                 maxOutputTokens: careful ? 16000 : 6000,
-                maxRetries: 1,
+                // Retries happen in this loop, which caps the waits; the SDK would sit out a 60 s retry-after.
+                maxRetries: 0,
                 abortSignal: abortAfter(Math.max(1_000, Math.min(careful ? 75_000 : 40_000, timeLeft))),
               })
             ).output as SolveOutput,
@@ -110,7 +112,7 @@ export async function solveOnce(
       );
       return result;
     } catch (error) {
-      const wait = rateLimitWaitMs(error);
+      const wait = rateLimitWaitMs(error) ?? (isTransientError(error) && transientRetries++ < 1 ? 2_000 : null);
       // Wait at most 20 s at a time, and only if a typical solve (about 15 s) still fits afterwards.
       if (wait === null || Date.now() + Math.min(wait, 20_000) + 15_000 > deadline) throw error;
       await new Promise((resolve) => setTimeout(resolve, Math.min(wait, 20_000)));
