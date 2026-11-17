@@ -1,0 +1,55 @@
+{
+  "name": "rulecard-helper",
+  "productName": "Rulecard Helper",
+  "version": "1.0.0",
+  "description": "A floating SAT and ACT practice helper for the Mac: press a key, it reads the question on your screen and answers it, checked twice.",
+  "private": true,
+  "main": "dist/main.js",
+  "author": "Rulecard",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "node ../desktop/build.mjs",
+    "package:mac": "node ../desktop/package-mac.mjs"
+  },
+  "devDependencies": {
+    "electron": "44.9.3",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "app.rulecard.helper",
+    "productName": "Rulecard Helper",
+    "copyright": "Rulecard",
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "asar": true,
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.education",
+      "icon": "assets/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSScreenCaptureUsageDescription": "Rulecard Helper reads the practice question on your screen when you ask it to, so it can answer it."
+      }
+    },
+    "electronLanguages": [
+      "en"
+    ]
+  }
+}
