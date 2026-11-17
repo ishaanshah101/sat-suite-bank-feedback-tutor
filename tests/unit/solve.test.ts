@@ -81,3 +81,17 @@ describe("solveCarefully with the stub model", () => {
     await expect(solveCarefully({ text: "STUB_NO_QUESTION: a desktop with no question on it" })).rejects.toThrow(/No complete SAT or ACT question/);
   });
 });
+
+describe("rateLimitWaitMs", () => {
+  const limited = (message: string) => Object.assign(new Error(message), { statusCode: 429 });
+  it("reads the gateway's retry-after hint", async () => {
+    const { rateLimitWaitMs } = await import("@/lib/ai/providers");
+    expect(rateLimitWaitMs(limited("Rate limit exceeded for google/gemini-2.5-flash. Retry after 9s."))).toBe(9_000);
+    expect(rateLimitWaitMs(limited("Too many requests"))).toBe(10_000);
+  });
+  it("ignores errors that are not rate limits", async () => {
+    const { rateLimitWaitMs } = await import("@/lib/ai/providers");
+    expect(rateLimitWaitMs(Object.assign(new Error("Server error"), { statusCode: 500 }))).toBeNull();
+    expect(rateLimitWaitMs(new Error("fetch failed"))).toBeNull();
+  });
+});

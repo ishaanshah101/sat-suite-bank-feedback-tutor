@@ -4,7 +4,7 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { parseNumber } from "@/lib/questions/spr";
-import { abortAfter, isNoOutputError, retryOnNoOutput, withFailover, type TaskKind } from "./providers";
+import { abortAfter, isNoOutputError, rateLimitWaitMs, retryOnNoOutput, withFailover, type TaskKind } from "./providers";
 import { ChoicesOutputSchema, ExamSchema, FormatSchema, LetterSchema, LetterStyleSchema, SectionSchema } from "./schemas";
 
 export const SolveOutputSchema = z.object({
@@ -74,26 +74,48 @@ function userContent(input: { image?: SolveImage; text?: string }, note?: string
 }
 
 /** One solve. `kind` picks the effort: "capture" is a quick worked solve, "math" a long careful think. */
-export async function solveOnce(kind: TaskKind, input: { image?: SolveImage; text?: string }, note?: string): Promise<SolveOutput> {
+/** The whole careful solve must finish inside the route's 180 s limit, with room to send the answer. */
+const SOLVE_BUDGET_MS = 165_000;
+
+/**
+ * One solve. A rate limit ("retry after N s" from the free AI Gateway) is waited out and the call made again,
+ * as long as the wait still leaves time before `deadline`: this helper may be slow, but should not fail.
+ */
+export async function solveOnce(
+  kind: TaskKind,
+  input: { image?: SolveImage; text?: string },
+  note?: string,
+  deadline = Date.now() + SOLVE_BUDGET_MS,
+): Promise<SolveOutput> {
   const careful = kind !== "capture";
-  const { result } = await withFailover(kind, (provider) =>
-    retryOnNoOutput(
-      async () =>
-        (
-          await generateText({
-            model: provider.model(kind),
-            instructions: solveInstructions(),
-            messages: [{ role: "user", content: userContent(input, note) }],
-            output: Output.object({ schema: SolveOutputSchema, name: "solved_question" }),
-            providerOptions: provider.providerOptions(kind),
-            maxOutputTokens: careful ? 16000 : 6000,
-            maxRetries: 1,
-            abortSignal: abortAfter(careful ? 75_000 : 40_000),
-          })
-        ).output as SolveOutput,
-    ),
-  );
-  return result;
+  for (;;) {
+    const timeLeft = deadline - Date.now();
+    try {
+      const { result } = await withFailover(kind, (provider) =>
+        retryOnNoOutput(
+          async () =>
+            (
+              await generateText({
+                model: provider.model(kind),
+                instructions: solveInstructions(),
+                messages: [{ role: "user", content: userContent(input, note) }],
+                output: Output.object({ schema: SolveOutputSchema, name: "solved_question" }),
+                providerOptions: provider.providerOptions(kind),
+                maxOutputTokens: careful ? 16000 : 6000,
+                maxRetries: 1,
+                abortSignal: abortAfter(Math.max(1_000, Math.min(careful ? 75_000 : 40_000, timeLeft))),
+              })
+            ).output as SolveOutput,
+        ),
+      );
+      return result;
+    } catch (error) {
+      const wait = rateLimitWaitMs(error);
+      // Wait at most 20 s at a time, and only if a typical solve (about 15 s) still fits afterwards.
+      if (wait === null || Date.now() + Math.min(wait, 20_000) + 15_000 > deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(wait, 20_000)));
+    }
+  }
 }
 
 /** A grid-in answer as the model wrote it, cleaned up: "x = 3/17", "\\(\\frac{3}{17}\\)" and "3/17" are all 3/17. */
@@ -174,12 +196,13 @@ export async function solveCarefully(
   input: { image?: SolveImage; text?: string },
   onFirst: (first: SolveOutput) => void = () => undefined,
 ): Promise<SolveResult> {
+  const deadline = Date.now() + SOLVE_BUDGET_MS;
   const settle = <T>(p: Promise<T>) => p.then((v) => v, (error: unknown) => (isNoOutputError(error) ? null : Promise.reject(error)));
-  const quickP = settle(solveOnce("capture", input)).then((quick) => {
+  const quickP = settle(solveOnce("capture", input, undefined, deadline)).then((quick) => {
     if (found(quick)) onFirst(quick);
     return quick;
   });
-  const carefulP = settle(solveOnce("math", input));
+  const carefulP = settle(solveOnce("math", input, undefined, deadline));
   const [quickR, carefulR] = await Promise.allSettled([quickP, carefulP]);
   const quick = quickR.status === "fulfilled" ? quickR.value : null;
   const careful = carefulR.status === "fulfilled" ? carefulR.value : null;
@@ -192,7 +215,7 @@ export async function solveCarefully(
   // They disagree, or only one finished: a third careful solve decides.
   const known = [quick, careful].filter(found);
   const note = known.length === 2 ? tiebreakNote(known[0], known[1]) : undefined;
-  const third = await settle(solveOnce("math", input, note)).catch(() => null);
+  const third = await settle(solveOnce("math", input, note, deadline)).catch(() => null);
   if (found(third)) {
     if (known.length === 1 && !sameAnswer(third, known[0])) return { final: third, agreement: "tiebreak", first: found(quick) ? quick : null };
     return { final: third, agreement: known.length === 2 ? "tiebreak" : "agreed", first: found(quick) ? quick : null };
