@@ -311,6 +311,32 @@ export function isFailoverError(error: unknown): boolean {
   return false;
 }
 
+/**
+ * A rate limit (HTTP 429), looked for through the SDK's retry wrapper. Returns how long to wait in ms (from the
+ * "Retry after Ns" hint, else 10 s), or null when the error is not a rate limit.
+ */
+export function rateLimitWaitMs(error: unknown): number | null {
+  if (RetryError.isInstance(error)) {
+    // The SDK's own retries already waited on the earlier hints; the shortest one left is the best guess.
+    const waits = [error.lastError, ...error.errors].map(rateLimitWaitMs).filter((w): w is number => w !== null);
+    return waits.length ? Math.min(...waits) : null;
+  }
+  const status = APICallError.isInstance(error) ? error.statusCode : statusCodeOf(error);
+  if (status !== 429) return null;
+  const hint = /retry after (\d+)\s*s/i.exec(error instanceof Error ? error.message : String(error));
+  return hint ? Number(hint[1]) * 1000 : 10_000;
+}
+
+/** A brief provider or network failure (5xx, dropped connection) worth one more try; not auth, quota or bad input. */
+export function isTransientError(error: unknown): boolean {
+  if (RetryError.isInstance(error)) return isTransientError(error.lastError);
+  const status = APICallError.isInstance(error) ? error.statusCode : statusCodeOf(error);
+  if (typeof status === "number") return status >= 500;
+  if (APICallError.isInstance(error)) return Boolean(error.isRetryable);
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  return /fetch failed|econnreset|socket hang up|network/.test(message);
+}
+
 /** True when the model answered but produced no usable structured output (truncated or off-schema JSON). */
 export function isNoOutputError(error: unknown): boolean {
   return NoObjectGeneratedError.isInstance(error) || NoOutputGeneratedError.isInstance(error);

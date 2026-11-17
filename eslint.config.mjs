@@ -14,6 +14,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Bundled browser extension output.
     "extension/dist/**",
+    // Rulecard Helper (desktop app): its own dependencies, bundle and packaged apps.
+    "desktop/node_modules/**",
+    "desktop/dist/**",
+    "desktop/release/**",
   ]),
 ]);
 

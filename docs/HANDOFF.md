@@ -181,6 +181,34 @@ then optionally say which letter they picked and see why it's wrong. The PDF pic
 - **Tests.** The stub model can stream slowly (`RULECARD_STUB_STREAM_MS`), and `scripts/check-extension.mjs` taps
   a letter mid-stream (36 checks; run the server with `RULECARD_STUB_STREAM_MS=120`).
 
+## Practice Test Helper: a Mac floating panel (2026-11-17)
+
+A separate desktop app in `desktop/` (Electron), for reviewing practice tests such as Bluebook practice tests:
+a floating panel in the top-right corner of the Mac screen, like a desktop AI assistant. It is not the
+extension and does not need Chrome.
+
+- **⌥⇧Space** (or the button) takes one screenshot of the screen under the pointer and asks the server for a
+  careful answer. **⌥Space** shows or hides the panel. A menu bar icon has the same actions plus Open at
+  login, Sign out and Quit. Follow-up questions go in the chat box under the answer.
+- It answers SAT and ACT questions only. It uses the standard macOS Screen Recording permission and nothing
+  else; it does not try to run inside, hide from or get around a locked-down testing app.
+- **Careful solve** (`src/lib/ai/solve.ts`, `POST /api/solve`): a quick worked solve and a long careful solve
+  (6,000-token thinking budget) run at the same time. If they agree, the panel shows "✓ Checked twice". If
+  they disagree, a third careful solve that sees both decides ("Checked 3 times: close call"). Grid-in
+  answers are compared as exact fractions, so 0.5 and 1/2 agree. It ignores the student's own selected or
+  crossed-out choices.
+- **Rate limits.** The free AI Gateway allows 5 requests a minute per model, and one question uses 2 or 3.
+  When the limit is hit, the solve waits the time the gateway asks for (at most 20 s at a time) and tries
+  again, inside a 165 s budget, instead of failing.
+- Follow-up chat: `POST /api/solve/chat`, SAT/ACT tutoring only, charged to the same daily chat quota.
+- Sign-in uses the same Rulecard account; the session token is kept in the macOS keychain (`safeStorage`).
+- Build: `cd desktop && ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci && node package-mac.mjs` makes
+  `Rulecard-Helper-<version>-mac-apple-silicon.zip` and `...-mac-intel.zip` in `desktop/release/`.
+- The zips are **not signed or notarized** (that needs an Apple Developer account, $99/year). After moving
+  the app to Applications, run once in Terminal:
+  `xattr -cr "/Applications/Rulecard Helper.app" && codesign --force --deep --sign - "/Applications/Rulecard Helper.app"`.
+  Install steps are in `desktop/README.md`.
+
 ## Publishing the extension on the Chrome Web Store (only you can do this)
 
 1. Register as a Chrome Web Store developer at https://chrome.google.com/webstore/devconsole with your Google account and pay the one-time $5 fee.

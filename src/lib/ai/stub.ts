@@ -226,8 +226,45 @@ const STUB_CAPTURE_ACT = {
   choices: { A: "NO CHANGE", B: "March commuters", C: "March; commuters", D: "March, and the commuters", E: "" },
 };
 
+const STUB_SOLVE = {
+  question_found: true,
+  exam: "sat",
+  section: "rw",
+  format: "mcq",
+  letter_style: "abcd",
+  stem: "Which choice completes the text so that it conforms to the conventions of Standard English?",
+  choices: { A: "2019,", B: "2019;", C: "2019", D: "2019, and", E: "" },
+  work: "Both halves are complete sentences, so they need a semicolon: B.",
+  correct_letter: "B",
+  correct_answer: null,
+  why: ["Both halves are complete sentences, so a semicolon joins them."],
+  confidence: 0.92,
+};
+
+const STUB_SOLVE_MATH = {
+  ...STUB_SOLVE,
+  section: "math",
+  format: "spr",
+  stem: "If \\(17x - 2 = 1\\), what is the value of \\(x\\)?",
+  choices: { A: "", B: "", C: "", D: "", E: "" },
+  work: "17x = 3, so x = 3/17.",
+  correct_letter: null,
+  correct_answer: "3/17",
+  why: ["Add 2 to both sides: \\(17x = 3\\), so \\(x = \\frac{3}{17}\\)."],
+};
+
+/** The Practice Test Helper's solves. "STUB_DISAGREE" in the input makes the quick and careful solves disagree. */
+function solveJson(kind: TaskKind, userText: string): string {
+  if (/SAT Math/.test(userText)) return JSON.stringify(kind === "capture" ? { ...STUB_SOLVE_MATH, correct_answer: "6/34" } : STUB_SOLVE_MATH);
+  if (/STUB_DISAGREE/.test(userText) && kind === "capture") return JSON.stringify({ ...STUB_SOLVE, correct_letter: "A", why: ["A comma joins them."] });
+  if (/STUB_DISAGREE/.test(userText) && !/Two solvers disagreed/.test(userText)) return JSON.stringify({ ...STUB_SOLVE, correct_letter: "C" });
+  if (/STUB_NO_QUESTION/.test(userText)) return JSON.stringify({ ...STUB_SOLVE, question_found: false, correct_letter: null });
+  return JSON.stringify(STUB_SOLVE);
+}
+
 /** Pick the stub reply from the task and from what the prompt asks for (Math or Reading and Writing). */
 function jsonFor(kind: TaskKind, prompt: string, userText: string): string {
+  if (/Practice Test Helper/.test(prompt) && kind !== "chat") return solveJson(kind, userText);
   if (kind === "capture") return JSON.stringify(/SAT Math/.test(userText) ? STUB_CAPTURE_MATH : /ACT (English|Math|Reading|Science)/.test(userText) ? STUB_CAPTURE_ACT : STUB_CAPTURE_RW);
   if (kind === "extract") return JSON.stringify(/SAT Math/.test(userText) ? STUB_MATH_EXTRACTION : STUB_EXTRACTION);
   if (kind === "drill") return JSON.stringify(STUB_DRILL);

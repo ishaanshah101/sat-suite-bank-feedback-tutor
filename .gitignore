@@ -46,3 +46,8 @@ next-env.d.ts
 /playwright-report
 store/.panels/
 tests/unit/addons/fixtures/local/
+
+# Rulecard Helper (desktop app)
+/desktop/node_modules
+/desktop/dist
+/desktop/release
