@@ -222,7 +222,7 @@ extension and does not need Chrome.
 - Follow-up chat: `POST /api/solve/chat`, SAT/ACT tutoring only, charged to the same daily chat quota.
 - Sign-in uses the same Rulecard account; the session token is kept in the macOS keychain (`safeStorage`).
 - Build: `cd desktop && ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci && node package-mac.mjs` makes
-  `Rulecard-Helper-<version>-mac-apple-silicon.zip` and `...-mac-intel.zip` in `desktop/release/`.
+  `Rulecard-Helper-<version>-mac-apple-silicon.zip` in `desktop/release/` (Apple silicon only, M1 and later; no Intel build).
 - The zips are **not signed or notarized** (that needs an Apple Developer account, $99/year). After moving
   the app to Applications, run once in Terminal:
   `xattr -cr "/Applications/Rulecard Helper.app" && codesign --force --deep --sign - "/Applications/Rulecard Helper.app"`.

@@ -1,4 +1,4 @@
-// Builds Rulecard Helper for the Mac (Apple silicon and Intel) and zips each app, keeping the framework symlinks.
+// Builds Rulecard Helper for Apple silicon Macs (M1 and later) and zips the app, keeping the framework symlinks.
 // Run from the repo root: node desktop/package-mac.mjs
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -12,8 +12,8 @@ const release = path.join(here, "release");
 
 run("node", [path.join(here, "build.mjs")]);
 fs.rmSync(release, { recursive: true, force: true });
-run("npx", ["electron-builder", "--mac", "dir", "--arm64", "--x64"]);
-for (const [dir, label] of [["mac-arm64", "apple-silicon"], ["mac", "intel"]]) {
+run("npx", ["electron-builder", "--mac", "dir", "--arm64"]);
+for (const [dir, label] of [["mac-arm64", "apple-silicon"]]) {
   const zip = path.join(release, `Rulecard-Helper-${version}-mac-${label}.zip`);
   run("zip", ["-qry", zip, "Rulecard Helper.app"], path.join(release, dir));
   console.log(`${path.basename(zip)}: ${(fs.statSync(zip).size / 1e6).toFixed(1)} MB`);

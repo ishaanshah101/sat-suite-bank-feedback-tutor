@@ -10,7 +10,7 @@ else: it does not try to run inside, hide from, or get around any locked-down te
 
 ## Install (from the zip)
 
-1. Unzip `Rulecard-Helper-<version>-mac-apple-silicon.zip` (M1/M2/M3/M4 Macs) or `...-mac-intel.zip`, and
+1. Unzip `Rulecard-Helper-<version>-mac-apple-silicon.zip` (Apple silicon Macs: M1 and later; Intel Macs are not supported), and
    drag **Rulecard Helper.app** into **Applications**.
 2. The build is not notarized by Apple, so sign it for your own Mac once. Open Terminal and paste:
 
@@ -34,7 +34,7 @@ else: it does not try to run inside, hide from, or get around any locked-down te
 ```sh
 cd desktop
 ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci   # the Mac Electron binary is fetched by electron-builder
-node package-mac.mjs                       # builds both zips into desktop/release/
+node package-mac.mjs                       # builds the Apple silicon zip into desktop/release/
 ```
 
 `node build.mjs` alone bundles `src/` into `dist/` (main, preload, renderer). The panel talks to the
