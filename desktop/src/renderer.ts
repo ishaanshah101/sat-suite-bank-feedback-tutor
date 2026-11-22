@@ -98,10 +98,13 @@ function math(tag: "p" | "li" | "span" | "div", text: string, props: Record<stri
   return el;
 }
 
-const SPARK = () => {
+/** The Rulecard logo: blue tile, white card (same mark as the Chrome extension icon). */
+const MARK_SVG = (cls: string) =>
+  `<svg class="${cls}" viewBox="0 0 96 96" aria-hidden="true"><defs><linearGradient id="rcg-${cls}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d68f2"/><stop offset="1" stop-color="#2449d6"/></linearGradient></defs><rect width="96" height="96" rx="22" fill="url(#rcg-${cls})"/><rect x="19" y="25" width="58" height="48" rx="7" fill="#fff"/><rect x="28" y="38" width="40" height="7" rx="3.5" fill="#2f5bea"/><rect x="28" y="52" width="25" height="6" rx="3" fill="#c9d6fb"/></svg>`;
+const MARK = (cls = "spark") => {
   const wrap = h("div");
-  wrap.innerHTML = `<svg class="spark" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5ab2ff"/><stop offset="0.5" stop-color="#7a6bff"/><stop offset="1" stop-color="#ff7aa8"/></linearGradient></defs><path fill="url(#g)" d="M24 2c1.6 9.6 4.2 14.8 7.9 18.1C35.6 23.4 40.3 25 46 26c-5.7 1-10.4 2.6-14.1 5.9C28.2 35.2 25.6 40.4 24 50c-1.6-9.6-4.2-14.8-7.9-18.1C12.4 28.6 7.7 27 2 26c5.7-1 10.4-2.6 14.1-5.9C19.8 16.8 22.4 11.6 24 2z" transform="translate(0 -2)"/></svg>`;
-  return wrap.firstElementChild as Element;
+  wrap.innerHTML = MARK_SVG(cls);
+  return wrap.firstElementChild as HTMLElement;
 };
 
 function render(): void {
@@ -117,7 +120,7 @@ function top(): Node {
   return h(
     "div",
     { class: "top" },
-    h("div", { class: "brand" }, "Rulecard Helper"),
+    h("div", { class: "brand" }, MARK("brand-mark"), "Rulecard Helper"),
     state.info?.signedIn ? h("button", { class: "icon-btn", title: "Open Rulecard on the web", text: "↗", onclick: () => void api.openWeb() }) : null,
     h("button", { class: "icon-btn", title: "Hide (⌥Space)", text: "✕", onclick: () => void api.hide() }),
   );
@@ -151,7 +154,7 @@ function signInView(): Node[] {
     }
   };
   return [
-    h("div", { class: "hero" }, SPARK(), h("h1", { text: "Rulecard Helper" }), h("p", { text: "Sign in with your Rulecard account. It's the same one the Chrome extension and rulecard.vercel.app use." })),
+    h("div", { class: "hero" }, MARK(), h("h1", { text: "Rulecard Helper" }), h("p", { text: "Sign in with your Rulecard account. It's the same one the Chrome extension and rulecard.vercel.app use." })),
     h(
       "form",
       { class: "stack", onsubmit: submit },
@@ -180,7 +183,7 @@ function signInView(): Node[] {
 
 function permissionView(): Node[] {
   return [
-    h("div", { class: "hero" }, SPARK(), h("h1", { text: "Let it see your screen" }), h("p", { text: "macOS asks once before any app can read the screen." })),
+    h("div", { class: "hero" }, MARK(), h("h1", { text: "Let it see your screen" }), h("p", { text: "macOS asks once before any app can read the screen." })),
     h(
       "div",
       { class: "card" },
@@ -203,7 +206,7 @@ function homeView(): Node[] {
   const solving = state.phase === "capturing" || state.phase === "solving";
   if (!state.result && !state.first && state.phase !== "error" && !solving) {
     nodes.push(
-      h("div", { class: "hero" }, SPARK(), h("h1", { text: "Stuck on a question?" }), h("p", { text: "Open the question so it and its answer choices are on screen. Rulecard reads it and gives you the answer, checked twice." })),
+      h("div", { class: "hero" }, MARK(), h("h1", { text: "Stuck on a question?" }), h("p", { text: "Open the question so it and its answer choices are on screen. Rulecard reads it and gives you the answer, checked twice." })),
     );
   }
   nodes.push(
