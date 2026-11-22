@@ -209,7 +209,7 @@ export type CaptureEvent =
  */
 export async function streamCapture(
   settings: Settings,
-  body: { image: string; source: "capture" | "image" } | { text: string; source: "paste" },
+  body: { image: string; source: "capture" | "image"; pageText?: string } | { text: string; source: "paste" },
   onPartial: (card: Record<string, unknown>) => void,
 ): Promise<Extract<CaptureEvent, { type: "done" }>> {
   const control = new AbortController();

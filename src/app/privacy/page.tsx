@@ -16,8 +16,11 @@ export default function PrivacyPage() {
         <li>Your email address and a salted hash of your password (never the password itself).</li>
         <li>
           The SAT or ACT practice questions you send it. In the Chrome extension, that is one screenshot of the tab
-          you are on, taken only when you press &quot;Capture this tab&quot; (or click the Rulecard icon with the panel open). On a My Practice
-          question page it reads the question&apos;s text instead (with a screenshot when the question has a graph). On the website you can
+          you are on and that page&apos;s text (so a question that runs off the screen is read in full), taken only when you press
+          &quot;Capture this tab&quot; (or click the Rulecard icon with the panel open). With &quot;Capture a window or screen&quot;, it is one
+          picture of the window or screen you pick in Chrome&apos;s own picker. On a My Practice question page it reads the question&apos;s
+          text instead (with a screenshot when the question has a graph). The page text is used to read the question and is not saved.
+          On the website you can
           also send a PDF page, an image or pasted text. Rulecard reads the question out of it, including equations and a written
           description of any graph, table or figure, and saves that text, not the picture.
         </li>
@@ -30,7 +33,8 @@ export default function PrivacyPage() {
         Only to give you feedback and to show you your own history. Question text and your answers are sent to an AI model provider (OpenAI,
         Anthropic or Google, through Vercel&apos;s AI Gateway) to write the explanation. Rulecard does not sell data, show ads, or share it for
         any other purpose. The extension looks at a tab only when you press Capture (or click its toolbar icon with the panel open), and
-        only that one tab, at that moment. It never reads pages in the background.
+        only that one tab, at that moment, and at a window or screen only after you pick it in Chrome&apos;s picker. It never reads pages
+        in the background and never records your screen.
       </p>
 
       <h2 className="mt-8 text-base font-semibold">Where it is stored</h2>

@@ -1,12 +1,12 @@
 # Chrome Web Store listing for Rulecard
 
-Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.9.1.zip`
+Everything the Chrome Web Store developer dashboard asks for, ready to paste. Upload `rulecard-extension-0.10.0.zip`
 from this folder (rebuild it with `pnpm package:extension` after changing `extension/`).
 
 ## Store listing tab
 
 - **Name:** Rulecard
-- **Summary (132 characters max):** Capture an SAT or ACT question on screen and get the answer plus the real rules behind it, in plain words.
+- **Summary (132 characters max):** Capture an SAT or ACT question on any tab, window or screen and get the answer plus the real rules behind it, in plain words.
 - **Category:** Education
 - **Language:** English
 - **Description:**
@@ -15,7 +15,7 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
 
   How it works:
   1. Open the question so the whole question and its answer choices are on screen: a Question Bank PDF, a missed question in My Practice after a Bluebook practice test, or a question from an ACT practice test (English, Math, Reading or Science).
-  2. Click the Rulecard icon to open the side panel and press Capture this tab. (With the panel open, clicking the icon or pressing Alt+Shift+R captures too.)
+  2. Click the Rulecard icon to open the side panel and press Capture this tab. It works on any tab, with no extra clicks, and reads the whole page so a question that runs off the screen is still read in full. (With the panel open, clicking the icon or pressing Alt+Shift+R captures too.) For a question outside Chrome, or a PDF in another viewer, press Capture a window or screen and pick it.
   3. Read the answer and the bullets as they appear: the rule, said the way the best SAT and ACT cheat sheets say it, and how it picks the answer.
   4. Optional: tap the letter you picked (or type your grid-in answer) to see exactly why it's wrong. The letters work as soon as the answer shows, even before the card is finished.
 
@@ -55,15 +55,13 @@ from this folder (rebuild it with `pnpm package:extension` after changing `exten
 - **Permission justifications:**
   - `sidePanel`: the whole interface lives in Chrome's side panel next to the question.
   - `activeTab`: when the student clicks the Rulecard toolbar icon (or its shortcut) on a tab, take one screenshot of that tab so the question on it can be read. Only that tab, only then.
-  - `scripting`: on My Practice (mypractice.collegeboard.org) only, when the student presses Capture, read the text of the open question dialog (question, choices, answer and rationale), which is more accurate than a screenshot for long passages. No other site is ever scripted.
+  - `scripting`: when the student presses Capture, read the text of the tab they are looking at (and, on My Practice, the open question dialog), so a question whose passage or choices are scrolled out of view is still read in full. Only that tab, only at that moment; nothing is read in the background.
+  - `desktopCapture`: the "Capture a window or screen" button opens Chrome's own picker so the student can choose a window or screen that holds the question (a PDF in another viewer, an app outside Chrome). One frame is taken, only after the student picks; nothing is recorded.
   - `storage`: keep the student's sign-in token and study log on this device.
   - `alarms`: refresh the toolbar badge with the number of rules due for review, and schedule the optional daily study reminder.
   - Optional `notifications`: requested only when the student turns on the daily reminder in settings.
-  - Host permission `rulecard.vercel.app`: the Rulecard server that reads the question and writes the explanation.
-  - Host permission `mypractice.collegeboard.org`: read the open practice-test question when the student presses Capture on it.
-  - Optional host permission `<all_urls>`: requested once, the first time the student presses Capture (Chrome's Allow box). It lets the Capture button screenshot the tab the student is looking at, only when pressed, so they don't have to click the toolbar icon first on every tab. Nothing is read in the background. The student can decline and click the toolbar icon instead.
-  - Optional host permission `https://*/*`: only requested if the student points the extension at their own Rulecard server in settings, for that one server's address.
-- **Narrow page access:** Rulecard looks at a tab only when the student presses Capture (or clicks its toolbar icon), and only that tab, at that moment. It never reads pages in the background.
+  - Host permission `<all_urls>`: lets the Capture button screenshot and read the tab the student is looking at, on whatever site their practice question is on (Question Bank PDFs, My Practice, ACT practice tests, school worksheets), without a separate grant or a toolbar click on every tab. Used only when the student presses Capture, only on that one tab. It also covers the Rulecard server (rulecard.vercel.app), or the student's own Rulecard server if they set one in settings.
+- **Narrow page access:** Rulecard looks at a tab only when the student presses Capture (or clicks its toolbar icon), and only that tab, at that moment. It never reads pages in the background. A window or screen is only seen after the student picks it in Chrome's own picker, and only one frame is taken.
 - **Remote code:** No, the extension does not run remote code. All JavaScript is in the package.
 - **Data usage, check:** Personally identifiable information (email address), Authentication information (password, sent once to sign in; only a token is stored), Website content (a screenshot or the text of the one question the student captures).
 - **Certify:** data is not sold to third parties, not used or transferred for purposes unrelated to the single purpose, not used for creditworthiness or lending.

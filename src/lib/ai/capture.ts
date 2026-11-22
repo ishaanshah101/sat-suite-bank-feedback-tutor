@@ -180,3 +180,16 @@ export function captureToCard(output: CaptureOutput): RuleCard {
     suggested_rule: output.suggested_rule,
   };
 }
+
+/**
+ * The page's text goes with the screenshot so a question that is cut off at the edge of the screen, or a
+ * passage that is scrolled out of view, can still be read whole. The screenshot decides WHICH question.
+ */
+export function pageTextNote(pageText: string): string {
+  return [
+    "Below is the text of the page the screenshot was taken from. It may include parts of the question that are scrolled out of view, and other text on the page (menus, other questions).",
+    "Answer the question that is in the screenshot. Use this text only to read that same question's missing or hard-to-read parts (the rest of its passage, its choices). If the screenshot shows no question at all, answer the one question this text is about.",
+    "",
+    pageText.slice(0, 15_000),
+  ].join("\n");
+}

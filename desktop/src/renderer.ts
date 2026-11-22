@@ -189,11 +189,12 @@ function permissionView(): Node[] {
         { class: "steps" },
         h("li", { text: "Open System Settings → Privacy & Security → Screen & System Audio Recording." }),
         h("li", { text: "Turn on Rulecard Helper." }),
-        h("li", { text: "Press Relaunch below (macOS needs a restart of the app)." }),
+        h("li", { text: "That's it. Rulecard Helper restarts by itself and answers the question on your screen." }),
       ),
     ),
     h("button", { class: "solve", onclick: () => void api.openScreenSettings() }, "Open Screen Recording settings"),
-    h("button", { class: "chip", onclick: () => void api.relaunch() }, "I turned it on. Relaunch"),
+    h("p", { class: "meta", text: "Waiting for the switch to be turned on…" }),
+    h("button", { class: "chip", onclick: () => void api.relaunch() }, "Didn't restart? Relaunch now"),
   ];
 }
 

@@ -1,10 +1,12 @@
 // "Capture this tab": a screenshot of the tab the student is looking at (a Question Bank PDF, a
-// practice-test review page, anything with the question on screen).
+// practice-test review page, anything with the question on screen), plus the page's own text so a
+// question that runs off the screen is still read whole.
 //
-// Chrome lets an extension screenshot a tab when it has activeTab for that tab (granted by clicking the
-// Rulecard toolbar icon or pressing its shortcut there) or the optional "all sites" grant. A file on the
-// computer also needs "Allow access to file URLs", and a PDF shown by another extension's viewer needs
-// activeTab. When the screenshot is refused, CaptureBlocked says which of these to do.
+// Rulecard is allowed on every site from install, so the Capture button works on any web page with no
+// toolbar click and no "Allow" box. Chrome still refuses a few pages: a file on the computer (until
+// "Allow access to file URLs" is on), a PDF shown by another extension's viewer, and Chrome's own pages.
+// For those, and for anything outside Chrome, "Capture a window or screen" (Chrome's own picker) sees
+// whatever is on screen. When the screenshot is refused, CaptureBlocked says what to do.
 
 /** What the student can do about a refused capture. */
 export type CaptureFix = "allSites" | "fileAccess" | "toolbar" | "fileOrToolbar";
@@ -25,9 +27,11 @@ export const HELP = {
   noTab: "Click the tab with the question first, then press Capture.",
   allSites: "Chrome needs your OK once before Rulecard can see the tab you capture.",
   fileAccess: "This PDF is a file saved on your computer. Chrome blocks extensions from those until you switch one setting on, once.",
-  toolbar: "Chrome won't let Rulecard see this page by itself. That happens when a PDF is open in another extension's viewer, like Adobe Acrobat.",
+  toolbar: "Chrome won't let Rulecard see this page by itself. That happens when a PDF is open in another extension's viewer, like Adobe Acrobat. Press \"Capture a window or screen\" instead: that sees anything on your screen.",
   fileOrToolbar: "Chrome wouldn't let Rulecard see this tab. It's usually one of two things:",
-  restricted: "Chrome doesn't let any extension capture this page (Chrome's own pages and the Web Store). Open the question in a normal tab.",
+  restricted: "Chrome doesn't let any extension capture this page directly (Chrome's own pages and the Web Store). Press \"Capture a window or screen\" instead: that sees anything on your screen.",
+  pickCancelled: "Nothing was picked. Press \"Capture a window or screen\" and choose the window or screen with the question.",
+  pickFailed: "Chrome couldn't share that window or screen. Try again and pick it from the list.",
 } as const;
 
 /** Numbered steps shown under each kind of refused capture. */
@@ -39,14 +43,12 @@ export const FIX_STEPS: Record<CaptureFix, string[]> = {
     "Come back to the PDF and press Capture this tab.",
   ],
   toolbar: [
-    "Stay on the PDF's tab and click the Rulecard icon in Chrome's toolbar (top right; if you don't see it, click the puzzle piece, then Rulecard). That captures it.",
-    "Or open the PDF in Chrome's own viewer instead, and the Capture button works by itself.",
-    "(Chrome's own pages, like Settings, can't be captured at all.)",
+    "Press \"Capture a window or screen\" below and pick the Chrome window (or the whole screen) with the question.",
+    "Or click the Rulecard icon in Chrome's toolbar while you're on this tab. That captures it too.",
   ],
   fileOrToolbar: [
-    "A PDF saved on your computer: press \"Open Rulecard's settings\", turn on \"Allow access to file URLs\", then press Try again.",
-    "A PDF in another extension's viewer (like Adobe Acrobat): click the Rulecard icon in Chrome's toolbar while you're on it. That captures it.",
-    "(Chrome's own pages, like Settings, can't be captured at all.)",
+    "Fastest: press \"Capture a window or screen\" below and pick the window with the question.",
+    "A PDF saved on your computer: to make the Capture button work on it every time, press \"Open Rulecard's settings\" and turn on \"Allow access to file URLs\" (once).",
   ],
 };
 
@@ -89,7 +91,78 @@ export async function captureTab(tab: chrome.tabs.Tab): Promise<string> {
   }
 }
 
-/** Ask once for the optional "all sites" grant. Must run inside a click. */
+/** Tidy page text before it is sent: no blank-line runs, at most 15,000 characters. */
+export function cleanPageText(text: string): string {
+  return text
+    .replace(/\u00a0/g, " ")
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 15_000);
+}
+
+/** Runs inside the page (serialized by chrome.scripting): the visible text of this frame. */
+function pageTextInPage(): string {
+  const body = document.body;
+  if (!body) return "";
+  return (body.innerText || body.textContent || "").slice(0, 30_000);
+}
+
+/**
+ * The text of the page (and its frames), or null when Chrome won't let Rulecard read it (a PDF, a
+ * restricted page). Never throws: the screenshot alone still works.
+ */
+export async function readPageText(tab: chrome.tabs.Tab): Promise<string | null> {
+  if (tab.id === undefined || isRestrictedUrl(tab.url)) return null;
+  try {
+    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: pageTextInPage });
+    const text = cleanPageText(results.map((r) => (typeof r.result === "string" ? r.result : "")).filter(Boolean).join("\n\n"));
+    return text.length >= 40 ? text : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * "Capture a window or screen": Chrome's own picker, which can see anything on screen (another app, a
+ * PDF in Adobe's viewer, a local file). Returns one frame as a PNG data URL. Must run inside a click.
+ */
+export function captureWindowOrScreen(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    chrome.desktopCapture.chooseDesktopMedia(["screen", "window", "tab"], async (streamId) => {
+      if (!streamId) return reject(new CaptureBlocked(HELP.pickCancelled, null));
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: streamId, maxWidth: 3840, maxHeight: 2400 } } as MediaTrackConstraints,
+        });
+        const video = document.createElement("video");
+        video.muted = true;
+        video.srcObject = stream;
+        await video.play();
+        // The first frame can arrive a moment after play() resolves.
+        for (let i = 0; i < 20 && (!video.videoWidth || !video.videoHeight); i++) await new Promise((r) => setTimeout(r, 50));
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx || !canvas.width) throw new Error("no frame");
+        ctx.drawImage(video, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        reject(new CaptureBlocked(HELP.pickFailed, null));
+      } finally {
+        stream?.getTracks().forEach((t) => t.stop());
+      }
+    });
+  });
+}
+
+/** Ask once for the "all sites" grant (an older install may not have it yet). Must run inside a click. */
 export function requestAllSites(): Promise<boolean> {
   return chrome.permissions.request({ origins: [ALL_SITES] }).catch(() => false);
 }

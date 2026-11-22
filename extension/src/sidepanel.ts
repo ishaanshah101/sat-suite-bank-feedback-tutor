@@ -1,5 +1,5 @@
 import { ApiError, authenticate, DEFAULT_SERVER, loadSettings, normalizeServer, request, saveSettings, streamCapture, webLink } from "./api";
-import { activeTabIn, ALL_SITES, captureTab, CaptureBlocked, FIX_STEPS, HELP, openExtensionSettings, requestAllSites, type CaptureFix } from "./capture";
+import { activeTabIn, ALL_SITES, captureTab, CaptureBlocked, captureWindowOrScreen, FIX_STEPS, HELP, openExtensionSettings, readPageText, requestAllSites, type CaptureFix } from "./capture";
 import { isPracticeUrl, readPracticeTab } from "./practice";
 import { downscale } from "./image";
 import { renderMathHtml } from "../../src/lib/math/render";
@@ -460,6 +460,14 @@ function renderCaptureCard(): Node {
           : "Capture this tab";
   const children: Child[] = [
     h("button", { id: "capture-tab", class: "btn primary big", disabled: busy, onclick: () => onCaptureClick() }, busy ? spinner() : null, label),
+    h("button", {
+      id: "capture-window",
+      class: "btn",
+      disabled: busy,
+      title: "Pick any window or your whole screen: a PDF app, another browser, anything with the question on it.",
+      onclick: () => onCaptureWindowClick(),
+      text: "Capture a window or screen",
+    }),
   ];
   if (state.capturing === "allowing") {
     children.push(
@@ -474,8 +482,8 @@ function renderCaptureCard(): Node {
       h(
         "ol",
         { class: "steps small muted", "data-testid": "capture-steps" },
-        h("li", { text: "Open the question: an SAT Question Bank PDF, an SAT or ACT practice test, a question you're reviewing. Scroll so the whole question and its choices are on screen." }),
-        h("li", { text: "Press Capture this tab. That's it: the answer and the rules that explain it show up as they are written." }),
+        h("li", { text: "Open the question on any tab: an SAT Question Bank PDF, an SAT or ACT practice test, a worksheet, any page with a question on it." }),
+        h("li", { text: "Press Capture this tab. That's it: the answer and the rules that explain it show up as they are written. Not in Chrome, or Chrome won't capture it? Press Capture a window or screen." }),
       ),
       state.canSeeTabs === false
         ? h("p", { class: "small", "data-testid": "first-time-note", text: "First time only: Chrome will ask once if Rulecard can see the tab you capture. Click Allow." })
@@ -493,6 +501,7 @@ function renderCaptureError(message: string, fix: CaptureFix | null): Node {
   const actions: Child[] = [];
   if (fix === "allSites") actions.push(h("button", { id: "allow-capture", class: "btn primary", text: "Allow and capture", onclick: () => onCaptureClick() }));
   if (fix === "fileAccess" || fix === "fileOrToolbar") actions.push(h("button", { id: "open-ext-settings", class: "btn", text: "Open Rulecard's settings", onclick: () => void openExtensionSettings() }));
+  actions.push(h("button", { id: "error-capture-window", class: fix === "toolbar" || fix === "fileOrToolbar" || !fix ? "btn primary" : "btn", text: "Capture a window or screen", onclick: () => onCaptureWindowClick() }));
   if (fix) actions.push(h("button", { class: "btn", text: "Try again", onclick: () => onCaptureClick() }));
   const steps = fix ? FIX_STEPS[fix] : null;
   return h(
@@ -795,19 +804,23 @@ function serialCapture(run: () => Promise<void>): Promise<void> {
   return next;
 }
 
-type Source = { image: string; source: "capture" | "image" } | { text: string; source: "paste" };
+type Source = { image: string; source: "capture" | "image"; pageText?: string } | { text: string; source: "paste" };
 
 /**
  * What to send for the tab on screen. My Practice pages are read as text (the whole question, even the
  * part scrolled out of view; math comes back as LaTeX), with a screenshot instead when there is a graph.
- * Everything else, Question Bank PDFs included, is a screenshot.
+ * Everything else, Question Bank PDFs included, is a screenshot plus the page's text when Chrome lets
+ * Rulecard read it (any web page; not a PDF).
  */
 async function sourceFor(tab: chrome.tabs.Tab): Promise<Source> {
   if (tab.id !== undefined && isPracticeUrl(tab.url)) {
     const read = await readPracticeTab(tab.id);
     if (read && read.text.length >= 40 && !read.hasFigure) return { text: read.text, source: "paste" };
   }
-  return { image: await downscale(await captureTab(tab)), source: "capture" };
+  // The screenshot shows which question; the page's text fills in whatever is scrolled out of view.
+  const [shot, pageText] = await Promise.all([captureTab(tab), readPageText(tab)]);
+  const image = await downscale(shot);
+  return pageText ? { image, pageText, source: "capture" } : { image, source: "capture" };
 }
 
 /** The button: screenshot this tab, read the question, and explain it. */
@@ -959,6 +972,43 @@ function onCaptureClick(): void {
     // Even without Allow the capture is tried: it works on a tab the toolbar icon was clicked on.
     return captureThisTab();
   });
+}
+
+/**
+ * "Capture a window or screen": Chrome's picker comes up inside the click (it only shows from one), the
+ * student picks a window or the whole screen, and that one frame is explained like a tab capture.
+ */
+function onCaptureWindowClick(): void {
+  if (state.capturing) return;
+  // Nothing may be awaited before the picker call, or Chrome refuses to show it.
+  const picked = captureWindowOrScreen();
+  addons.showTab("home");
+  state.captureError = null;
+  state.captureFix = null;
+  render();
+  void picked.then(
+    (shot) => {
+      state.capturing = "reading";
+      render();
+      return serialCapture(async () => {
+        try {
+          await explainSource({ image: await downscale(shot), source: "capture" });
+        } catch (error) {
+          if (await handleAuthFailure(error)) return;
+          state.captureError = describe(error);
+          state.captureFix = null;
+        } finally {
+          state.capturing = null;
+          render();
+        }
+      });
+    },
+    (error: unknown) => {
+      state.captureError = describe(error);
+      state.captureFix = null;
+      render();
+    },
+  );
 }
 
 async function refreshTabAccess(): Promise<void> {

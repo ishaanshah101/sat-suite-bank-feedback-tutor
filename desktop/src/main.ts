@@ -16,6 +16,8 @@ interface Settings {
   /** The session token, encrypted with the macOS keychain when available. */
   token: string | null;
   tokenEncrypted: boolean;
+  /** Set just before the app restarts itself for the Screen Recording permission: answer right after. */
+  solveOnLaunch?: boolean;
 }
 
 const settingsPath = () => path.join(app.getPath("userData"), "settings.json");
@@ -23,7 +25,7 @@ const settingsPath = () => path.join(app.getPath("userData"), "settings.json");
 function loadSettings(): Settings {
   try {
     const raw = JSON.parse(fs.readFileSync(settingsPath(), "utf8")) as Partial<Settings>;
-    return { server: raw.server || DEFAULT_SERVER, email: raw.email ?? null, token: raw.token ?? null, tokenEncrypted: Boolean(raw.tokenEncrypted) };
+    return { server: raw.server || DEFAULT_SERVER, email: raw.email ?? null, token: raw.token ?? null, tokenEncrypted: Boolean(raw.tokenEncrypted), solveOnLaunch: Boolean(raw.solveOnLaunch) };
   } catch {
     return { server: DEFAULT_SERVER, email: null, token: null, tokenEncrypted: false };
   }
@@ -153,6 +155,35 @@ async function captureScreen(): Promise<string> {
   }
 }
 
+/**
+ * macOS only lets an app read the screen after it restarts with the permission on. So once the panel has
+ * asked for it, the app watches for the switch to be turned on, then restarts itself and answers the
+ * question straight away: no Relaunch button, no second press.
+ */
+let permissionWatch: ReturnType<typeof setInterval> | null = null;
+function watchForScreenPermission(): void {
+  if (process.platform !== "darwin" || permissionWatch) return;
+  const started = Date.now();
+  permissionWatch = setInterval(() => {
+    if (Date.now() - started > 15 * 60 * 1000) {
+      clearInterval(permissionWatch!);
+      permissionWatch = null;
+      return;
+    }
+    if (screenAccess() !== "granted") return;
+    clearInterval(permissionWatch!);
+    permissionWatch = null;
+    relaunchAndSolve();
+  }, 1500);
+}
+
+function relaunchAndSolve(): void {
+  settings = { ...settings, solveOnLaunch: true };
+  saveSettings(settings);
+  app.relaunch();
+  app.exit(0);
+}
+
 let solving = false;
 
 /** Capture the screen and stream the careful answer to the panel. */
@@ -166,6 +197,7 @@ async function solveScreen(): Promise<void> {
   }
   if (screenAccess() !== "granted" && screenAccess() !== "not-determined") {
     send("helper:event", { type: "needs-permission" });
+    watchForScreenPermission();
     return;
   }
   solving = true;
@@ -175,12 +207,15 @@ async function solveScreen(): Promise<void> {
     try {
       image = await captureScreen();
     } catch {
-      send("helper:event", { type: screenAccess() === "granted" ? "error" : "needs-permission", error: "Rulecard Helper could not see the screen." });
+      const granted = screenAccess() === "granted";
+      send("helper:event", { type: granted ? "error" : "needs-permission", error: "Rulecard Helper could not see the screen." });
+      if (!granted) watchForScreenPermission();
       return;
     }
     if (screenAccess() !== "granted" && process.platform === "darwin") {
       // The first capture triggers macOS's permission prompt; the shot itself only shows the desktop.
       send("helper:event", { type: "needs-permission" });
+      watchForScreenPermission();
       return;
     }
     await solveStream(settings.server, auth, image, (event) => {
@@ -264,10 +299,7 @@ function wireIpc(): void {
     return chat(settings.server, auth, question as QuestionContext | null, turns as ChatTurn[]);
   });
   handle("helper:open-screen-settings", () => shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"));
-  handle("helper:relaunch", () => {
-    app.relaunch();
-    app.exit(0);
-  });
+  handle("helper:relaunch", () => relaunchAndSolve());
   handle("helper:hide", () => panel?.hide());
   handle("helper:open-web", () => shell.openExternal(settings.server));
 }
@@ -284,6 +316,13 @@ if (!app.requestSingleInstanceLock()) {
     registerShortcuts();
     buildTray();
     showPanel();
+    if (process.platform === "darwin" && screenAccess() === "denied") watchForScreenPermission();
+    if (settings.solveOnLaunch) {
+      settings = { ...settings, solveOnLaunch: false };
+      saveSettings(settings);
+      // Give the panel a moment to load, then answer what was on screen when the permission went on.
+      if (screenAccess() === "granted") setTimeout(() => void solveScreen(), 1200);
+    }
   });
   app.on("will-quit", () => globalShortcut.unregisterAll());
   // A menu bar app keeps running with its panel hidden.

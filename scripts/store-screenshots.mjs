@@ -10,7 +10,7 @@ const source = path.resolve("extension");
 const ext = fs.mkdtempSync(path.join(os.tmpdir(), "rulecard-ext-"));
 fs.cpSync(source, ext, { recursive: true });
 const manifest = JSON.parse(fs.readFileSync(path.join(ext, "manifest.json"), "utf8"));
-manifest.host_permissions.push("<all_urls>");
+if (!manifest.host_permissions.includes("<all_urls>")) manifest.host_permissions.push("<all_urls>");
 fs.writeFileSync(path.join(ext, "manifest.json"), JSON.stringify(manifest));
 
 const launch = { headless: true, args: [`--disable-extensions-except=${ext}`, `--load-extension=${ext}`] };
