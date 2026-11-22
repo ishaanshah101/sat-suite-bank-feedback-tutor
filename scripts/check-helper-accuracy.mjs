@@ -3,7 +3,7 @@
 // and, for Math, by code. Creates a throwaway account, solves every question, prints accuracy and timing,
 // then deletes the account. Usage: BASE=https://rulecard.vercel.app node scripts/check-helper-accuracy.mjs
 const BASE = process.env.BASE ?? "https://rulecard.vercel.app";
-const EXTRA_HEADERS = process.env.BYPASS ? { "x-vercel-protection-bypass": process.env.BYPASS } : {};
+const EXTRA_HEADERS = { ...(process.env.BYPASS ? { "x-vercel-protection-bypass": process.env.BYPASS } : {}), ...(process.env.COOKIE ? { cookie: process.env.COOKIE } : {}) };
 const CONCURRENCY = Number(process.env.CONCURRENCY ?? 4);
 
 const mc = (stem, choices, answer, exam = "SAT Math") => ({ text: `${exam}\n${stem}\n${choices.map((c, i) => `${"ABCDE"[i]}) ${c}`).join("\n")}`, answer });
