@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Rulecard",
-  "version": "0.9.1",
-  "description": "Capture an SAT or ACT question on screen and get the answer plus the real rules behind it, in plain words.",
+  "version": "0.10.0",
+  "description": "Capture an SAT or ACT question on any tab, window or screen and get the answer plus the real rules behind it, in plain words.",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",
@@ -31,19 +31,15 @@
     "storage",
     "alarms",
     "scripting",
-    "activeTab"
+    "activeTab",
+    "desktopCapture"
   ],
   "host_permissions": [
-    "https://rulecard.vercel.app/*",
-    "https://mypractice.collegeboard.org/*"
+    "<all_urls>"
   ],
   "homepage_url": "https://rulecard.vercel.app",
   "optional_permissions": [
     "notifications"
-  ],
-  "optional_host_permissions": [
-    "https://*/*",
-    "<all_urls>"
   ],
   "commands": {
     "_execute_action": {

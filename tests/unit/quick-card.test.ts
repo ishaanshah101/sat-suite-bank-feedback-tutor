@@ -145,3 +145,28 @@ describe("capture errors say what to do", () => {
     expect(classifyCaptureError("Either the '<all_urls>' or 'activeTab' permission is required.", undefined, { ...opts, allSites: true, fileAccess: true }).fix).toBe("toolbar");
   });
 });
+
+describe("capture anything: page text and the window/screen fallback", () => {
+  it("pages Chrome won't capture point to Capture a window or screen", async () => {
+    const { FIX_STEPS } = await import("../../extension/src/capture");
+    expect(HELP.restricted).toMatch(/Capture a window or screen/);
+    expect(HELP.toolbar).toMatch(/Capture a window or screen/);
+    expect(FIX_STEPS.toolbar.join(" ")).toMatch(/Capture a window or screen/);
+    expect(FIX_STEPS.fileOrToolbar.join(" ")).toMatch(/Capture a window or screen/);
+  });
+
+  it("page text is tidied and capped", async () => {
+    const { cleanPageText } = await import("../../extension/src/capture");
+    expect(cleanPageText("  Which choice\u00a0  best\n\n\n\n\tcompletes the text?  ")).toBe("Which choice best\n\ncompletes the text?");
+    expect(cleanPageText("x".repeat(20_000)).length).toBe(15_000);
+  });
+
+  it("the server note says the screenshot picks the question and the text fills in the rest", async () => {
+    const { pageTextNote } = await import("@/lib/ai/capture");
+    const note = pageTextNote("Passage text. Which choice completes the text? A) one B) two");
+    expect(note).toMatch(/Answer the question that is in the screenshot/);
+    expect(note).toMatch(/scrolled out of view/);
+    expect(note.endsWith("A) one B) two")).toBe(true);
+    expect(pageTextNote("y".repeat(30_000)).length).toBeLessThan(16_000);
+  });
+});

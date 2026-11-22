@@ -152,6 +152,25 @@ then optionally say which letter they picked and see why it's wrong. The PDF pic
 - **Web app:** the Rules page has six tabs (SAT R&W, SAT Math, ACT English, Math, Reading, Science); History can
   filter the ACT; the review page shows ACT letters.
 
+## 0.10.0: capture anything (2026-11-22)
+
+- **No more "click the icon to give it access".** The extension now has every site from install
+  (`host_permissions: ["<all_urls>"]`), so the Capture button screenshots any web tab on the first press. Before,
+  all-sites was an optional grant: until Chrome's Allow box had been answered, a capture only worked on a tab whose
+  toolbar icon had just been clicked. (The extension check used to grant all sites itself, which is how this
+  slipped through; it now tests the real manifest.)
+- **Reads the whole page.** Each capture also sends the tab's text (all frames, at most 15,000 characters) as
+  `pageText`. The screenshot decides which question; the text fills in a passage or choices scrolled out of view
+  (`pageTextNote` in `src/lib/ai/capture.ts`). The text is not saved. PDFs have no readable text, so they go
+  screenshot-only, as before.
+- **Capture a window or screen.** A second button opens Chrome's own picker (`desktopCapture`) and explains one frame
+  of whatever window or screen is picked: a PDF in Adobe's viewer, a local file, an app outside Chrome, Chrome's own
+  pages. Every refused-capture message offers it.
+- **Mac helper 1.1.0.** After you allow Screen Recording, the helper notices, restarts itself and answers the
+  question on screen. No Relaunch button, no second press.
+- **Store.** New permission justifications are in `store/LISTING.md`. Asking for every site at install can make
+  Google's review take a few days longer, and current users see a one-time "new permissions" prompt on update.
+
 ## 0.9.1: SAT Math answers in about 3 seconds (2026-11-16)
 
 - **Why Math was slow.** Measured on the gateway: the capture call spent 1,300 to 1,900 hidden "thinking" tokens

@@ -1,7 +1,7 @@
 import { Output, streamText } from "ai";
 import { z } from "zod";
 import { apiErrorPayload, readJson, withApi } from "@/lib/api";
-import { captureInstructions, captureToCard, captureToExtraction, CaptureOutputSchema, isRunaway, PARTIAL_FIELDS, type CaptureOutput } from "@/lib/ai/capture";
+import { captureInstructions, captureToCard, pageTextNote, captureToExtraction, CaptureOutputSchema, isRunaway, PARTIAL_FIELDS, type CaptureOutput } from "@/lib/ai/capture";
 import { hasKnownAnswer, sanitizeRuleCard, usableModelAnswer } from "@/lib/ai/explain";
 import { ExtractionError, normalizeExtraction, parseDataUrl } from "@/lib/ai/extract";
 import { isNoOutputError, noteStreamError, noteStreamOk, pickProvider } from "@/lib/ai/providers";
@@ -13,7 +13,12 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const Body = z.union([
-  z.object({ image: z.string().min(32).max(6_000_000), source: z.enum(["capture", "image"]).default("capture") }),
+  z.object({
+    image: z.string().min(32).max(6_000_000),
+    source: z.enum(["capture", "image"]).default("capture"),
+    // The page's own text, read alongside the screenshot: it holds the parts scrolled out of view.
+    pageText: z.string().max(20_000).optional(),
+  }),
   z.object({ text: z.string().min(20).max(20_000), source: z.literal("paste").default("paste") }),
 ]);
 
@@ -40,6 +45,8 @@ export async function POST(request: Request) {
       const { mediaType, base64 } = parseDataUrl(body.image);
       content.push({ type: "file", mediaType, data: base64 });
       content.push({ type: "text", text: "Here is the question on my screen. Explain it." });
+      const pageText = body.pageText?.trim();
+      if (pageText && pageText.length >= 40) content.push({ type: "text", text: pageTextNote(pageText) });
     } else {
       content.push({ type: "text", text: `Here is the text of the question on my screen. Explain it.\n\n${body.text}` });
     }

@@ -169,9 +169,11 @@ var HELP = {
   noTab: "Click the tab with the question first, then press Capture.",
   allSites: "Chrome needs your OK once before Rulecard can see the tab you capture.",
   fileAccess: "This PDF is a file saved on your computer. Chrome blocks extensions from those until you switch one setting on, once.",
-  toolbar: "Chrome won't let Rulecard see this page by itself. That happens when a PDF is open in another extension's viewer, like Adobe Acrobat.",
+  toolbar: `Chrome won't let Rulecard see this page by itself. That happens when a PDF is open in another extension's viewer, like Adobe Acrobat. Press "Capture a window or screen" instead: that sees anything on your screen.`,
   fileOrToolbar: "Chrome wouldn't let Rulecard see this tab. It's usually one of two things:",
-  restricted: "Chrome doesn't let any extension capture this page (Chrome's own pages and the Web Store). Open the question in a normal tab."
+  restricted: `Chrome doesn't let any extension capture this page directly (Chrome's own pages and the Web Store). Press "Capture a window or screen" instead: that sees anything on your screen.`,
+  pickCancelled: 'Nothing was picked. Press "Capture a window or screen" and choose the window or screen with the question.',
+  pickFailed: "Chrome couldn't share that window or screen. Try again and pick it from the list."
 };
 var FIX_STEPS = {
   allSites: ['Press "Allow and capture" below.', "In Chrome's box, click Allow. You only do this once."],
@@ -181,14 +183,12 @@ var FIX_STEPS = {
     "Come back to the PDF and press Capture this tab."
   ],
   toolbar: [
-    "Stay on the PDF's tab and click the Rulecard icon in Chrome's toolbar (top right; if you don't see it, click the puzzle piece, then Rulecard). That captures it.",
-    "Or open the PDF in Chrome's own viewer instead, and the Capture button works by itself.",
-    "(Chrome's own pages, like Settings, can't be captured at all.)"
+    'Press "Capture a window or screen" below and pick the Chrome window (or the whole screen) with the question.',
+    "Or click the Rulecard icon in Chrome's toolbar while you're on this tab. That captures it too."
   ],
   fileOrToolbar: [
-    `A PDF saved on your computer: press "Open Rulecard's settings", turn on "Allow access to file URLs", then press Try again.`,
-    "A PDF in another extension's viewer (like Adobe Acrobat): click the Rulecard icon in Chrome's toolbar while you're on it. That captures it.",
-    "(Chrome's own pages, like Settings, can't be captured at all.)"
+    'Fastest: press "Capture a window or screen" below and pick the window with the question.',
+    `A PDF saved on your computer: to make the Capture button work on it every time, press "Open Rulecard's settings" and turn on "Allow access to file URLs" (once).`
   ]
 };
 function isRestrictedUrl(url) {
@@ -220,6 +220,55 @@ async function captureTab(tab) {
     ]);
     throw classifyCaptureError(message, tab.url, { fileAccess, allSites, ownId: chrome.runtime.id });
   }
+}
+function cleanPageText(text2) {
+  return text2.replace(/\u00a0/g, " ").split("\n").map((l) => l.replace(/[ \t]+/g, " ").trim()).join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 15e3);
+}
+function pageTextInPage() {
+  const body = document.body;
+  if (!body) return "";
+  return (body.innerText || body.textContent || "").slice(0, 3e4);
+}
+async function readPageText(tab) {
+  if (tab.id === void 0 || isRestrictedUrl(tab.url)) return null;
+  try {
+    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: pageTextInPage });
+    const text2 = cleanPageText(results.map((r) => typeof r.result === "string" ? r.result : "").filter(Boolean).join("\n\n"));
+    return text2.length >= 40 ? text2 : null;
+  } catch {
+    return null;
+  }
+}
+function captureWindowOrScreen() {
+  return new Promise((resolve, reject) => {
+    chrome.desktopCapture.chooseDesktopMedia(["screen", "window", "tab"], async (streamId) => {
+      if (!streamId) return reject(new CaptureBlocked(HELP.pickCancelled, null));
+      let stream = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: streamId, maxWidth: 3840, maxHeight: 2400 } }
+        });
+        const video = document.createElement("video");
+        video.muted = true;
+        video.srcObject = stream;
+        await video.play();
+        for (let i2 = 0; i2 < 20 && (!video.videoWidth || !video.videoHeight); i2++) await new Promise((r) => setTimeout(r, 50));
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx || !canvas.width) throw new Error("no frame");
+        ctx.drawImage(video, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        reject(new CaptureBlocked(HELP.pickFailed, null));
+      } finally {
+        stream?.getTracks().forEach((t) => t.stop());
+      }
+    });
+  });
 }
 function requestAllSites() {
   return chrome.permissions.request({ origins: [ALL_SITES] }).catch(() => false);
@@ -21309,7 +21358,15 @@ function renderCaptureCard() {
   const busy = state.capturing !== null;
   const label = state.capturing === "allowing" ? "Click Allow in Chrome's box..." : state.capturing === "reading" ? "Reading the question..." : state.capturing === "explaining" ? "Explaining..." : state.result ? "Capture another question" : "Capture this tab";
   const children = [
-    h2("button", { id: "capture-tab", class: "btn primary big", disabled: busy, onclick: () => onCaptureClick() }, busy ? spinner2() : null, label)
+    h2("button", { id: "capture-tab", class: "btn primary big", disabled: busy, onclick: () => onCaptureClick() }, busy ? spinner2() : null, label),
+    h2("button", {
+      id: "capture-window",
+      class: "btn",
+      disabled: busy,
+      title: "Pick any window or your whole screen: a PDF app, another browser, anything with the question on it.",
+      onclick: () => onCaptureWindowClick(),
+      text: "Capture a window or screen"
+    })
   ];
   if (state.capturing === "allowing") {
     children.push(
@@ -21324,8 +21381,8 @@ function renderCaptureCard() {
       h2(
         "ol",
         { class: "steps small muted", "data-testid": "capture-steps" },
-        h2("li", { text: "Open the question: an SAT Question Bank PDF, an SAT or ACT practice test, a question you're reviewing. Scroll so the whole question and its choices are on screen." }),
-        h2("li", { text: "Press Capture this tab. That's it: the answer and the rules that explain it show up as they are written." })
+        h2("li", { text: "Open the question on any tab: an SAT Question Bank PDF, an SAT or ACT practice test, a worksheet, any page with a question on it." }),
+        h2("li", { text: "Press Capture this tab. That's it: the answer and the rules that explain it show up as they are written. Not in Chrome, or Chrome won't capture it? Press Capture a window or screen." })
       ),
       state.canSeeTabs === false ? h2("p", { class: "small", "data-testid": "first-time-note", text: "First time only: Chrome will ask once if Rulecard can see the tab you capture. Click Allow." }) : null
     );
@@ -21340,6 +21397,7 @@ function renderCaptureError(message, fix) {
   const actions = [];
   if (fix === "allSites") actions.push(h2("button", { id: "allow-capture", class: "btn primary", text: "Allow and capture", onclick: () => onCaptureClick() }));
   if (fix === "fileAccess" || fix === "fileOrToolbar") actions.push(h2("button", { id: "open-ext-settings", class: "btn", text: "Open Rulecard's settings", onclick: () => void openExtensionSettings() }));
+  actions.push(h2("button", { id: "error-capture-window", class: fix === "toolbar" || fix === "fileOrToolbar" || !fix ? "btn primary" : "btn", text: "Capture a window or screen", onclick: () => onCaptureWindowClick() }));
   if (fix) actions.push(h2("button", { class: "btn", text: "Try again", onclick: () => onCaptureClick() }));
   const steps = fix ? FIX_STEPS[fix] : null;
   return h2(
@@ -21620,7 +21678,9 @@ async function sourceFor(tab) {
     const read = await readPracticeTab(tab.id);
     if (read && read.text.length >= 40 && !read.hasFigure) return { text: read.text, source: "paste" };
   }
-  return { image: await downscale(await captureTab(tab)), source: "capture" };
+  const [shot, pageText] = await Promise.all([captureTab(tab), readPageText(tab)]);
+  const image = await downscale(shot);
+  return pageText ? { image, pageText, source: "capture" } : { image, source: "capture" };
 }
 function captureThisTab() {
   if (state.capturing) return inflight ?? Promise.resolve();
@@ -21749,6 +21809,37 @@ function onCaptureClick() {
     state.capturing = null;
     return captureThisTab();
   });
+}
+function onCaptureWindowClick() {
+  if (state.capturing) return;
+  const picked = captureWindowOrScreen();
+  addons.showTab("home");
+  state.captureError = null;
+  state.captureFix = null;
+  render3();
+  void picked.then(
+    (shot) => {
+      state.capturing = "reading";
+      render3();
+      return serialCapture(async () => {
+        try {
+          await explainSource({ image: await downscale(shot), source: "capture" });
+        } catch (error) {
+          if (await handleAuthFailure(error)) return;
+          state.captureError = describe(error);
+          state.captureFix = null;
+        } finally {
+          state.capturing = null;
+          render3();
+        }
+      });
+    },
+    (error) => {
+      state.captureError = describe(error);
+      state.captureFix = null;
+      render3();
+    }
+  );
 }
 async function refreshTabAccess() {
   state.canSeeTabs = await chrome.permissions.contains({ origins: [ALL_SITES] }).catch(() => false);

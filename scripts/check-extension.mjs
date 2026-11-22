@@ -23,11 +23,14 @@ const ext = fs.mkdtempSync(path.join(os.tmpdir(), "rulecard-ext-"));
 fs.cpSync(source, ext, { recursive: true });
 const manifestPath = path.join(ext, "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-manifest.host_permissions.push("<all_urls>");
+if (!manifest.host_permissions.includes("<all_urls>")) manifest.host_permissions.push("<all_urls>");
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "rulecard-profile-"));
-const launch = { headless: true, args: [`--disable-extensions-except=${ext}`, `--load-extension=${ext}`] };
+// "Capture a window or screen" opens Chrome's picker; this flag picks the whole screen by itself. The
+// picker needs a real (virtual) display: run under xvfb-run with HEADFUL=1 to include that check.
+const headful = process.env.HEADFUL === "1";
+const launch = { headless: !headful, args: [`--disable-extensions-except=${ext}`, `--load-extension=${ext}`, "--auto-select-desktop-capture-source=Entire screen"] };
 if (process.env.CHROMIUM_PATH) launch.executablePath = process.env.CHROMIUM_PATH;
 else launch.channel = "chromium";
 const context = await chromium.launchPersistentContext(profile, launch);
@@ -71,10 +74,10 @@ try {
 
   const granted = await worker.evaluate(() => chrome.runtime.getManifest());
   ok(
-    "permissions: no tabs; all sites only as an optional grant; page access only on My Practice",
-    JSON.stringify(granted.permissions) === JSON.stringify(["sidePanel", "storage", "alarms", "scripting", "activeTab"]) &&
-      granted.host_permissions.filter((h) => h !== "<all_urls>").join(",") === "https://rulecard.vercel.app/*,https://mypractice.collegeboard.org/*" &&
-      granted.optional_host_permissions.includes("<all_urls>") &&
+    "permissions: every site from install (no Allow box, no toolbar click), window/screen capture, no tabs permission",
+    JSON.stringify(granted.permissions) === JSON.stringify(["sidePanel", "storage", "alarms", "scripting", "activeTab", "desktopCapture"]) &&
+      JSON.stringify(granted.host_permissions) === JSON.stringify(["<all_urls>"]) &&
+      !granted.optional_host_permissions &&
       Boolean(granted.commands?._execute_action),
   );
   ok("Home is the Capture button with steps, no PDF picker", (await panel.locator('input[type="file"]').count()) === 0 && (await panel.locator("#capture-tab").count()) === 1 && (await panel.locator('[data-testid="capture-steps"] li').count()) === 2);
@@ -101,6 +104,7 @@ try {
   panel.off("request", onRequest);
   const shot = sent ? JSON.parse(sent) : {};
   ok("Capture sends one screenshot of the tab on screen, to the one-call capture endpoint", captured === "card" && shot.source === "capture" && /^data:image\/(png|jpeg);base64,/.test(shot.image ?? ""), captured);
+  ok("...with the page's own text, so a question scrolled off screen is still read whole", typeof shot.pageText === "string" && /privacy/i.test(shot.pageText) && shot.pageText.length <= 15000, String(shot.pageText).slice(0, 80));
   if (captured !== "card") throw new Error("capture failed: " + captured);
   ok(
     "the card is the answer and 2 to 3 bullets, nothing else",
@@ -217,6 +221,32 @@ try {
   await panel.locator("#capture-tab").click();
   await panel.locator('[data-testid="capture-error"]').waitFor({ timeout: 15000 }).catch(() => undefined);
   ok("a page Chrome won't capture gets a plain message with steps", /capture this page|two things|by itself|Allow/.test(await panel.locator('[data-testid="capture-error"]').innerText().catch(() => "")), await panel.locator('[data-testid="capture-error"]').innerText().catch(() => "none"));
+  ok("...and offers Capture a window or screen right there", (await panel.locator("#error-capture-window").count()) === 1);
+  if (headful) {
+    // Chrome's picker (auto-answered "Entire screen" here) sees anything on screen, even this page.
+    let windowShot = null;
+    const onWindow = (r) => {
+      if (r.url().endsWith("/api/capture") && r.method() === "POST") windowShot = r.postData();
+    };
+    panel.on("request", onWindow);
+    const answered = panel.waitForResponse((r) => r.url().endsWith("/api/capture") && r.request().method() === "POST", { timeout: 60000 }).then(() => "sent", () => "never sent");
+    await panel.locator("#error-capture-window").click();
+    const got = await Promise.race([
+      answered,
+      panel.locator('[data-testid="capture-error"]').waitFor({ timeout: 60000 }).then(async () => "error: " + (await panel.locator('[data-testid="capture-error"]').innerText())),
+    ]);
+    // The new card replaces the old one once the stream is done.
+    await panel.locator("#capture-tab:not([disabled])").waitFor({ timeout: 60000 }).catch(() => undefined);
+    panel.off("request", onWindow);
+    const ws = windowShot ? JSON.parse(windowShot) : {};
+    ok(
+      "Capture a window or screen: Chrome's picker, one frame, explained like a tab",
+      got === "sent" && /^data:image\/(png|jpeg);base64,/.test(ws.image ?? "") && (await panel.locator('[data-testid="key-rules"]').count()) === 1 && (await panel.locator('[data-testid="capture-error"]').count()) === 0,
+      `${got} image:${String(ws.image).slice(0, 30)} errors:${await panel.locator('[data-testid="capture-error"]').innerText().catch(() => "none")}`,
+    );
+  } else {
+    console.log("SKIP | Capture a window or screen (run with HEADFUL=1 under xvfb-run)");
+  }
   await blocked.close();
 
   // Recent list and the signed-in link into the web app.
