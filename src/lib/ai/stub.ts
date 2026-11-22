@@ -268,7 +268,7 @@ function jsonFor(kind: TaskKind, prompt: string, userText: string): string {
   if (kind === "capture") return JSON.stringify(/SAT Math/.test(userText) ? STUB_CAPTURE_MATH : /ACT (English|Math|Reading|Science)/.test(userText) ? STUB_CAPTURE_ACT : STUB_CAPTURE_RW);
   if (kind === "extract") return JSON.stringify(/SAT Math/.test(userText) ? STUB_MATH_EXTRACTION : STUB_EXTRACTION);
   if (kind === "drill") return JSON.stringify(STUB_DRILL);
-  if (kind === "math") {
+  if (kind === "math" || kind === "solve") {
     if (/checking a Digital SAT Math practice question/.test(prompt)) return JSON.stringify(STUB_MATH_CHECK);
     if (/fresh practice question for the Digital SAT Math/.test(prompt)) return JSON.stringify(STUB_MATH_DRILL);
     return JSON.stringify(STUB_MATH_CARD);

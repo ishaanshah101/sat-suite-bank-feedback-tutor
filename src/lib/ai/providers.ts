@@ -9,8 +9,10 @@ const KNOWN: ProviderName[] = ["openai", "anthropic", "gateway"];
 /**
  * "math" is Math explanations, drills and drill checks: the stronger model with more room to reason.
  * "capture" reads a screenshot and writes its card in one streamed call: fast, with a moderate reasoning budget.
+ * "solve" is the Mac helper's careful check and tiebreak: the strongest model, thinking as hard as it can,
+ * on a different model from the quick "capture" solve so the two make independent mistakes.
  */
-export type TaskKind = "extract" | "explain" | "chat" | "drill" | "math" | "capture";
+export type TaskKind = "extract" | "explain" | "chat" | "drill" | "math" | "capture" | "solve";
 
 export interface ProviderHandle {
   name: ProviderName;
@@ -38,6 +40,7 @@ function openaiModels(): Record<TaskKind, string> {
     drill: explain,
     math: env("OPENAI_MATH_MODEL") ?? explain,
     capture: env("OPENAI_CAPTURE_MODEL") ?? explain,
+    solve: env("OPENAI_SOLVE_MODEL") ?? env("OPENAI_MATH_MODEL") ?? explain,
   };
 }
 
@@ -50,6 +53,7 @@ function anthropicModels(): Record<TaskKind, string> {
     drill: explain,
     math: env("ANTHROPIC_MATH_MODEL") ?? explain,
     capture: env("ANTHROPIC_CAPTURE_MODEL") ?? explain,
+    solve: env("ANTHROPIC_SOLVE_MODEL") ?? "claude-opus-5-5",
   };
 }
 
@@ -94,6 +98,7 @@ function gatewayCandidates(): Record<TaskKind, string[]> {
     drill: explain,
     math: list("GATEWAY_MATH_MODEL", explain),
     capture: list("GATEWAY_CAPTURE_MODEL", explain),
+    solve: list("GATEWAY_SOLVE_MODEL", ["anthropic/claude-opus-5.5", ...list("GATEWAY_MATH_MODEL", explain)]),
   };
 }
 
@@ -124,13 +129,13 @@ export function isModelUnavailableError(error: unknown): boolean {
 // Provider options are JSON values passed straight through to the model provider.
 type ProviderOptionsValue = Record<string, Record<string, string | number | boolean | Record<string, number>>>;
 
-const ANTHROPIC_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium", math: "high", capture: "low" };
-const OPENAI_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "low", chat: "low", drill: "low", math: "medium", capture: "low" };
+const ANTHROPIC_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "medium", chat: "low", drill: "medium", math: "high", capture: "low", solve: "max" };
+const OPENAI_EFFORT: Record<TaskKind, string> = { extract: "low", explain: "low", chat: "low", drill: "low", math: "medium", capture: "low", solve: "high" };
 /**
  * Gemini thinking budgets (tokens). Capture thinks 0: it solves in a short visible "work" field instead, which
  * measured as accurate as a 2,048-token think on SAT Math and shows the answer in about 2 s instead of about 9 s.
  */
-const GEMINI_THINKING: Record<TaskKind, number> = { extract: 0, explain: 512, chat: 512, drill: 512, math: 6000, capture: 0 };
+const GEMINI_THINKING: Record<TaskKind, number> = { extract: 0, explain: 512, chat: 512, drill: 512, math: 6000, capture: 0, solve: 12000 };
 
 function gatewayOptionsFor(id: string, kind: TaskKind): ProviderOptionsValue {
   if (id.startsWith("anthropic/")) return { anthropic: { effort: ANTHROPIC_EFFORT[kind] } };

@@ -1,6 +1,6 @@
 // The Practice Test Helper's answer engine: find the one question on a screenshot and give its correct answer.
-// Correctness first, so every question is solved twice, independently and differently (a quick worked solve,
-// and a long careful think), and a third careful solve settles any disagreement.
+// Correctness first, so every question is solved twice, independently and differently (a quick worked solve on
+// one model, and a long careful think on the strongest model), and a third careful solve settles any disagreement.
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { parseNumber } from "@/lib/questions/spr";
@@ -73,7 +73,6 @@ function userContent(input: { image?: SolveImage; text?: string }, note?: string
   return content;
 }
 
-/** One solve. `kind` picks the effort: "capture" is a quick worked solve, "math" a long careful think. */
 /** The whole careful solve must finish inside the route's 180 s limit, with room to send the answer. */
 const SOLVE_BUDGET_MS = 165_000;
 
@@ -87,6 +86,7 @@ export async function solveOnce(
   note?: string,
   deadline = Date.now() + SOLVE_BUDGET_MS,
 ): Promise<SolveOutput> {
+  // "capture" is the quick worked solve; "solve" is the careful think on the strongest model.
   const careful = kind !== "capture";
   let transientRetries = 0;
   for (;;) {
@@ -102,10 +102,10 @@ export async function solveOnce(
                 messages: [{ role: "user", content: userContent(input, note) }],
                 output: Output.object({ schema: SolveOutputSchema, name: "solved_question" }),
                 providerOptions: provider.providerOptions(kind),
-                maxOutputTokens: careful ? 16000 : 6000,
+                maxOutputTokens: careful ? 32000 : 6000,
                 // Retries happen in this loop, which caps the waits; the SDK would sit out a 60 s retry-after.
                 maxRetries: 0,
-                abortSignal: abortAfter(Math.max(1_000, Math.min(careful ? 75_000 : 40_000, timeLeft))),
+                abortSignal: abortAfter(Math.max(1_000, Math.min(careful ? 100_000 : 40_000, timeLeft))),
               })
             ).output as SolveOutput,
         ),
@@ -204,7 +204,7 @@ export async function solveCarefully(
     if (found(quick)) onFirst(quick);
     return quick;
   });
-  const carefulP = settle(solveOnce("math", input, undefined, deadline));
+  const carefulP = settle(solveOnce("solve", input, undefined, deadline));
   const [quickR, carefulR] = await Promise.allSettled([quickP, carefulP]);
   const quick = quickR.status === "fulfilled" ? quickR.value : null;
   const careful = carefulR.status === "fulfilled" ? carefulR.value : null;
@@ -217,7 +217,7 @@ export async function solveCarefully(
   // They disagree, or only one finished: a third careful solve decides.
   const known = [quick, careful].filter(found);
   const note = known.length === 2 ? tiebreakNote(known[0], known[1]) : undefined;
-  const third = await settle(solveOnce("math", input, note, deadline)).catch(() => null);
+  const third = await settle(solveOnce("solve", input, note, deadline)).catch(() => null);
   if (found(third)) {
     if (known.length === 1 && !sameAnswer(third, known[0])) return { final: third, agreement: "tiebreak", first: found(quick) ? quick : null };
     return { final: third, agreement: known.length === 2 ? "tiebreak" : "agreed", first: found(quick) ? quick : null };
