@@ -4,11 +4,12 @@
 import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, Menu, nativeImage, safeStorage, screen, shell, systemPreferences, Tray } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-import { chat, signIn, signOut, solveStream, type ChatTurn, type QuestionContext } from "./api";
+import { signIn, signOut, solveStream } from "./api";
 
 const DEFAULT_SERVER = "https://rulecard.vercel.app";
 const SHORTCUTS = { toggle: "Alt+Space", solve: "Alt+Shift+Space" } as const;
-const PANEL = { width: 440, height: 660, margin: 14 };
+// The window starts at the pill's size; the page then sets the exact size of whatever it shows.
+const PANEL = { width: 190, height: 40, margin: 14, maxWidth: 360, maxHeight: 420 };
 
 interface Settings {
   server: string;
@@ -77,12 +78,12 @@ function createPanel(): BrowserWindow {
   const win = new BrowserWindow({
     width: PANEL.width,
     height: PANEL.height,
-    minWidth: 360,
-    minHeight: 420,
     show: false,
     frame: false,
     transparent: true,
-    resizable: true,
+    resizable: false,
+    useContentSize: true,
+    roundedCorners: false,
     fullscreenable: false,
     skipTaskbar: true,
     hasShadow: true,
@@ -109,6 +110,16 @@ function createPanel(): BrowserWindow {
     panel = null;
   });
   return win;
+}
+
+/** Fit the window to the page, keeping its top-right corner where it is (the pill grows to the left). */
+function resizePanel(width: number, height: number): void {
+  if (!panel || !Number.isFinite(width) || !Number.isFinite(height)) return;
+  const w = Math.max(40, Math.min(PANEL.maxWidth, Math.round(width)));
+  const h = Math.max(30, Math.min(PANEL.maxHeight, Math.round(height)));
+  const bounds = panel.getContentBounds();
+  if (bounds.width === w && bounds.height === h) return;
+  panel.setContentBounds({ x: bounds.x + bounds.width - w, y: bounds.y, width: w, height: h });
 }
 
 function showPanel(): void {
@@ -291,17 +302,11 @@ function wireIpc(): void {
     storeToken(result.user.email, result.token);
     return { email: result.user.email };
   });
-  handle("helper:sign-out", () => doSignOut());
   handle("helper:solve", () => solveScreen());
-  handle("helper:chat", async (question: unknown, turns: unknown) => {
-    const auth = token();
-    if (!auth) throw new Error("Sign in first.");
-    return chat(settings.server, auth, question as QuestionContext | null, turns as ChatTurn[]);
-  });
+  handle("helper:resize", (width: unknown, height: unknown) => resizePanel(Number(width), Number(height)));
   handle("helper:open-screen-settings", () => shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"));
   handle("helper:relaunch", () => relaunchAndSolve());
   handle("helper:hide", () => panel?.hide());
-  handle("helper:open-web", () => shell.openExternal(settings.server));
 }
 
 // One copy at a time: opening the app again just shows the panel.
