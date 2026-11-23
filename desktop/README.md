@@ -1,9 +1,10 @@
 # Rulecard Practice Test Helper (Mac)
 
-A small floating panel in the top-right corner of the Mac screen, like a desktop AI assistant. While you
-review a practice test, press **⌥⇧Space** (or the button) and it looks at the screen you are on, finds the
-SAT or ACT question there, and answers it carefully: two independent solves, and a third deciding solve if
-they disagree. Then you can ask follow-up questions in the chat box.
+A small black pill in the top-right corner of the Mac screen, black and white only. While you review a
+practice test, press its button (or **⌥⇧Space**) and it looks at the screen you are on, finds the SAT or ACT
+question there, and shows just the answer (a letter, or the number for a grid-in). No explanation, no chat.
+The answer is still solved carefully: two independent solves, and a third deciding solve if they disagree.
+It shows grey while the second solve is still checking, and turns white when it is final.
 
 It answers SAT and ACT questions only. It uses the normal macOS Screen Recording permission and nothing
 else: it does not try to run inside, hide from, or get around any locked-down testing app.
@@ -19,15 +20,15 @@ else: it does not try to run inside, hide from, or get around any locked-down te
    ```
 
 3. Open the app. Sign in with your Rulecard account (the same one as the extension and website).
-4. Press **Answer the question on my screen**. macOS asks for **Screen & System Audio Recording**. Turn
-   Rulecard Helper on in System Settings → Privacy & Security, then press **Relaunch** in the panel.
+4. Press the pill's button. macOS asks for **Screen & System Audio Recording**. Turn Rulecard Helper on in
+   System Settings → Privacy & Security. It restarts by itself and answers.
 
 ## Use
 
-- **⌥Space** shows or hides the panel. **⌥⇧Space** answers the question on the screen under the pointer.
+- **⌥Space** shows or hides the pill. **⌥⇧Space** (or the pill's button) answers the question on the screen
+  under the pointer. Drag the pill anywhere; **×** hides it.
 - The menu bar icon has the same actions, plus **Open at login**, **Sign out** and **Quit**.
-- "✓ Checked twice" means two separate solves agreed. "Checked 3 times: close call" means they disagreed
-  and a third solve decided; read the reasoning on those.
+- Hover over the answer to see how it was checked ("Checked twice", or "Close call: checked 3 times").
 
 ## Build
 
@@ -37,6 +38,6 @@ ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci   # the Mac Electron binary is fetched by
 node package-mac.mjs                       # builds the Apple silicon zip into desktop/release/
 ```
 
-`node build.mjs` alone bundles `src/` into `dist/` (main, preload, renderer). The panel talks to the
-Rulecard server's `/api/solve` and `/api/solve/chat` with the signed-in session token, which is stored in
-the macOS keychain through Electron `safeStorage`.
+`node build.mjs` alone bundles `src/` into `dist/` (main, preload, renderer). The pill talks to the
+Rulecard server's `/api/solve` with the signed-in session token, which is stored in the macOS keychain
+through Electron `safeStorage`. The window sizes itself to what it shows (`helper:resize`).

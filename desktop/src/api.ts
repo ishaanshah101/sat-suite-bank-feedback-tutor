@@ -20,20 +20,6 @@ export type SolveEvent =
   | { type: "done"; result: SolvedView; agreement: "agreed" | "tiebreak" | "single"; ms: number }
   | { type: "error"; error: string; code?: string; status: number };
 
-export interface QuestionContext {
-  exam: "sat" | "act";
-  section: string;
-  stem: string;
-  choices?: Record<string, string>;
-  answer: string;
-  why?: string[];
-}
-
-export interface ChatTurn {
-  role: "user" | "assistant";
-  text: string;
-}
-
 const UA = "RulecardHelper/1.0";
 
 async function call<T>(server: string, path: string, init: { token?: string | null; body?: unknown; method?: string }): Promise<T> {
@@ -65,9 +51,6 @@ export function signOut(server: string, token: string) {
   return call<unknown>(server, "/api/logout", { token, body: {} });
 }
 
-export async function chat(server: string, token: string, question: QuestionContext | null, messages: ChatTurn[]): Promise<{ reply: string }> {
-  return call<{ reply: string }>(server, "/api/solve/chat", { token, body: { question, messages } });
-}
 
 /** POST /api/solve and hand each NDJSON event to `onEvent` as it arrives. */
 export async function solveStream(server: string, token: string, image: string, onEvent: (event: SolveEvent) => void): Promise<void> {
