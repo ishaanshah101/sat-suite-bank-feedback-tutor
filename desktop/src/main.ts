@@ -1,5 +1,5 @@
 // Rulecard Helper: a floating panel in the top corner of the Mac screen, like a desktop AI assistant.
-// Press Option+Shift+Space (or the button) and it looks at the screen you are on, finds the SAT or ACT
+// Press Option+Z (or the button) and it looks at the screen you are on, finds the SAT or ACT
 // question there and answers it, checked twice. Option+Space shows or hides the panel.
 import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, Menu, nativeImage, safeStorage, screen, shell, systemPreferences, Tray } from "electron";
 import fs from "node:fs";
@@ -7,7 +7,7 @@ import path from "node:path";
 import { signIn, signOut, solveStream } from "./api";
 
 const DEFAULT_SERVER = "https://rulecard.vercel.app";
-const SHORTCUTS = { toggle: "Alt+Space", solve: "Alt+Shift+Space" } as const;
+const SHORTCUTS = { toggle: "Alt+Space", solve: "Alt+Z" } as const;
 // The window starts at the dot's size; the page then sets the exact size of whatever it shows.
 const PANEL = { width: 26, height: 26, margin: 14, maxWidth: 360, maxHeight: 420 };
 
@@ -257,7 +257,7 @@ function buildTray(): void {
   const menu = () =>
     Menu.buildFromTemplate([
       { label: "Show Rulecard Helper", accelerator: registered.toggle ? "Alt+Space" : undefined, click: showPanel },
-      { label: "Answer the question on my screen", accelerator: registered.solve ? "Alt+Shift+Space" : undefined, click: () => void solveScreen() },
+      { label: "Answer the question on my screen", accelerator: registered.solve ? "Alt+Z" : undefined, click: () => void solveScreen() },
       { type: "separator" },
       { label: "Open at login", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin, click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }) },
       { label: settings.email ? `Sign out (${settings.email})` : "Not signed in", enabled: Boolean(settings.email), click: () => void doSignOut() },
@@ -290,7 +290,7 @@ function wireIpc(): void {
     signedIn: Boolean(token()),
     email: settings.email,
     server: settings.server,
-    shortcuts: { toggle: registered.toggle ? "⌥Space" : null, solve: registered.solve ? "⌥⇧Space" : null },
+    shortcuts: { toggle: registered.toggle ? "⌥Space" : null, solve: registered.solve ? "⌥Z" : null },
     screenAccess: screenAccess(),
     platform: process.platform,
     version: app.getVersion(),

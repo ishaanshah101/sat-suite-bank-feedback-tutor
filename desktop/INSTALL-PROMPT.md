@@ -1,11 +1,11 @@
-Install or update the Rulecard Helper app on this Mac to the newest version (1.3.0 or later: the small black dot). Do every step yourself. Only stop for things macOS requires me to click, and tell me exactly what to click.
+Install or update the Rulecard Helper app on this Mac to the newest version (1.3.1 or later: the small black dot). Do every step yourself. Only stop for things macOS requires me to click, and tell me exactly what to click.
 
 1. Check this is an Apple silicon Mac: run `uname -m`. It must print `arm64`. If it prints `x86_64`, stop and tell me this Mac isn't supported.
 2. Quit any running copy: `osascript -e 'quit app "Rulecard Helper"' 2>/dev/null; pkill -x "Rulecard Helper" 2>/dev/null; sleep 1`.
 3. Get the app. Use path A if it works, otherwise path B.
 
    A. From the zip in Downloads: `Z=$(ls -t ~/Downloads/Rulecard-Helper-*-mac-apple-silicon.zip 2>/dev/null | head -1); echo "$Z"`.
-      Use it only if the file name has version 1.3.0 or higher. Unzip it into a fresh temp folder, keeping symlinks:
+      Use it only if the file name has version 1.3.1 or higher. Unzip it into a fresh temp folder, keeping symlinks:
       `T=$(mktemp -d) && ditto -x -k "$Z" "$T" && APP="$T/Rulecard Helper.app"`
 
    B. Build it from my GitHub repo (if there's no new enough zip):
@@ -16,11 +16,11 @@ Install or update the Rulecard Helper app on this Mac to the newest version (1.3
 4. Replace the old copy: `rm -rf "/Applications/Rulecard Helper.app" && ditto "$APP" "/Applications/Rulecard Helper.app"`.
 5. The app isn't signed with a paid Apple developer account, so sign it for this Mac and check it:
    `xattr -cr "/Applications/Rulecard Helper.app" && codesign --force --deep --sign - "/Applications/Rulecard Helper.app" && codesign --verify --deep "/Applications/Rulecard Helper.app" && echo signed-ok`
-6. Confirm the version: `defaults read "/Applications/Rulecard Helper.app/Contents/Info" CFBundleShortVersionString` (it should say 1.3.0 or higher).
+6. Confirm the version: `defaults read "/Applications/Rulecard Helper.app/Contents/Info" CFBundleShortVersionString` (it should say 1.3.1 or higher).
 7. Open it: `open "/Applications/Rulecard Helper.app"`. A small black dot appears in the top-right corner of the screen (a little faded until the pointer is over it), with an icon in the menu bar. Take a screenshot to confirm it is there and tell me if it is not.
 8. Clean up any temp folder you made (`rm -rf "$T"` for path A). Leave the zip and the repo where they are.
 9. Then tell me, in two short lines, the only things I have to do myself:
    - If a small sign-in card shows instead of the dot: sign in with my Rulecard account (same email and password as the Rulecard extension). An update usually keeps me signed in.
-   - Press the dot's white button (or ⌥⇧Space). If macOS asks for Screen & System Audio Recording, turn on Rulecard Helper in System Settings → Privacy & Security. Because the app was re-signed, macOS may ask again even if it was on before; if Rulecard Helper is already listed, switch it off and on. The app restarts by itself and shows the answer next to the dot. Right-click the dot to hide it; ⌥Space brings it back.
+   - Press the dot's white button (or ⌥Z). If macOS asks for Screen & System Audio Recording, turn on Rulecard Helper in System Settings → Privacy & Security. Because the app was re-signed, macOS may ask again even if it was on before; if Rulecard Helper is already listed, switch it off and on. The app restarts by itself and shows the answer next to the dot. Right-click the dot to hide it; ⌥Space brings it back.
 
 Don't change any other settings, and don't install anything except what step 3B needs.
