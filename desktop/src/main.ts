@@ -8,8 +8,8 @@ import { signIn, signOut, solveStream } from "./api";
 
 const DEFAULT_SERVER = "https://rulecard.vercel.app";
 const SHORTCUTS = { toggle: "Alt+Space", solve: "Alt+Shift+Space" } as const;
-// The window starts at the pill's size; the page then sets the exact size of whatever it shows.
-const PANEL = { width: 190, height: 40, margin: 14, maxWidth: 360, maxHeight: 420 };
+// The window starts at the dot's size; the page then sets the exact size of whatever it shows.
+const PANEL = { width: 26, height: 26, margin: 14, maxWidth: 360, maxHeight: 420 };
 
 interface Settings {
   server: string;
@@ -112,11 +112,11 @@ function createPanel(): BrowserWindow {
   return win;
 }
 
-/** Fit the window to the page, keeping its top-right corner where it is (the pill grows to the left). */
+/** Fit the window to the page, keeping its top-right corner where it is (the answer grows to the left). */
 function resizePanel(width: number, height: number): void {
   if (!panel || !Number.isFinite(width) || !Number.isFinite(height)) return;
-  const w = Math.max(40, Math.min(PANEL.maxWidth, Math.round(width)));
-  const h = Math.max(30, Math.min(PANEL.maxHeight, Math.round(height)));
+  const w = Math.max(20, Math.min(PANEL.maxWidth, Math.round(width)));
+  const h = Math.max(20, Math.min(PANEL.maxHeight, Math.round(height)));
   const bounds = panel.getContentBounds();
   if (bounds.width === w && bounds.height === h) return;
   panel.setContentBounds({ x: bounds.x + bounds.width - w, y: bounds.y, width: w, height: h });

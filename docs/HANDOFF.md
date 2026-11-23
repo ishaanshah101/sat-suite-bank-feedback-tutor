@@ -206,13 +206,15 @@ A separate desktop app in `desktop/` (Electron), for reviewing practice tests su
 a floating panel in the top-right corner of the Mac screen, like a desktop AI assistant. It is not the
 extension and does not need Chrome.
 
-- **Since 1.2.0 it is a small black-and-white pill** (about 190 by 40 points): one white button, and just the
-  answer next to it (a letter, or the grid-in value). No explanation, no chat. The answer shows grey while the
-  second solve is still checking and turns white when final; hovering shows how it was checked. Sign-in and the
-  screen permission are small black cards. The window sizes itself to what it shows (`helper:resize`).
-- **⌥⇧Space** (or the pill's button) takes one screenshot of the screen under the pointer and asks the server for a
-  careful answer. **⌥Space** shows or hides the pill. A menu bar icon has the same actions plus Open at
-  login, Sign out and Quit. (`POST /api/solve/chat` still exists on the server but the pill no longer uses it.)
+- **Since 1.3.0 it is a 24-point black dot** with a small white button, slightly faded until hovered. Press it
+  and just the answer appears beside it (a letter, or the grid-in value), about 43 by 24 points in all. No
+  explanation, no chat, no hint text. While it reads the screen the button shows a spinner. The answer shows grey
+  while the second solve is still checking and turns white when final; hovering shows how it was checked, and
+  clicking the answer clears it back to the dot. Right-click hides it. Sign-in and the screen permission are
+  small black cards. The window sizes itself to what it shows (`helper:resize`). (1.2.0 was a 190 by 40 pill.)
+- **⌥⇧Space** (or the dot's button) takes one screenshot of the screen under the pointer and asks the server for a
+  careful answer. **⌥Space** shows or hides the dot. A menu bar icon has the same actions plus Open at
+  login, Sign out and Quit. (`POST /api/solve/chat` still exists on the server but the helper no longer uses it.)
 - It answers SAT and ACT questions only. It uses the standard macOS Screen Recording permission and nothing
   else; it does not try to run inside, hide from or get around a locked-down testing app.
 - **Careful solve** (`src/lib/ai/solve.ts`, `POST /api/solve`): a quick worked solve and a long careful solve
