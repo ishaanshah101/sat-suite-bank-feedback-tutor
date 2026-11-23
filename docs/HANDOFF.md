@@ -212,7 +212,7 @@ extension and does not need Chrome.
   while the second solve is still checking and turns white when final; hovering shows how it was checked, and
   clicking the answer clears it back to the dot. Right-click hides it. Sign-in and the screen permission are
   small black cards. The window sizes itself to what it shows (`helper:resize`). (1.2.0 was a 190 by 40 pill.)
-- **⌥⇧Space** (or the dot's button) takes one screenshot of the screen under the pointer and asks the server for a
+- **⌥Z** (or the dot's button) takes one screenshot of the screen under the pointer and asks the server for a
   careful answer. **⌥Space** shows or hides the dot. A menu bar icon has the same actions plus Open at
   login, Sign out and Quit. (`POST /api/solve/chat` still exists on the server but the helper no longer uses it.)
 - It answers SAT and ACT questions only. It uses the standard macOS Screen Recording permission and nothing

@@ -1,7 +1,7 @@
 # Rulecard Practice Test Helper (Mac)
 
 A small black dot (24 points) in the top-right corner of the Mac screen, black and white only and slightly
-faded until you hover over it. While you review a practice test, press its white button (or **⌥⇧Space**) and it
+faded until you hover over it. While you review a practice test, press its white button (or **⌥Z**) and it
 looks at the screen you are on, finds the SAT or ACT question there, and shows just the answer beside the dot
 (a letter, or the number for a grid-in). No explanation, no chat.
 The answer is still solved carefully: two independent solves, and a third deciding solve if they disagree.
@@ -26,8 +26,9 @@ else: it does not try to run inside, hide from, or get around any locked-down te
 
 ## Use
 
-- **⌥Space** shows or hides the dot. **⌥⇧Space** (or the dot's button) answers the question on the screen
-  under the pointer. Drag it anywhere; **right-click** hides it; click the answer to clear it.
+- **⌥Space** shows or hides the dot. **⌥Z** (or the dot's button) answers the question on the screen
+  under the pointer (while the helper runs, ⌥Z no longer types Ω). Drag it anywhere; **right-click** hides
+  it; click the answer to clear it.
 - The menu bar icon has the same actions, plus **Open at login**, **Sign out** and **Quit**.
 - Hover over the answer to see how it was checked ("Checked twice", or "Close call: checked 3 times").
 
