@@ -1,4 +1,4 @@
-// The panel: a small black pill in the corner. One button reads the screen; the answer shows next to it.
+// The panel: a small black dot in the corner. Its button reads the screen; the answer shows next to it.
 // Nothing else: no explanation, no chat. Sign-in and the screen permission are small cards of their own.
 export {};
 
@@ -76,13 +76,6 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, 
   return el;
 }
 
-/** A small "look" glyph: a viewfinder. Drawn in currentColor so it follows the button's color. */
-function lookIcon(): Element {
-  const wrap = h("span");
-  wrap.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>`;
-  return wrap.firstElementChild as Element;
-}
-
 function render(): void {
   const root = document.getElementById("app")!;
   const keep = document.activeElement instanceof HTMLInputElement ? document.activeElement.id : null;
@@ -92,7 +85,7 @@ function render(): void {
   fitWindow(view as HTMLElement);
 }
 
-/** The window is exactly as big as what it shows, so the pill stays small. */
+/** The window is exactly as big as what it shows, so the dot stays small. */
 let lastSize = "";
 function fitWindow(el: HTMLElement): void {
   requestAnimationFrame(() => {
@@ -106,24 +99,41 @@ function fitWindow(el: HTMLElement): void {
   });
 }
 
+/**
+ * The dot: a small black circle with a white button. Press it and the answer appears as one small letter or
+ * number beside it (grey while the second solve checks, white when final). Clicking the answer clears it back
+ * to the dot. Right-click hides the dot (⌥Space or the menu bar brings it back).
+ */
 function homeView(): Node {
   const working = state.phase === "working";
   const shown = state.answer ?? state.first;
   const solveKey = state.info?.shortcuts.solve;
-  let out: Node;
-  if (state.phase === "error" && state.error) out = h("span", { class: "msg", text: state.error, title: state.error });
+  const clear = () => {
+    state.phase = "idle";
+    state.first = null;
+    state.answer = null;
+    state.agreement = null;
+    state.error = null;
+    render();
+  };
+  let out: Node | null = null;
+  if (state.phase === "error" && state.error) out = h("button", { class: "msg", text: state.error, title: `${state.error} (click to clear)`, onclick: clear });
   else if (shown) {
     const pending = !state.answer;
     const note = pending ? "Double-checking…" : state.agreement === "agreed" ? "Checked twice" : state.agreement === "tiebreak" ? "Close call: checked 3 times" : "Checked once";
-    out = h("span", { class: `ans${pending ? " pending" : ""}`, text: shown, title: `${shown} · ${note}` });
-  } else if (working) out = h("span", { class: "dots", text: "Reading", "aria-live": "polite" });
-  else out = h("span", { class: "hint", text: solveKey ? `Answer ${solveKey}` : "Answer" });
+    out = h("button", { class: `ans${pending ? " pending" : ""}`, text: shown, title: `${shown} · ${note} (click to clear)`, disabled: pending, onclick: clear });
+  }
   return h(
     "div",
-    { class: "pill" },
-    h("button", { class: "go", disabled: working, title: `Read the screen and answer${solveKey ? ` (${solveKey})` : ""}`, onclick: () => void api.solve() }, working ? h("span", { class: "spin" }) : lookIcon()),
+    {
+      class: `pill${out ? "" : " solo"}`,
+      oncontextmenu: (e: Event) => {
+        e.preventDefault();
+        void api.hide();
+      },
+    },
+    h("button", { class: "go", disabled: working, title: `Answer the question on screen${solveKey ? ` (${solveKey})` : ""} · right-click to hide`, onclick: () => void api.solve() }, working ? h("span", { class: "spin" }) : h("span", { class: "dot" })),
     out,
-    h("button", { class: "x", title: `Hide${state.info?.shortcuts.toggle ? ` (${state.info.shortcuts.toggle})` : ""}`, text: "×", onclick: () => void api.hide() }),
   );
 }
 
@@ -182,7 +192,7 @@ function cleanError(error: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
 }
 
-/** Errors as a few words that fit the pill. */
+/** Errors as a few words that fit beside the dot. */
 function shortError(error: string, code?: string): string {
   if (code === "no_question" || /no (complete )?(sat or act )?question/i.test(error)) return "No question on screen";
   if (/daily|limit/i.test(error)) return "Daily limit reached";
